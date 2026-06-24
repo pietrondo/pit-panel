@@ -122,7 +122,8 @@ def _check_port80() -> bool:
 
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(3)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.settimeout(1)
         s.bind(("0.0.0.0", 80))
         s.close()
         return True
@@ -165,6 +166,7 @@ async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)):
     return render(
         "ssl.html",
         user=user,
+        settings=settings,
         certs=certs,
         renew_result=None,
         caddy_running=caddy_running,
@@ -224,6 +226,7 @@ async def ssl_generate(
     return render(
         "ssl.html",
         user=user,
+        settings=settings,
         certs=certs,
         renew_result=None,
         caddy_running=_check_caddy_running(),
@@ -253,6 +256,7 @@ async def ssl_renew(
     return render(
         "ssl.html",
         user=user,
+        settings=settings,
         certs=certs,
         renew_result=result,
         caddy_running=_check_caddy_running(),
