@@ -54,6 +54,7 @@ if [ ! -d "$INSTALL_DIR" ]; then
     git clone https://github.com/pietrondo/pit-panel.git "$INSTALL_DIR"
 else
     echo "Updating existing installation..."
+    git config --global --add safe.directory "$INSTALL_DIR" 2>/dev/null || true
     cd "$INSTALL_DIR"
     git fetch origin main
     git reset --hard origin/main
