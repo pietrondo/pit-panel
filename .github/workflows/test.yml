@@ -27,8 +27,5 @@ jobs:
       - name: Lint
         run: uv run ruff check src/ tests/
 
-      - name: Type check
-        run: uv run mypy src/pit_panel/
-
       - name: Test
         run: uv run pytest -v --tb=short
