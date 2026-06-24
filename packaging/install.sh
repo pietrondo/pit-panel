@@ -64,11 +64,9 @@ if ! id pit-panel &>/dev/null; then
     useradd -r -s /bin/false -d /opt/pit-panel pit-panel
 fi
 
-# Setup directories
+# Setup directories + fix permissions (venv created as root, service runs as pit-panel)
 mkdir -p /etc/pit-panel /var/lib/pit-panel /opt/pit-panel/apps
 chown -R pit-panel:pit-panel /opt/pit-panel /var/lib/pit-panel
-
-# Fix: ensure pit-panel can read its own files (venv was created as root)
 chmod -R u+rwX /opt/pit-panel/.venv 2>/dev/null || true
 
 # Generate config if missing
@@ -124,30 +122,34 @@ if [ -n "$ADMIN_USER" ] && [ -n "$ADMIN_PASS" ] && [ -n "$ADMIN_EMAIL" ]; then
     uv run pit-panel-admin create-admin --username "$ADMIN_USER" --password "$ADMIN_PASS" --email "$ADMIN_EMAIL"
 else
     echo "Skipping admin creation (no credentials provided)."
-    echo "Run manually: uv run pit-panel-admin create-admin --username <user> --password <pass> --email <email>"
 fi
 
-# Enable and start
-systemctl enable --now pit-panel.service pit-panel-updater.timer
+# Start services (will restart if already running from previous install)
+systemctl enable pit-panel.service pit-panel-updater.timer 2>/dev/null || true
+systemctl restart pit-panel.service 2>/dev/null || true
+
+# Wait briefly and check status
+sleep 2
+if systemctl is-active --quiet pit-panel.service; then
+    echo "pit-panel service is running."
+else
+    echo "WARNING: pit-panel service failed to start."
+    echo "Check logs: journalctl -xeu pit-panel.service -n 30"
+fi
 
 echo ""
 echo "=== pit-panel installed ==="
 echo ""
-echo "Debug:    journalctl -xeu pit-panel.service"
-echo "Status:   systemctl status pit-panel.service"
-echo "Restart:  systemctl restart pit-panel.service"
-if $INTERACTIVE; then
-    if [ -n "$BASE_DOMAIN" ]; then
-        echo "Panel:    https://${PANEL_SUB}.${BASE_DOMAIN}"
-    else
-        echo "Panel:    http://$(hostname -I | awk '{print $1}'):8080"
-    fi
+if [ -n "${BASE_DOMAIN:-}" ]; then
+    echo "Panel:    https://${PANEL_SUB}.${BASE_DOMAIN}"
 else
     echo "Panel:    http://$(hostname -I | awk '{print $1}'):8080"
 fi
 echo "Upgrade:  sudo bash /opt/pit-panel/scripts/upgrade.sh"
+echo "Logs:     journalctl -xeu pit-panel.service"
 echo ""
 if [ -z "${ADMIN_USER:-}" ]; then
     echo "Create admin user:"
-    echo "  cd /opt/pit-panel && uv run pit-panel-admin create-admin --username admin --password secret --email a@b.com"
+    echo "  cd /opt/pit-panel && uv run pit-panel-admin create-admin --username admin --password pass --email a@b.com"
+    echo "  sudo systemctl restart pit-panel.service"
 fi
