@@ -1,5 +1,9 @@
 """SSL certificate management routes via Caddy admin API."""
 
+import contextlib
+import subprocess
+from pathlib import Path
+
 from fastapi import Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -12,6 +16,118 @@ from pit_panel.db.session import get_db
 from pit_panel.web.auth import SESSION_COOKIE, unsign_session_token
 from pit_panel.web.render import render
 from pit_panel.web.router import router
+
+CADDYFILE_PATH = "/etc/caddy/Caddyfile"
+
+ACME_PROVIDERS = [
+    ("letsencrypt", "Let's Encrypt (default, free, zero config)"),
+    ("zerossl", "ZeroSSL (free, needs EAB key from zerossl.com)"),
+    ("buypass", "Buypass Go SSL (free, no account needed)"),
+    ("google", "Google Trust Services (free, needs EAB from cloud.google.com)"),
+]
+
+DNS_PROVIDERS = [
+    ("", "None (HTTP-01)"),
+    ("cloudflare", "Cloudflare"),
+    ("digitalocean", "DigitalOcean"),
+    ("route53", "AWS Route53"),
+    ("duckdns", "DuckDNS"),
+    ("acmedns", "ACME-DNS"),
+    ("gandi", "Gandi"),
+    ("namecheap", "Namecheap"),
+    ("porkbun", "Porkbun"),
+    ("ovh", "OVH"),
+]
+
+
+def _generate_caddyfile(
+    email: str,
+    domain: str,
+    panel_sub: str,
+    dns_provider: str = "",
+    api_var: str = "CF_API_TOKEN",
+    acme_provider: str = "letsencrypt",
+    eab_key_id: str = "",
+    eab_hmac: str = "",
+) -> str:
+    tls_block = ""
+    if dns_provider:
+        tls_block = f"dns {dns_provider} {{env.{api_var}}}"
+
+    acme_cfg = ""
+    if acme_provider == "zerossl":
+        acme_cfg = f'issuer zerossl {{eab "{eab_key_id}" "{eab_hmac}"}}'
+    elif acme_provider == "buypass":
+        acme_cfg = "issuer buypass"
+    elif acme_provider == "google":
+        acme_cfg = f'issuer google {{eab "{eab_key_id}" "{eab_hmac}"}}'
+    elif acme_provider == "letsencrypt":
+        acme_cfg = "issuer acme"
+
+    tls_lines = ""
+    if tls_block or acme_cfg:
+        inner = "\n        ".join(filter(None, [acme_cfg, tls_block]))
+        tls_lines = f"""    tls {{
+        {inner}
+    }}"""
+
+    if dns_provider:
+        return f"""{{
+    email {email}
+    admin off
+}}
+
+*.{domain}, {domain} {{
+{tls_lines}
+    @panel host {panel_sub}.{domain}
+    handle @panel {{
+        reverse_proxy 127.0.0.1:8080
+    }}
+    handle {{
+        respond "pit-panel" 200
+    }}
+}}
+"""
+    else:
+        acme_clause = ""
+        if acme_cfg and acme_cfg != "issuer acme":
+            acme_clause = f"""
+    tls {{
+        {acme_cfg}
+    }}"""
+
+        return f"""{{
+    email {email}
+    admin off
+}}
+
+{panel_sub}.{domain} {{{acme_clause}
+    reverse_proxy 127.0.0.1:8080
+}}
+"""
+
+
+def _check_caddy_running() -> bool:
+    with contextlib.suppress(Exception):
+        result = subprocess.run(
+            ["systemctl", "is-active", "--quiet", "caddy"],
+            timeout=5,
+        )
+        return result.returncode == 0
+    return False
+
+
+def _check_port80() -> bool:
+    import socket
+
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(3)
+        s.bind(("0.0.0.0", 80))
+        s.close()
+        return True
+    except OSError:
+        return False
 
 
 async def _get_admin(request: Request, db: AsyncSession) -> User | None:
@@ -30,7 +146,7 @@ async def _get_admin(request: Request, db: AsyncSession) -> User | None:
 
 
 @router.get("/ssl", response_class=HTMLResponse)
-async def ssl_overview(request: Request, db: AsyncSession = Depends(get_db)):
+async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)):
     user = await _get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -39,7 +155,84 @@ async def ssl_overview(request: Request, db: AsyncSession = Depends(get_db)):
     caddy = CaddyManager(settings.caddy_admin_url)
     certs = await caddy.get_certificates()
 
-    return render("ssl.html", user=user, certs=certs, renew_result=None)
+    caddy_running = _check_caddy_running()
+    port80_free = _check_port80()
+
+    existing = ""
+    if Path(CADDYFILE_PATH).exists():
+        existing = Path(CADDYFILE_PATH).read_text()[:2000]
+
+    return render(
+        "ssl.html",
+        user=user,
+        certs=certs,
+        renew_result=None,
+        caddy_running=caddy_running,
+        port80_free=port80_free,
+        acme_providers=ACME_PROVIDERS,
+        providers=DNS_PROVIDERS,
+        current_caddyfile=existing,
+        caddy_result=None,
+    )
+
+
+@router.post("/ssl/generate", response_class=HTMLResponse)
+async def ssl_generate(
+    request: Request,
+    email: str = Form("admin@localhost"),
+    acme_provider: str = Form("letsencrypt"),
+    dns_provider: str = Form(""),
+    api_var: str = Form("CF_API_TOKEN"),
+    api_token: str = Form(""),
+    eab_key_id: str = Form(""),
+    eab_hmac: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await _get_admin(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    settings = get_settings()
+    domain = settings.effective_domain
+    panel_sub = settings.panel_subdomain
+
+    caddyfile = _generate_caddyfile(
+        email, domain, panel_sub, dns_provider, api_var, acme_provider, eab_key_id, eab_hmac
+    )
+    result_msg = ""
+
+    try:
+        Path(CADDYFILE_PATH).write_text(caddyfile)
+        if api_token and dns_provider:
+            env_line = f"{api_var}={api_token}\n"
+            env_path = Path("/etc/caddy/.env")
+            if env_path.exists():
+                content = env_path.read_text()
+                if api_var not in content:
+                    env_path.write_text(content + env_line)
+            else:
+                env_path.write_text(env_line)
+        result_msg = f"Caddyfile written to {CADDYFILE_PATH}"
+    except PermissionError:
+        result_msg = "Error: permission denied. Run: sudo pit-panel setup SSL"
+    except Exception as e:
+        result_msg = f"Error: {e}"
+
+    caddy = CaddyManager(settings.caddy_admin_url)
+    certs = await caddy.get_certificates()
+
+    return render(
+        "ssl.html",
+        user=user,
+        certs=certs,
+        renew_result=None,
+        caddy_running=_check_caddy_running(),
+        port80_free=_check_port80(),
+        acme_providers=ACME_PROVIDERS,
+        providers=DNS_PROVIDERS,
+        current_caddyfile=caddyfile[:2000],
+        caddy_result=result_msg,
+    )
 
 
 @router.post("/ssl/renew", response_class=HTMLResponse)
@@ -62,4 +255,14 @@ async def ssl_renew(
         user=user,
         certs=certs,
         renew_result=result,
+        caddy_running=_check_caddy_running(),
+        port80_free=_check_port80(),
+        acme_providers=ACME_PROVIDERS,
+        providers=DNS_PROVIDERS,
+        current_caddyfile=(
+            Path(CADDYFILE_PATH).read_text()[:2000]
+            if Path(CADDYFILE_PATH).exists()
+            else ""
+        ),
+        caddy_result=None,
     )

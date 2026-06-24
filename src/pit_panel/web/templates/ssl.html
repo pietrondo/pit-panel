@@ -1,25 +1,149 @@
 {% extends "base.html" %}
 {% block content %}
-{% set title = "SSL Certificates" %}
+{% set title = "SSL Setup" %}
 
 <div class="mb-8">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">SSL Certificates</h1>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Managed by Caddy — automatic Let's Encrypt via DNS-01 wildcard</p>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">SSL Setup</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure HTTPS with Let's Encrypt — free, automated SSL</p>
 </div>
 
 {% if renew_result %}
 <div class="mb-4 p-3 rounded-lg border text-sm
     {% if renew_result.success %}bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300
     {% else %}bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300{% endif %}">
-    {% if renew_result.success %}
-    Certificate for <strong>{{ renew_result.domain }}</strong> renewed successfully.
-    {% else %}
-    Renew failed for <strong>{{ renew_result.domain }}</strong>: {{ renew_result.error }}
-    {% endif %}
+    {% if renew_result.success %}Certificate renewed for {{ renew_result.domain }}.
+    {% else %}Renew failed: {{ renew_result.error }}{% endif %}
 </div>
 {% endif %}
 
-<!-- Certificates table -->
+{% if caddy_result %}
+<div class="mb-4 p-3 rounded-lg border text-sm
+    {% if 'Error' in caddy_result %}bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300
+    {% else %}bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300{% endif %}">
+    {{ caddy_result }}
+</div>
+{% endif %}
+
+<!-- Status cards -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div class="stat-card {% if caddy_running %}border-green-200 dark:border-green-800{% else %}border-red-200 dark:border-red-800{% endif %}">
+        <span class="stat-label">Caddy Service</span>
+        <p class="text-lg font-bold {% if caddy_running %}text-green-600{% else %}text-red-600{% endif %}">
+            {{ 'Running' if caddy_running else 'Stopped' }}
+        </p>
+        <p class="text-xs text-gray-500 mt-1">
+            {% if not caddy_running %}
+            Run: <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">sudo systemctl start caddy</code>
+            {% endif %}
+        </p>
+    </div>
+    <div class="stat-card {% if port80_free %}border-green-200 dark:border-green-800{% else %}border-yellow-200 dark:border-yellow-800{% endif %}">
+        <span class="stat-label">Port 80</span>
+        <p class="text-lg font-bold {% if port80_free %}text-green-600{% else %}text-yellow-600{% endif %}">
+            {{ 'Free' if port80_free else 'In use' }}
+        </p>
+        <p class="text-xs text-gray-500 mt-1">Required for HTTP-01 challenge</p>
+    </div>
+    <div class="stat-card {% if certs %}border-green-200 dark:border-green-800{% else %}border-gray-200{% endif %}">
+        <span class="stat-label">Certificates</span>
+        <p class="text-lg font-bold text-gray-900 dark:text-white">{{ certs|length }}</p>
+        <p class="text-xs text-gray-500 mt-1">Active Let's Encrypt certs</p>
+    </div>
+</div>
+
+<!-- SSL Wizard -->
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">SSL Mode</h2>
+    </div>
+    <div class="p-6">
+        <form method="POST" action="/ssl/generate" class="space-y-4" id="ssl-form">
+            <div>
+                <label class="label">Email (for Let's Encrypt notifications)</label>
+                <input type="email" name="email" value="admin@{{ settings.effective_domain }}" required class="input">
+            </div>
+
+            <div>
+                <label class="label">SSL Provider</label>
+                <select name="acme_provider" class="input">
+                    {% for val, name in acme_providers %}
+                    <option value="{{ val }}">{{ name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    All providers are free. Let's Encrypt works everywhere. SSLForFree.com is just a frontend for these.
+                </p>
+            </div>
+
+            <div id="eab-section">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="label">EAB Key ID (for ZeroSSL/Google)</label>
+                        <input type="text" name="eab_key_id" placeholder="Only needed for ZeroSSL/Google" class="input font-mono text-xs">
+                    </div>
+                    <div>
+                        <label class="label">EAB HMAC Key</label>
+                        <input type="password" name="eab_hmac" placeholder="Only needed for ZeroSSL/Google" class="input font-mono text-xs">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="label">Challenge Mode</label>
+                <select name="dns_provider" class="input" onchange="document.getElementById('api-section').style.display = this.value ? 'block' : 'none'">
+                    <option value="">HTTP-01 (any provider — Register.it, OVH, etc.)</option>
+                    <option disabled>── DNS-01 Providers ──</option>
+                    {% for val, name in providers %}
+                    {% if val %}
+                    <option value="{{ val }}">{{ name }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <strong>HTTP-01</strong> = works with any DNS provider, no API needed. Each subdomain gets its own cert.<br>
+                    <strong>DNS-01</strong> = wildcard cert (*.domain.com), requires API token from your DNS provider.
+                </p>
+            </div>
+
+            <div id="api-section" style="display:none">
+                <label class="label">API Token Variable Name</label>
+                <input type="text" name="api_var" value="CF_API_TOKEN" class="input font-mono">
+                <label class="label mt-3">API Token Value</label>
+                <input type="password" name="api_token" placeholder="Paste your DNS API token" class="input font-mono">
+            </div>
+
+            <button type="submit" class="btn-primary">Generate & Write Caddyfile</button>
+        </form>
+    </div>
+</div>
+
+<!-- Caddyfile preview -->
+{% if current_caddyfile %}
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Caddyfile Preview</h2>
+        <span class="text-xs text-gray-500 dark:text-gray-400">{{ current_caddyfile.split('\n')|length }} lines</span>
+    </div>
+    <div class="p-6">
+        <pre class="bg-gray-950 text-green-400 p-4 rounded-lg text-xs font-mono overflow-x-auto max-h-96 overflow-y-auto leading-relaxed">{{ current_caddyfile }}</pre>
+    </div>
+</div>
+{% endif %}
+
+<!-- Instructions for manual setup -->
+<div class="card mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+    <div class="px-6 py-4 border-b border-blue-200 dark:border-blue-800">
+        <h2 class="text-lg font-semibold text-blue-900 dark:text-blue-100">Manual Setup (if auto-write fails)</h2>
+    </div>
+    <div class="p-6 text-sm text-blue-800 dark:text-blue-200 space-y-2">
+        <p>1. Copy the Caddyfile above to <code class="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">/etc/caddy/Caddyfile</code></p>
+        <p>2. For DNS-01: add token to <code class="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">/etc/caddy/.env</code> and systemd override</p>
+        <p>3. Run: <code class="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">sudo systemctl restart caddy</code></p>
+        <p class="text-xs mt-2">Note: pit-panel manages subdomain routes via Caddy admin API automatically.</p>
+    </div>
+</div>
+
+<!-- Active Certificates -->
 <div class="card">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Active Certificates</h2>
@@ -32,19 +156,15 @@
                     <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Issuer</th>
                     <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Expiry</th>
                     <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                    <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                    <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for cert in certs %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white text-xs max-w-[300px] truncate">
-                        {{ cert.domains }}
-                    </td>
-                    <td class="px-6 py-3 text-sm text-gray-500 dark:text-gray-400 text-xs">
-                        {{ cert.issuer }}
-                    </td>
-                    <td class="px-6 py-3 text-sm text-xs">
+                <tr>
+                    <td class="px-6 py-3 text-xs font-mono text-gray-900 dark:text-white max-w-[300px] truncate">{{ cert.domains }}</td>
+                    <td class="px-6 py-3 text-xs text-gray-500">{{ cert.issuer }}</td>
+                    <td class="px-6 py-3 text-xs">
                         {% set days = cert.expires_in_days %}
                         {% if days is not none %}
                             {% if days > 30 %}
@@ -64,16 +184,14 @@
                             <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> valid
                         </span>
                         {% else %}
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                            expired
-                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">expired</span>
                         {% endif %}
                     </td>
                     <td class="px-6 py-3 text-right">
                         {% if cert.domains %}
                         <form method="POST" action="/ssl/renew" class="inline">
                             <input type="hidden" name="domain" value="{{ cert.domains.split(',')[0].strip() }}">
-                            <button type="submit" class="btn-ghost text-xs text-orange-600 hover:text-orange-700">Renew</button>
+                            <button class="btn-ghost text-xs text-orange-600">Renew</button>
                         </form>
                         {% endif %}
                     </td>
@@ -81,27 +199,12 @@
                 {% else %}
                 <tr>
                     <td colspan="5" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                        No certificates found. Caddy auto-provisions certificates when a domain is first accessed via HTTPS.<br>
-                        <span class="text-xs mt-1 block">Certificates appear here after Caddy obtains them from Let's Encrypt.</span>
+                        No certificates. Configure Caddyfile above and restart Caddy to get your first cert.
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-    </div>
-</div>
-
-<div class="mt-6 p-4 card bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-    <div class="flex gap-3">
-        <span class="text-blue-600 dark:text-blue-400 text-lg">&#9432;</span>
-        <div class="text-sm text-blue-800 dark:text-blue-200">
-            <p class="font-medium">How SSL works</p>
-            <p class="mt-1 text-xs text-blue-600 dark:text-blue-400">
-                Caddy uses DNS-01 challenge with your configured DNS provider to obtain wildcard certificates
-                from Let's Encrypt. Certificates auto-renew 30 days before expiry. Click "Renew" to force
-                an immediate renewal.
-            </p>
-        </div>
     </div>
 </div>
 {% endblock %}
