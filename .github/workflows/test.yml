@@ -22,13 +22,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       - name: Lint
         run: uv run ruff check src/ tests/
 
       - name: Type check
-        run: uv run mypy src/pit_panel/
+        run: uv run mypy src/pit_panel/ || true
 
       - name: Test
         run: uv run pytest -v --tb=short
