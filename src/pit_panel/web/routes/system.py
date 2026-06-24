@@ -48,7 +48,7 @@ async def _get_admin(request: Request, db: AsyncSession) -> User | None:
     return None
 
 
-async def _get_git_info():
+async def _get_git_info() -> tuple[str, str]:
     current = "unknown"
     remote = "unknown"
     with contextlib.suppress(Exception):
