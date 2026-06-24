@@ -132,11 +132,17 @@ if $INTERACTIVE && [ -z "$ADMIN_USER" ]; then
     read -rp "Admin email: " ADMIN_EMAIL <"$INPUT_TTY"
 fi
 
-if [ -n "$ADMIN_USER" ] && [ -n "$ADMIN_PASS" ] && [ -n "$ADMIN_EMAIL" ]; then
-    uv run pit-panel-admin create-admin --username "$ADMIN_USER" --password "$ADMIN_PASS" --email "$ADMIN_EMAIL"
-else
-    echo "Skipping admin creation (no credentials provided)."
+# Fallback: auto-create admin with random password
+if [ -z "$ADMIN_USER" ]; then
+    ADMIN_USER="admin"
+    ADMIN_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(12))")
+    ADMIN_EMAIL="admin@pit-panel.local"
+    echo "Auto-creating admin user..."
 fi
+
+uv run pit-panel-admin create-admin --username "$ADMIN_USER" --password "$ADMIN_PASS" --email "$ADMIN_EMAIL"
+echo "  Username: $ADMIN_USER"
+echo "  Password: $ADMIN_PASS"
 
 # Firewall — allow panel port if no domain (direct access)
 if [ -z "$BASE_DOMAIN" ] && command -v ufw &>/dev/null; then
@@ -170,9 +176,3 @@ else
 fi
 echo "Upgrade:  sudo bash /opt/pit-panel/scripts/upgrade.sh"
 echo "Logs:     journalctl -xeu pit-panel.service"
-echo ""
-if [ -z "${ADMIN_USER:-}" ]; then
-    echo "Create admin user:"
-    echo "  cd /opt/pit-panel && uv run pit-panel-admin create-admin --username admin --password pass --email a@b.com"
-    echo "  sudo systemctl restart pit-panel.service"
-fi
