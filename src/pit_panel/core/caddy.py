@@ -1,5 +1,6 @@
 """Caddy reverse proxy integration via admin API."""
 
+import datetime as dt
 
 import httpx
 
@@ -37,6 +38,54 @@ class CaddyManager:
             )
             resp.raise_for_status()
             return resp.json() if resp.text else {}
+
+    async def get_certificates(self) -> list[dict]:
+        certs = []
+        async with httpx.AsyncClient() as client:
+            try:
+                resp = await client.get(
+                    f"{self.admin_url}/pki/ca/local/certificates", timeout=5
+                )
+                if resp.status_code == 200:
+                    for c in resp.json() or []:
+                        not_after = c.get("not_after", "")
+                        expires_in = None
+                        if not_after:
+                            try:
+                                expiry = dt.datetime.fromisoformat(
+                                    not_after.replace("Z", "+00:00")
+                                )
+                                expires_in = (expiry - dt.datetime.now(dt.UTC)).days
+                            except (ValueError, TypeError):
+                                pass
+                        certs.append(
+                            {
+                                "serial": c.get("serial_number", "?")[:16],
+                                "domains": ", ".join(c.get("sans", []) or []),
+                                "not_before": c.get("not_before", ""),
+                                "not_after": not_after,
+                                "expires_in_days": expires_in,
+                                "issuer": c.get("issuer", {}).get(
+                                    "common_name", "?"
+                                ),
+                            }
+                        )
+            except Exception:
+                pass
+        return certs
+
+    async def renew_certificate(self, domain: str) -> dict:
+        async with httpx.AsyncClient() as client:
+            try:
+                resp = await client.post(
+                    f"{self.admin_url}/pki/ca/local/certificates?renew=true",
+                    json={"sans": [domain]},
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                return {"success": True, "domain": domain}
+            except Exception as e:
+                return {"success": False, "domain": domain, "error": str(e)}
 
     async def _delete_route(self, route_id: str) -> dict:
         async with httpx.AsyncClient() as client:

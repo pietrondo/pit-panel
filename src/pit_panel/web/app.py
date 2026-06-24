@@ -61,8 +61,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     router.state = app.state
     router.state.limiter = limiter
 
-    from pit_panel.web.routes import (  # noqa: E402  # noqa: E402
+    from pit_panel.web.routes import (  # noqa: E402,F401
+        apps,
+        auth_routes,
+        containers,
+        dashboard,
         settings,
+        ssl,
+        subdomains,
     )
 
     app.include_router(router)

@@ -18,7 +18,12 @@
             </div>
             <div>
                 <dt class="text-xs text-gray-500 dark:text-gray-400">Base Domain</dt>
-                <dd class="text-sm font-mono text-gray-900 dark:text-white">{{ settings.base_domain or 'Not set' }}</dd>
+                <dd class="text-sm font-mono text-gray-900 dark:text-white">
+                    {{ settings.base_domain or 'Not set (auto)' }}
+                </dd>
+                <dd class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Effective: <code class="text-brand-600">{{ settings.effective_domain }}</code>
+                </dd>
             </div>
             <div>
                 <dt class="text-xs text-gray-500 dark:text-gray-400">Caddy Admin</dt>
@@ -63,6 +68,22 @@
         </dl>
     </div>
 </div>
+
+{% if not settings.base_domain %}
+<div class="mb-8 p-4 card bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+    <div class="flex gap-3">
+        <span class="text-yellow-600 dark:text-yellow-400 text-lg">&#9888;</span>
+        <div class="text-sm text-yellow-800 dark:text-yellow-200">
+            <p class="font-medium">No domain configured — using nip.io fallback</p>
+            <p class="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
+                Subdomains: <code class="bg-yellow-100 dark:bg-yellow-900/40 px-1 rounded">&lt;name&gt;.{{ settings.effective_domain }}</code>.
+                SSL via Caddy internal PKI (self-signed).
+                <br><strong>Set <code>base_domain</code> in <code>/etc/pit-panel/config.toml</code> for production.</strong>
+            </p>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Recent audit log -->
 <div class="card">

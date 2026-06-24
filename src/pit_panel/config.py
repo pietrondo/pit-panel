@@ -29,6 +29,22 @@ class Settings(BaseSettings):
     caddy_admin_url: str = "http://127.0.0.1:2019"
     base_domain: str = ""
 
+    @property
+    def effective_domain(self) -> str:
+        if self.base_domain:
+            return self.base_domain
+        return f"{self._detect_ip().replace('.', '-')}.nip.io"
+
+    @staticmethod
+    def _detect_ip() -> str:
+        try:
+            import httpx
+
+            resp = httpx.get("https://api.ipify.org", timeout=3)
+            return resp.text.strip()
+        except Exception:
+            return "127.0.0.1"
+
     # Updates
     git_remote: str = "https://github.com/pietrondo/pit-panel.git"
     git_branch: str = "main"

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+{% set title = "SSL Certificates" %}
+
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">SSL Certificates</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Managed by Caddy — automatic Let's Encrypt via DNS-01 wildcard</p>
+</div>
+
+{% if renew_result %}
+<div class="mb-4 p-3 rounded-lg border text-sm
+    {% if renew_result.success %}bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300
+    {% else %}bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300{% endif %}">
+    {% if renew_result.success %}
+    Certificate for <strong>{{ renew_result.domain }}</strong> renewed successfully.
+    {% else %}
+    Renew failed for <strong>{{ renew_result.domain }}</strong>: {{ renew_result.error }}
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Certificates table -->
+<div class="card">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Active Certificates</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Domains</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Issuer</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Expiry</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                    <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for cert in certs %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white text-xs max-w-[300px] truncate">
+                        {{ cert.domains }}
+                    </td>
+                    <td class="px-6 py-3 text-sm text-gray-500 dark:text-gray-400 text-xs">
+                        {{ cert.issuer }}
+                    </td>
+                    <td class="px-6 py-3 text-sm text-xs">
+                        {% set days = cert.expires_in_days %}
+                        {% if days is not none %}
+                            {% if days > 30 %}
+                            <span class="text-green-600 dark:text-green-400">{{ cert.not_after[:10] }} ({{ days }}d)</span>
+                            {% elif days > 7 %}
+                            <span class="text-yellow-600 dark:text-yellow-400">{{ cert.not_after[:10] }} ({{ days }}d)</span>
+                            {% else %}
+                            <span class="text-red-600 dark:text-red-400 font-bold">{{ cert.not_after[:10] }} ({{ days }}d!)</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-gray-500">{{ cert.not_after[:10] if cert.not_after else '?' }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-3">
+                        {% if days is not none and days > 0 %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> valid
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                            expired
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-3 text-right">
+                        {% if cert.domains %}
+                        <form method="POST" action="/ssl/renew" class="inline">
+                            <input type="hidden" name="domain" value="{{ cert.domains.split(',')[0].strip() }}">
+                            <button type="submit" class="btn-ghost text-xs text-orange-600 hover:text-orange-700">Renew</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No certificates found. Caddy auto-provisions certificates when a domain is first accessed via HTTPS.<br>
+                        <span class="text-xs mt-1 block">Certificates appear here after Caddy obtains them from Let's Encrypt.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-6 p-4 card bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+    <div class="flex gap-3">
+        <span class="text-blue-600 dark:text-blue-400 text-lg">&#9432;</span>
+        <div class="text-sm text-blue-800 dark:text-blue-200">
+            <p class="font-medium">How SSL works</p>
+            <p class="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                Caddy uses DNS-01 challenge with your configured DNS provider to obtain wildcard certificates
+                from Let's Encrypt. Certificates auto-renew 30 days before expiry. Click "Renew" to force
+                an immediate renewal.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
