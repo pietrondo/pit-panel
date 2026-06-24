@@ -93,4 +93,16 @@ systemctl enable --now pit-panel.service pit-panel-updater.timer
 
 echo ""
 echo "=== pit-panel installed ==="
-echo "Access at: http://$(hostname -I | awk '{print $1}'):8080"
+if [ -n "$BASE_DOMAIN" ]; then
+    echo ""
+    echo "Panel URL: https://${PANEL_SUB}.${BASE_DOMAIN}"
+    echo ""
+    echo "IMPORTANT: Configure Caddy with DNS-01 challenge:"
+    echo "  1. Edit /etc/caddy/Caddyfile (see docker/caddy/Caddyfile.tpl)"
+    echo "  2. Add your DNS API token (Cloudflare, DO, Route53...)"
+    echo "  3. systemctl restart caddy"
+else
+    echo "Access at: http://$(hostname -I | awk '{print $1}'):8080"
+fi
+echo ""
+echo "Upgrade:  curl -fsSL https://raw.githubusercontent.com/pietrondo/pit-panel/main/scripts/upgrade.sh | bash"
