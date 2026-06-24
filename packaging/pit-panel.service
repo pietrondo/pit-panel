@@ -30,8 +30,7 @@ RestrictRealtime=true
 LockPersonality=true
 
 # Filesystem access
-ReadWritePaths=/opt/pit-panel/.venv /var/lib/pit-panel /opt/pit-panel/apps
-BindReadOnlyPaths=/etc/pit-panel/config.toml
+ReadWritePaths=/opt/pit-panel/.venv /var/lib/pit-panel /opt/pit-panel/apps /etc/pit-panel
 
 # Capabilities (none needed)
 CapabilityBoundingSet=
