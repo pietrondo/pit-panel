@@ -9,23 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
 from pit_panel.core.caddy import CaddyManager
-from pit_panel.db.models import AuditLog, Subdomain, User
+from pit_panel.db.models import AuditLog, Subdomain
 from pit_panel.db.session import get_db
-from pit_panel.web.auth import SESSION_COOKIE, unsign_session_token
+from pit_panel.web.deps import get_optional_user
 from pit_panel.web.render import render
 from pit_panel.web.router import router
-
-
-async def _get_user(request: Request, db: AsyncSession) -> User | None:
-    settings = get_settings()
-    cookie = request.cookies.get(SESSION_COOKIE)
-    if not cookie:
-        return None
-    data = unsign_session_token(settings, cookie)
-    if not data:
-        return None
-    result = await db.execute(select(User).where(User.id == data.get("uid")))
-    return result.scalar_one_or_none()
 
 
 async def _log_audit(
@@ -52,7 +40,7 @@ async def _log_audit(
 
 @router.get("/subdomains", response_class=HTMLResponse)
 async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
-    user = await _get_user(request, db)
+    user = await get_optional_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
@@ -69,7 +57,7 @@ async def subdomain_add(
     app_type: str = Form("none"),
     db: AsyncSession = Depends(get_db),
 ):
-    user = await _get_user(request, db)
+    user = await get_optional_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
@@ -136,7 +124,7 @@ async def subdomain_delete(
     sd_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    user = await _get_user(request, db)
+    user = await get_optional_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
@@ -150,8 +138,13 @@ async def subdomain_delete(
             await caddy.remove_subdomain(sd.subdomain, settings.base_domain)
 
         await _log_audit(
-            db, user.id, "subdomain_delete", "subdomain", sd.id,
-            {"subdomain": sd.subdomain}, request,
+            db,
+            user.id,
+            "subdomain_delete",
+            "subdomain",
+            sd.id,
+            {"subdomain": sd.subdomain},
+            request,
         )
         await db.delete(sd)
         await db.commit()
