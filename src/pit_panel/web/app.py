@@ -95,6 +95,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         auth_routes,
         containers,
         dashboard,
+        logs,
         security,
         settings,
         ssl,

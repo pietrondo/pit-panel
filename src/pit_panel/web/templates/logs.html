@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+{% set title = "Logs" %}
+
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Logs</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Systemd journal and application logs</p>
+</div>
+
+<!-- Tabs -->
+<div class="flex gap-2 mb-4" x-data="{ tab: 'journal' }">
+    <button @click="tab = 'journal'" :class="tab === 'journal' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'"
+            class="btn text-xs">Systemd Journal</button>
+    <button @click="tab = 'app'" :class="tab === 'app' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'"
+            class="btn text-xs">App Log</button>
+</div>
+
+<!-- Journal (default) -->
+<div x-show="tab === 'journal'" x-cloak class="card">
+    <div class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">pit-panel journal</h2>
+        <span class="text-xs text-gray-500">systemd journal</span>
+    </div>
+    <div class="p-4 bg-gray-950 rounded-b-xl max-h-[600px] overflow-y-auto"
+         hx-get="/logs/journal" hx-trigger="every 10s" hx-swap="innerHTML">
+        <pre class="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">{{ journal }}</pre>
+    </div>
+</div>
+
+<!-- App log -->
+<div x-show="tab === 'app'" x-cloak class="card">
+    <div class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Application log</h2>
+        <span class="text-xs text-gray-500">/var/log/pit-panel/app.log</span>
+    </div>
+    <div class="p-4 bg-gray-950 rounded-b-xl max-h-[600px] overflow-y-auto"
+         hx-get="/logs/applog" hx-trigger="every 10s" hx-swap="innerHTML">
+        <pre class="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">{{ app_log }}</pre>
+    </div>
+</div>
+{% endblock %}
