@@ -17,7 +17,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:
         return RedirectResponse("/login", status_code=302)
-    data = unsign_session_token, validate_session(settings, cookie)
+    data = unsign_session_token(settings, cookie)
     if not data:
         return RedirectResponse("/login", status_code=302)
 

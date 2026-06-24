@@ -25,7 +25,7 @@ async def _get_admin(request: Request, db: AsyncSession) -> User | None:
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:
         return None
-    data = unsign_session_token, validate_session(settings, cookie)
+    data = unsign_session_token(settings, cookie)
     if not data:
         return None
     user = await validate_session(db, cookie, settings, data.get("uid", 0))
