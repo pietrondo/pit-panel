@@ -1,6 +1,7 @@
 """Subdomain CRUD routes with Caddy integration and audit logging."""
 
 import contextlib
+import re
 
 from fastapi import Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -76,7 +77,7 @@ async def subdomain_add(
     settings = get_settings()
 
     safe_subdomain = subdomain.strip().lower().replace(" ", "-")
-    if not safe_subdomain or "." in safe_subdomain:
+    if not safe_subdomain or not re.match(r"^[a-z0-9-]+$", safe_subdomain):
         result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
         subdomains = result.scalars().all()
         return render(
@@ -150,8 +151,13 @@ async def subdomain_delete(
             await caddy.remove_subdomain(sd.subdomain, settings.base_domain)
 
         await _log_audit(
-            db, user.id, "subdomain_delete", "subdomain", sd.id,
-            {"subdomain": sd.subdomain}, request,
+            db,
+            user.id,
+            "subdomain_delete",
+            "subdomain",
+            sd.id,
+            {"subdomain": sd.subdomain},
+            request,
         )
         await db.delete(sd)
         await db.commit()

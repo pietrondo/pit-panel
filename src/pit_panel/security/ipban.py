@@ -22,9 +22,7 @@ async def is_ip_banned(db: AsyncSession, ip: str) -> bool:
     return result.scalar_one_or_none() is not None
 
 
-async def record_login_attempt(
-    db: AsyncSession, ip: str, username: str, success: bool
-) -> None:
+async def record_login_attempt(db: AsyncSession, ip: str, username: str, success: bool) -> None:
     # Never ban localhost
     if ip in ("127.0.0.1", "::1", "localhost"):
         return
@@ -45,9 +43,7 @@ async def record_login_attempt(
         failed_count = len(result.scalars().all())
 
         if failed_count >= MAX_FAILED_ATTEMPTS:
-            existing = await db.execute(
-                select(IPBan).where(IPBan.ip_address == ip)
-            )
+            existing = await db.execute(select(IPBan).where(IPBan.ip_address == ip))
             ban = existing.scalar_one_or_none()
             if ban:
                 ban.failed_attempts = failed_count
@@ -59,8 +55,7 @@ async def record_login_attempt(
                     ip_address=ip,
                     reason=f"auto: {failed_count} failed logins in {FAILED_WINDOW_MINUTES}min",
                     failed_attempts=failed_count,
-                    expires_at=dt.datetime.now(dt.UTC)
-                    + dt.timedelta(minutes=BAN_DURATION_MINUTES),
+                    expires_at=dt.datetime.now(dt.UTC) + dt.timedelta(minutes=BAN_DURATION_MINUTES),
                 )
                 db.add(ban)
             await db.commit()
@@ -107,8 +102,6 @@ async def cleanup_old_attempts(db: AsyncSession, days: int = 30) -> int:
     cutoff = dt.datetime.now(dt.UTC) - dt.timedelta(days=days)
     from sqlalchemy import delete
 
-    result = await db.execute(
-        delete(LoginAttempt).where(LoginAttempt.attempted_at < cutoff)
-    )
+    result = await db.execute(delete(LoginAttempt).where(LoginAttempt.attempted_at < cutoff))
     await db.commit()
     return result.rowcount

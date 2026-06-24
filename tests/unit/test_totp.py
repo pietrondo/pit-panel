@@ -23,6 +23,7 @@ class TestTOTP:
 
     def test_verify_valid_code(self):
         import pyotp
+
         from pit_panel.security.totp import verify_totp
 
         secret = pyotp.random_base32()

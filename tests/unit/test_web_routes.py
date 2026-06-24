@@ -76,3 +76,46 @@ class TestSetup2FA:
     def test_redirects_when_not_logged_in(self, client):
         resp = client.get("/setup-2fa", follow_redirects=False)
         assert resp.status_code == 302
+
+
+from unittest.mock import AsyncMock, patch
+
+
+class TestSubdomainValidation:
+    def test_invalid_subdomain_path_traversal(self, client):
+        from pit_panel.db.models import User
+
+        dummy_user = User(id=1, username="testuser")
+
+        with (
+            patch(
+                "pit_panel.web.routes.subdomains._get_user", new_callable=AsyncMock
+            ) as mock_get_user,
+            patch("pit_panel.web.routes.subdomains.AsyncSession", autospec=True) as MockSession,
+        ):
+            mock_get_user.return_value = dummy_user
+
+            mock_session = MockSession.return_value
+            from unittest.mock import MagicMock
+
+            mock_result = MagicMock()
+            mock_result.scalars.return_value.all.return_value = []
+            mock_session.execute.return_value = mock_result
+
+            invalid_subdomains = ["../", "foo/bar", "foo..bar", "!", "@#$"]
+
+            # Since the endpoint depends on get_db, we need to override the dependency
+            # so it returns our mocked session, avoiding actual DB connections
+            from pit_panel.db.session import get_db
+
+            client.app.dependency_overrides[get_db] = lambda: mock_session
+
+            try:
+                for sd in invalid_subdomains:
+                    resp = client.post(
+                        "/subdomains/add", data={"subdomain": sd, "app_type": "none"}
+                    )
+                    assert resp.status_code == 200
+                    assert "Invalid subdomain name" in resp.text
+            finally:
+                client.app.dependency_overrides.clear()

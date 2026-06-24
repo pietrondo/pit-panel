@@ -27,7 +27,9 @@ def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess:
     """
     return subprocess.run(
         ["sudo", "-n", *cmd],
-        capture_output=True, text=True, timeout=timeout,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
 
 
@@ -52,17 +54,22 @@ def _get_git_info():
     with contextlib.suppress(Exception):
         current = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=INSTALL_DIR,
         ).stdout.strip()
     with contextlib.suppress(Exception):
         result = subprocess.run(
             [
-                "git", "ls-remote",
+                "git",
+                "ls-remote",
                 "https://github.com/pietrondo/pit-panel.git",
                 "refs/heads/main",
             ],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         if result.returncode == 0 and result.stdout.strip():
             remote = result.stdout.split()[0][:7]
@@ -74,10 +81,13 @@ def _get_git_info():
 
             url = "https://api.github.com/repos/pietrondo/pit-panel/commits/main"
             ctx = ssl.create_default_context()
-            req = urllib.request.Request(url, headers={
-                "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "pit-panel",
-            })
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "Accept": "application/vnd.github.v3+json",
+                    "User-Agent": "pit-panel",
+                },
+            )
             with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                 data = json.loads(resp.read())
                 api_sha = data.get("sha", "")[:7]
@@ -124,8 +134,14 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
         (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60),
         (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30),
         (["uv", "--directory", INSTALL_DIR, "sync"], 180),
-        (["cp", f"{INSTALL_DIR}/packaging/pit-panel.service",
-          "/etc/systemd/system/pit-panel.service"], 10),
+        (
+            [
+                "cp",
+                f"{INSTALL_DIR}/packaging/pit-panel.service",
+                "/etc/systemd/system/pit-panel.service",
+            ],
+            10,
+        ),
         (["systemctl", "daemon-reload"], 10),
         (["systemctl", "restart", "pit-panel.service"], 30),
     ]

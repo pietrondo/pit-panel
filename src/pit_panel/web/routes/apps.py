@@ -39,9 +39,7 @@ async def apps_list(request: Request, db: AsyncSession = Depends(get_db)):
     subdomains = result.scalars().all()
     templates = AppManager().list_templates()
 
-    return render(
-        "apps.html", user=user, subdomains=subdomains, templates=templates, error=None
-    )
+    return render("apps.html", user=user, subdomains=subdomains, templates=templates, error=None)
 
 
 @router.post("/apps/deploy", response_class=HTMLResponse)

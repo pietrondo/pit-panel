@@ -19,19 +19,25 @@ class Updater:
         try:
             result = subprocess.run(
                 ["git", "fetch", "origin", self.settings.git_branch],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
                 cwd="/opt/pit-panel",
             )
             result = subprocess.run(
                 ["git", "rev-parse", f"origin/{self.settings.git_branch}"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
                 cwd="/opt/pit-panel",
             )
             remote_sha = result.stdout.strip()
 
             result = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
                 cwd="/opt/pit-panel",
             )
             local_sha = result.stdout.strip()
@@ -47,7 +53,9 @@ class Updater:
         async with sessionmaker() as db:
             current = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
                 cwd="/opt/pit-panel",
             ).stdout.strip()
 
@@ -61,17 +69,20 @@ class Updater:
 
             subprocess.run(
                 ["git", "reset", "--hard", target_sha],
-                capture_output=True, timeout=30,
+                capture_output=True,
+                timeout=30,
                 cwd="/opt/pit-panel",
             )
             subprocess.run(
                 ["uv", "sync"],
-                capture_output=True, timeout=120,
+                capture_output=True,
+                timeout=120,
                 cwd="/opt/pit-panel",
             )
             subprocess.run(
                 ["uv", "run", "alembic", "upgrade", "head"],
-                capture_output=True, timeout=60,
+                capture_output=True,
+                timeout=60,
                 cwd="/opt/pit-panel",
             )
 
@@ -83,12 +94,14 @@ class Updater:
     async def rollback(self) -> bool:
         subprocess.run(
             ["git", "reset", "--hard", "HEAD~1"],
-            capture_output=True, timeout=10,
+            capture_output=True,
+            timeout=10,
             cwd="/opt/pit-panel",
         )
         subprocess.run(
             ["uv", "sync"],
-            capture_output=True, timeout=120,
+            capture_output=True,
+            timeout=120,
             cwd="/opt/pit-panel",
         )
         return True

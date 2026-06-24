@@ -281,9 +281,7 @@ async def ssl_renew(
         acme_providers=ACME_PROVIDERS,
         providers=DNS_PROVIDERS,
         current_caddyfile=(
-            Path(CADDYFILE_PATH).read_text()[:2000]
-            if Path(CADDYFILE_PATH).exists()
-            else ""
+            Path(CADDYFILE_PATH).read_text()[:2000] if Path(CADDYFILE_PATH).exists() else ""
         ),
         caddy_result=None,
     )

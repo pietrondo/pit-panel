@@ -28,9 +28,7 @@ def get_fernet(settings: Settings) -> Fernet:
     key = settings.secret_key.encode("utf-8")
     if len(key) < 32:
         key = hashlib.sha256(key).digest()
-    b64_key = __import__("base64").urlsafe_b64encode(
-        key.ljust(32, b"\0")[:32]
-    )
+    b64_key = __import__("base64").urlsafe_b64encode(key.ljust(32, b"\0")[:32])
     return Fernet(b64_key)
 
 

@@ -48,7 +48,9 @@ def _read_journal(n: int = 200) -> str:
     try:
         result = subprocess.run(
             ["journalctl", "-u", "pit-panel.service", "-n", str(n), "--no-pager"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.stdout.strip():
             return result.stdout
@@ -58,7 +60,9 @@ def _read_journal(n: int = 200) -> str:
     try:
         result = subprocess.run(
             ["sudo", "-n", "journalctl", "-u", "pit-panel.service", "-n", str(n), "--no-pager"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.stdout.strip():
             return result.stdout
@@ -88,8 +92,7 @@ async def logs_page(request: Request, db: AsyncSession = Depends(get_db)):
 async def journal_partial(request: Request):
     journal = _read_journal()
     return HTMLResponse(
-        '<pre class="text-xs font-mono text-green-400'
-        f' whitespace-pre-wrap">{journal}</pre>'
+        f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{journal}</pre>'
     )
 
 
@@ -97,6 +100,5 @@ async def journal_partial(request: Request):
 async def applog_partial(request: Request):
     app_log = _read_log(APP_LOG)
     return HTMLResponse(
-        '<pre class="text-xs font-mono text-green-400'
-        f' whitespace-pre-wrap">{app_log}</pre>'
+        f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{app_log}</pre>'
     )

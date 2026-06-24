@@ -39,9 +39,7 @@ async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    result = await db.execute(
-        select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50)
-    )
+    result = await db.execute(select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50))
     audit_entries = result.scalars().all()
 
     return render(
@@ -75,9 +73,7 @@ async def settings_update(
         ("panel_subdomain", new_panel),
         ("host", new_host),
     ]:
-        result = await db.execute(
-            select(SystemSettings).where(SystemSettings.key == key)
-        )
+        result = await db.execute(select(SystemSettings).where(SystemSettings.key == key))
         row = result.scalar_one_or_none()
         if row:
             row.value = {"v": val}
@@ -92,9 +88,7 @@ async def settings_update(
     settings.panel_subdomain = new_panel
     settings.host = new_host
 
-    result = await db.execute(
-        select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50)
-    )
+    result = await db.execute(select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50))
     audit_entries = result.scalars().all()
 
     return render(
@@ -107,16 +101,13 @@ async def settings_update(
     )
 
 
-
 @router.get("/settings/audit", response_class=HTMLResponse)
 async def audit_log(request: Request, db: AsyncSession = Depends(get_db)):
     user = await _get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    result = await db.execute(
-        select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(100)
-    )
+    result = await db.execute(select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(100))
     entries = result.scalars().all()
 
     return render("audit.html", user=user, entries=entries)

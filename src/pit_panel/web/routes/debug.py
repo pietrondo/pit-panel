@@ -72,7 +72,8 @@ async def debug_page(request: Request, db: AsyncSession = Depends(get_db)):
         "git_log": _run(["git", "log", "--oneline", "-5"], cwd=INSTALL_DIR),
         "git_ls_remote": _run(
             [
-                "git", "ls-remote",
+                "git",
+                "ls-remote",
                 "https://github.com/pietrondo/pit-panel.git",
                 "refs/heads/main",
             ],
@@ -82,9 +83,7 @@ async def debug_page(request: Request, db: AsyncSession = Depends(get_db)):
             ["git", "fetch", "origin", "--dry-run"], timeout=15, cwd=INSTALL_DIR
         ),
         "ping_github": _run(["ping", "-c", "1", "-W", "3", "github.com"]),
-        "curl_api": _run(
-            ["curl", "-sI", "--max-time", "5", "https://api.github.com"]
-        ),
+        "curl_api": _run(["curl", "-sI", "--max-time", "5", "https://api.github.com"]),
         "service_status": _run(["systemctl", "status", "pit-panel.service", "--no-pager", "-l"]),
         "service_file": _file_checksum("/etc/systemd/system/pit-panel.service"),
         "repo_service_file": _file_checksum(f"{INSTALL_DIR}/packaging/pit-panel.service"),
@@ -115,7 +114,8 @@ async def debug_raw(request: Request, db: AsyncSession = Depends(get_db)):
     lines.append("")
     lines.append("--- git ---")
     cmd_ls = [
-        "git", "ls-remote",
+        "git",
+        "ls-remote",
         "https://github.com/pietrondo/pit-panel.git",
         "refs/heads/main",
     ]

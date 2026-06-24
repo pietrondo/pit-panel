@@ -55,9 +55,7 @@ async def login_post(
         form_data = await request.form()
         totp_code = form_data.get("totp_code")
         if not totp_code:
-            return render(
-                "login.html", totp_required=True, username=username, error=None
-            )
+            return render("login.html", totp_required=True, username=username, error=None)
         if not verify_totp(user.totp_secret or "", totp_code):
             await record_login_attempt(
                 db, request.client.host if request.client else "unknown", username, False
