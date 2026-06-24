@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.db
+*.db-journal
+*.db-wal
+beads/
+.env
+.env.local
+/var/
+/opt/
+*.log
+node_modules/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads-credential-key
