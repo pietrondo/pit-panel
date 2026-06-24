@@ -25,6 +25,10 @@ async def is_ip_banned(db: AsyncSession, ip: str) -> bool:
 async def record_login_attempt(
     db: AsyncSession, ip: str, username: str, success: bool
 ) -> None:
+    # Never ban localhost
+    if ip in ("127.0.0.1", "::1", "localhost"):
+        return
+
     attempt = LoginAttempt(ip_address=ip, username=username, success=success)
     db.add(attempt)
     await db.commit()
