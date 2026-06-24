@@ -25,7 +25,7 @@
 
 ## Critical Files
 - **`packaging/install.sh`** — the Debian installer. If ANY bug is found during remote usage (curl pipe), fix this file immediately. Also run it locally after any change that affects startup, permissions, paths, or systemd units.
-- **`packaging/pit-panel.service`** — systemd unit. Keep `Type=simple`, ensure `ReadWritePaths` includes `.venv/`, never use `MemoryDenyWriteExecute` (breaks Python).
+- **`packaging/pit-panel.service`** — systemd unit. Keep `Type=simple`. Ensure `ReadWritePaths` includes `.venv/` and `/var/lib/pit-panel`. **Never** use `StateDirectory=` or `ConfigurationDirectory=` with `ProtectSystem=strict` (they create empty private dirs that hide real files). Use `BindReadOnlyPaths=` for config files instead.
 
 ## Commit Rules
 - Every commit MUST pass: `uv run ruff check src/` AND `uv run pytest -q`
