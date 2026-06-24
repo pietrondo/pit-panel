@@ -1,7 +1,10 @@
-"""System: upgrade check and trigger."""
+"""System: upgrade check and trigger with self-restart."""
 
 import contextlib
+import datetime as dt
+import os
 import subprocess
+import sys
 
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -42,15 +45,17 @@ def _get_git_info():
             capture_output=True, text=True, timeout=10,
             cwd=INSTALL_DIR,
         ).stdout.strip()
-    # Use git ls-remote (same protocol as git clone, most reliable)
     with contextlib.suppress(Exception):
         result = subprocess.run(
-            ["git", "ls-remote", "https://github.com/pietrondo/pit-panel.git", "refs/heads/main"],
+            [
+                "git", "ls-remote",
+                "https://github.com/pietrondo/pit-panel.git",
+                "refs/heads/main",
+            ],
             capture_output=True, text=True, timeout=15,
         )
-        if result.returncode == 0 and result.stdout:
+        if result.returncode == 0 and result.stdout.strip():
             remote = result.stdout.split()[0][:7]
-    # Fallback: GitHub API
     if remote == "unknown":
         with contextlib.suppress(Exception):
             import json
@@ -59,13 +64,10 @@ def _get_git_info():
 
             url = "https://api.github.com/repos/pietrondo/pit-panel/commits/main"
             ctx = ssl.create_default_context()
-            req = urllib.request.Request(
-                url,
-                headers={
-                    "Accept": "application/vnd.github.v3+json",
-                    "User-Agent": "pit-panel",
-                },
-            )
+            req = urllib.request.Request(url, headers={
+                "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "pit-panel",
+            })
             with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                 data = json.loads(resp.read())
                 api_sha = data.get("sha", "")[:7]
@@ -105,37 +107,62 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    # Run upgrade via sudo (pit-panel has NOPASSWD sudoers for this script).
-    # Falls back to direct execution if sudo not available (first install).
+    # Run git operations directly in-process
+    result_msg = ""
     try:
-        subprocess.Popen(
-            ["sudo", "-n", "bash", f"{INSTALL_DIR}/scripts/upgrade.sh"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            cwd=INSTALL_DIR,
+        subprocess.run(
+            ["git", "fetch", "origin", "--prune"],
+            capture_output=True, timeout=60, cwd=INSTALL_DIR,
+            check=True,
         )
-    except Exception:
+        subprocess.run(
+            ["git", "reset", "--hard", "origin/main"],
+            capture_output=True, timeout=30, cwd=INSTALL_DIR,
+            check=True,
+        )
+        subprocess.run(
+            ["uv", "sync"], capture_output=True, timeout=120, cwd=INSTALL_DIR, check=True
+        )
+        # Try to copy service file (may fail if no sudo)
         with contextlib.suppress(Exception):
-            subprocess.Popen(
-                ["bash", f"{INSTALL_DIR}/scripts/upgrade.sh"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                cwd=INSTALL_DIR,
+            subprocess.run(
+                ["cp", f"{INSTALL_DIR}/packaging/pit-panel.service",
+                 "/etc/systemd/system/pit-panel.service"],
+                capture_output=True, timeout=10,
             )
+            subprocess.run(
+                ["systemctl", "daemon-reload"], capture_output=True, timeout=10,
+            )
+        result_msg = "Upgrade complete. Restarting..."
+    except subprocess.CalledProcessError as e:
+        result_msg = f"Upgrade failed: {e.stderr[:200] if e.stderr else e}"
+
+    # Log to update history
+    try:
+        current, _ = _get_git_info()
+        entry = UpdateHistory(
+            version_from=current,
+            version_to="latest",
+            status="completed" if "complete" in result_msg else "failed",
+            started_at=dt.datetime.now(dt.UTC),
+            completed_at=dt.datetime.now(dt.UTC),
+        )
+        db.add(entry)
+        await db.commit()
+    except Exception:
+        pass
+
+    # Self-restart: replace current process with new code
+    if "complete" in result_msg:
+        os.execv(sys.executable, [sys.executable, "-c", "from pit_panel.main import main; main()"])
 
     current, remote = _get_git_info()
-
-    result = await db.execute(
-        select(UpdateHistory).order_by(UpdateHistory.started_at.desc()).limit(10)
-    )
-    history = result.scalars().all()
-
     return render(
         "system.html",
         user=user,
         current_version=current,
         remote_version=remote,
         update_available=False,
-        update_history=history,
-        upgrade_result="Upgrade started in background. Page will reload shortly.",
+        update_history=[],
+        upgrade_result=result_msg,
     )

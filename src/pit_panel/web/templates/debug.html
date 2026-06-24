@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+{% set title = "Debug" %}
+
+<div class="mb-8 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Debug & Diagnostics</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Python {{ diag.python }} | {{ diag.hostname }} | Disk free: {{ diag.disk }}M
+        </p>
+    </div>
+    <a href="/debug/raw" class="btn-ghost">Download Raw Report</a>
+</div>
+
+{% macro section(title) %}
+<div class="card mb-4">
+    <div class="px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">{{ title }}</h2>
+    </div>
+    <div class="p-4 space-y-3">
+{% endmacro %}
+
+{% macro item(label, value) %}
+<div>
+    <dt class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ label }}</dt>
+    <dd class="mt-1">
+        <pre class="bg-gray-950 text-green-400 p-2 rounded text-xs font-mono overflow-x-auto whitespace-pre-wrap">{{ value }}</pre>
+    </dd>
+</div>
+{% endmacro %}
+
+{{ section("git") }}
+{{ item("version", diag.git_version) }}
+{{ item("remote", diag.git_remote) }}
+{{ item("log (local)", diag.git_log) }}
+{{ item("ls-remote (GitHub)", diag.git_ls_remote) }}
+{{ item("fetch --dry-run", diag.git_fetch_test) }}
+</div>
+
+{{ section("network") }}
+{{ item("ping github.com", diag.ping_github) }}
+{{ item("curl api.github.com", diag.curl_api) }}
+</div>
+
+{{ section("service") }}
+{{ item("systemctl status", diag.service_status) }}
+{{ item("service file checksum (active)", diag.service_file) }}
+{{ item("service file checksum (repo)", diag.repo_service_file) }}
+{{ item("config checksum", diag.config_file) }}
+{{ item("DB size (bytes)", diag.db_size) }}
+</div>
+
+{{ section("dependencies") }}
+{{ item("caddy", diag.caddy_status) }}
+{{ item("docker", diag.docker_status) }}
+</div>
+
+{{ section("recent errors") }}
+{{ item("journal errors", diag.journal_errors) }}
+</div>
+
+<div class="mt-4 p-3 rounded bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300">
+    <strong>Share for support:</strong> Click "Download Raw Report" above and paste the content.
+</div>
+{% endblock %}
