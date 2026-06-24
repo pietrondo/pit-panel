@@ -49,10 +49,14 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
     )
     active_sessions = []
     for sess, uname in ses_result:
-        active_sessions.append({
-            "id": sess.id, "username": uname, "ip": sess.ip,
-            "created": sess.created_at,
-        })
+        active_sessions.append(
+            {
+                "id": sess.id,
+                "username": uname,
+                "ip": sess.ip,
+                "created": sess.created_at,
+            }
+        )
 
     return render(
         "security.html",
@@ -67,12 +71,13 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
 @router.post("/security/unban", response_class=HTMLResponse)
 async def security_unban(
     request: Request,
-    ip: str = Depends(lambda r: None),
     db: AsyncSession = Depends(get_db),
 ):
-    if ip is None:
-        form = await request.form()
-        ip = form.get("ip", "")
+    form = await request.form()
+    ip = form.get("ip", "")
+
+    if isinstance(ip, str):
+        ip = ip.strip()
 
     user = await _get_admin(request, db)
     if not user:
@@ -96,10 +101,14 @@ async def security_unban(
     )
     active_sessions = []
     for sess, uname in ses_result:
-        active_sessions.append({
-            "id": sess.id, "username": uname, "ip": sess.ip,
-            "created": sess.created_at,
-        })
+        active_sessions.append(
+            {
+                "id": sess.id,
+                "username": uname,
+                "ip": sess.ip,
+                "created": sess.created_at,
+            }
+        )
 
     return render(
         "security.html",
