@@ -34,7 +34,6 @@ async def _get_admin(request: Request, db: AsyncSession) -> User | None:
 
 
 def _get_git_info():
-
     current = "unknown"
     remote = "unknown"
     with contextlib.suppress(Exception):
@@ -45,7 +44,8 @@ def _get_git_info():
         ).stdout.strip()
     with contextlib.suppress(Exception):
         subprocess.run(
-            ["git", "fetch", "origin"], capture_output=True, timeout=30, cwd=INSTALL_DIR
+            ["git", "fetch", "origin", "main"], capture_output=True, timeout=30,
+            cwd=INSTALL_DIR,
         )
         remote = subprocess.run(
             ["git", "rev-parse", "--short", "origin/main"],
@@ -86,17 +86,14 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-
-    result_msg = ""
-    try:
-        proc = subprocess.run(
-            ["bash", f"{INSTALL_DIR}/scripts/upgrade.sh"],
-            capture_output=True, text=True, timeout=120,
-            cwd=INSTALL_DIR,
-        )
-        result_msg = proc.stdout[-500:] if proc.stdout else proc.stderr[:500]
-    except Exception as e:
-        result_msg = str(e)
+    # Run upgrade detached — the script restarts pit-panel.service which
+    # would kill this process, so we must run it in the background.
+    subprocess.Popen(
+        ["bash", f"{INSTALL_DIR}/scripts/upgrade.sh"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=INSTALL_DIR,
+    )
 
     current, remote = _get_git_info()
 
@@ -112,5 +109,5 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
         remote_version=remote,
         update_available=False,
         update_history=history,
-        upgrade_result=result_msg,
+        upgrade_result="Upgrade started in background. Page will reload shortly.",
     )
