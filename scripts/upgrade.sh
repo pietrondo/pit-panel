@@ -33,6 +33,14 @@ echo "Upgrading from $CURRENT to $REMOTE..."
 
 # Apply update
 git reset --hard "origin/$BRANCH"
+
+# Update systemd units (service file might have changed)
+echo "Updating systemd units..."
+cp packaging/pit-panel.service /etc/systemd/system/
+cp packaging/pit-panel-updater.service /etc/systemd/system/
+cp packaging/pit-panel-updater.timer /etc/systemd/system/
+systemctl daemon-reload
+
 uv sync
 
 # Run migrations

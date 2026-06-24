@@ -86,14 +86,23 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    # Run upgrade detached — the script restarts pit-panel.service which
-    # would kill this process, so we must run it in the background.
-    subprocess.Popen(
-        ["bash", f"{INSTALL_DIR}/scripts/upgrade.sh"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        cwd=INSTALL_DIR,
-    )
+    # Run upgrade via sudo (pit-panel has NOPASSWD sudoers for this script).
+    # Falls back to direct execution if sudo not available (first install).
+    try:
+        subprocess.Popen(
+            ["sudo", "-n", "bash", f"{INSTALL_DIR}/scripts/upgrade.sh"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            cwd=INSTALL_DIR,
+        )
+    except Exception:
+        with contextlib.suppress(Exception):
+            subprocess.Popen(
+                ["bash", f"{INSTALL_DIR}/scripts/upgrade.sh"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                cwd=INSTALL_DIR,
+            )
 
     current, remote = _get_git_info()
 

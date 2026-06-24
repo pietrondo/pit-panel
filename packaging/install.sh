@@ -77,6 +77,14 @@ if ! id pit-panel &>/dev/null; then
     useradd -r -s /bin/false -d /opt/pit-panel pit-panel
 fi
 
+# Allow pit-panel to run upgrade + restart without password
+cat > /etc/sudoers.d/pit-panel <<'SUDOERS'
+pit-panel ALL=(root) NOPASSWD: /opt/pit-panel/scripts/upgrade.sh
+pit-panel ALL=(root) NOPASSWD: /bin/systemctl restart pit-panel.service
+pit-panel ALL=(root) NOPASSWD: /bin/systemctl daemon-reload
+SUDOERS
+chmod 440 /etc/sudoers.d/pit-panel
+
 # Setup directories + fix permissions (venv created as root, service runs as pit-panel)
 mkdir -p /etc/pit-panel /var/lib/pit-panel /opt/pit-panel/apps
 chown -R pit-panel:pit-panel /opt/pit-panel /var/lib/pit-panel
