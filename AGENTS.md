@@ -21,6 +21,16 @@
 - E2E tests use Playwright
 - **ALWAYS write/update tests when adding features** — minimum 1 test per new function/module
 - Regression protection: if you fix a bug, write a test that reproduces it first
+- **Run tests after every change**: `uv run pytest -q` before committing
+
+## Critical Files
+- **`packaging/install.sh`** — the Debian installer. If ANY bug is found during remote usage (curl pipe), fix this file immediately. Also run it locally after any change that affects startup, permissions, paths, or systemd units.
+- **`packaging/pit-panel.service`** — systemd unit. Keep `Type=simple`, ensure `ReadWritePaths` includes `.venv/`, never use `MemoryDenyWriteExecute` (breaks Python).
+
+## Commit Rules
+- Every commit MUST pass: `uv run ruff check src/` AND `uv run pytest -q`
+- Fix lint BEFORE committing — never commit with lint errors
+- Fix failing tests BEFORE committing — never commit broken tests
 
 ## Issue Tracking
 - Use `bd` (beads) for ALL task tracking
