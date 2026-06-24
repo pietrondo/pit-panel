@@ -11,7 +11,7 @@ from pit_panel.config import get_settings
 from pit_panel.core.caddy import CaddyManager
 from pit_panel.db.models import AuditLog, Subdomain, User
 from pit_panel.db.session import get_db
-from pit_panel.web.auth import SESSION_COOKIE, unsign_session_token
+from pit_panel.web.auth import SESSION_COOKIE, unsign_session_token, validate_session
 from pit_panel.web.render import render
 from pit_panel.web.router import router
 
@@ -21,11 +21,11 @@ async def _get_user(request: Request, db: AsyncSession) -> User | None:
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:
         return None
-    data = unsign_session_token(settings, cookie)
+    data = unsign_session_token, validate_session(settings, cookie)
     if not data:
         return None
-    result = await db.execute(select(User).where(User.id == data.get("uid")))
-    return result.scalar_one_or_none()
+    user = await validate_session(db, cookie, settings, data.get("uid", 0))
+    return user
 
 
 async def _log_audit(
