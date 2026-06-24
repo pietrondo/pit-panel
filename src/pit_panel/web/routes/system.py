@@ -42,38 +42,35 @@ def _get_git_info():
             capture_output=True, text=True, timeout=10,
             cwd=INSTALL_DIR,
         ).stdout.strip()
-    # Always check GitHub API — git fetch may fail on some VPS networks
+    # Use git ls-remote (same protocol as git clone, most reliable)
     with contextlib.suppress(Exception):
-        import json
-        import ssl
-        import urllib.request
-
-        url = "https://api.github.com/repos/pietrondo/pit-panel/commits/main"
-        ctx = ssl.create_default_context()
-        req = urllib.request.Request(
-            url,
-            headers={
-                "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "pit-panel",
-            },
+        result = subprocess.run(
+            ["git", "ls-remote", "https://github.com/pietrondo/pit-panel.git", "refs/heads/main"],
+            capture_output=True, text=True, timeout=15,
         )
-        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-            data = json.loads(resp.read())
-            api_sha = data.get("sha", "")[:7]
-            if api_sha:
-                remote = api_sha
-    # Fallback: try git remote update
+        if result.returncode == 0 and result.stdout:
+            remote = result.stdout.split()[0][:7]
+    # Fallback: GitHub API
     if remote == "unknown":
         with contextlib.suppress(Exception):
-            subprocess.run(
-                ["git", "remote", "update"], capture_output=True, timeout=30,
-                cwd=INSTALL_DIR,
+            import json
+            import ssl
+            import urllib.request
+
+            url = "https://api.github.com/repos/pietrondo/pit-panel/commits/main"
+            ctx = ssl.create_default_context()
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "Accept": "application/vnd.github.v3+json",
+                    "User-Agent": "pit-panel",
+                },
             )
-            remote = subprocess.run(
-                ["git", "rev-parse", "--short", "origin/main"],
-                capture_output=True, text=True, timeout=10,
-                cwd=INSTALL_DIR,
-            ).stdout.strip()
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                data = json.loads(resp.read())
+                api_sha = data.get("sha", "")[:7]
+                if api_sha:
+                    remote = api_sha
     return current, remote
 
 
