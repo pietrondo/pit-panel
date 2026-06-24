@@ -44,14 +44,27 @@ def _read_log(path: str, tail: int = 500) -> str:
 
 
 def _read_journal(n: int = 200) -> str:
+    # Try direct access first (pit-panel in systemd-journal group)
     try:
         result = subprocess.run(
-            SYSLOG_CMD[:2] + ["-n", str(n)] + SYSLOG_CMD[3:],
+            ["journalctl", "-u", "pit-panel.service", "-n", str(n), "--no-pager"],
             capture_output=True, text=True, timeout=10,
         )
-        return result.stdout[-10000:] if result.stdout else "[empty]"
-    except Exception as e:
-        return f"[journal unavailable: {e}]"
+        if result.stdout.strip():
+            return result.stdout
+    except Exception:
+        pass
+    # Fallback: try with sudo
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "journalctl", "-u", "pit-panel.service", "-n", str(n), "--no-pager"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.stdout.strip():
+            return result.stdout
+    except Exception:
+        pass
+    return "[journal unavailable — pit-panel user needs systemd-journal group]"
 
 
 @router.get("/logs", response_class=HTMLResponse)

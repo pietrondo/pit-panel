@@ -76,6 +76,7 @@ uv sync
 if ! id pit-panel &>/dev/null; then
     useradd -r -s /bin/false -d /opt/pit-panel pit-panel
 fi
+usermod -a -G systemd-journal pit-panel 2>/dev/null || true
 
 # Allow pit-panel to run upgrade + restart without password
 cat > /etc/sudoers.d/pit-panel <<'SUDOERS'
