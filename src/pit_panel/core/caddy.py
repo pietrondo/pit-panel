@@ -39,6 +39,22 @@ class CaddyManager:
             resp.raise_for_status()
             return resp.json() if resp.text else {}
 
+    async def setup_panel_route(
+        self, panel_subdomain: str, base_domain: str, backend_port: int = 8080
+    ) -> dict:
+        fqdn = f"{panel_subdomain}.{base_domain}"
+        route = {
+            "@id": f"panel-{fqdn}",
+            "match": [{"host": [fqdn]}],
+            "handle": [
+                {
+                    "handler": "reverse_proxy",
+                    "upstreams": [{"dial": f"127.0.0.1:{backend_port}"}],
+                }
+            ],
+        }
+        return await self._patch_routes(route)
+
     async def get_certificates(self) -> list[dict]:
         certs = []
         async with httpx.AsyncClient() as client:

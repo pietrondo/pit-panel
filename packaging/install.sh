@@ -54,14 +54,23 @@ chown -R pit-panel:pit-panel /var/lib/pit-panel /opt/pit-panel/apps
 if [ ! -f /etc/pit-panel/config.toml ]; then
     echo "Generating config..."
     SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+    read -rp "Your domain (leave empty for nip.io auto): " BASE_DOMAIN
+    read -rp "Panel subdomain [panel]: " PANEL_SUB
+    PANEL_SUB=${PANEL_SUB:-panel}
     cat > /etc/pit-panel/config.toml <<EOF
 secret_key = "$SECRET"
-base_domain = "CHANGE_ME"
+base_domain = "$BASE_DOMAIN"
+panel_subdomain = "$PANEL_SUB"
 debug = false
 EOF
     chmod 640 /etc/pit-panel/config.toml
     chown root:pit-panel /etc/pit-panel/config.toml
-    echo "Edit /etc/pit-panel/config.toml and set your base_domain"
+    if [ -n "$BASE_DOMAIN" ]; then
+        echo "Panel will be at: https://${PANEL_SUB}.${BASE_DOMAIN}"
+    else
+        echo "Panel will be at: http://$(hostname -I | awk '{print $1}'):8080"
+        echo "Configure base_domain later for HTTPS"
+    fi
 fi
 
 # Install systemd units

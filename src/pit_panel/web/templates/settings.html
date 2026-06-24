@@ -17,6 +17,14 @@
                 <dd class="text-sm font-mono text-gray-900 dark:text-white">0.1.0</dd>
             </div>
             <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Panel URL</dt>
+                <dd class="text-sm font-mono text-brand-600 dark:text-brand-400">{{ settings.panel_url }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Panel Subdomain</dt>
+                <dd class="text-sm font-mono text-gray-900 dark:text-white">{{ settings.panel_subdomain }}</dd>
+            </div>
+            <div>
                 <dt class="text-xs text-gray-500 dark:text-gray-400">Base Domain</dt>
                 <dd class="text-sm font-mono text-gray-900 dark:text-white">
                     {{ settings.base_domain or 'Not set (auto)' }}

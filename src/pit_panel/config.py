@@ -28,12 +28,17 @@ class Settings(BaseSettings):
     # Caddy
     caddy_admin_url: str = "http://127.0.0.1:2019"
     base_domain: str = ""
+    panel_subdomain: str = "panel"
 
     @property
     def effective_domain(self) -> str:
         if self.base_domain:
             return self.base_domain
         return f"{self._detect_ip().replace('.', '-')}.nip.io"
+
+    @property
+    def panel_url(self) -> str:
+        return f"https://{self.panel_subdomain}.{self.effective_domain}"
 
     @staticmethod
     def _detect_ip() -> str:

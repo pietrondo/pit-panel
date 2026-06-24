@@ -33,6 +33,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
         "dashboard.html",
         user=user,
         subdomains=subdomains,
+        settings=settings,
         stats={
             "subdomain_count": len(subdomains),
             "apps_running": 0,

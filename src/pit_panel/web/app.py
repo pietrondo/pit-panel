@@ -34,6 +34,16 @@ limiter = Limiter(key_func=get_remote_address)
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db(app.state.settings)
+    s = app.state.settings
+    if s.effective_domain and s.panel_subdomain:
+        import contextlib as _cl
+
+        caddy = None
+        from pit_panel.core.caddy import CaddyManager
+
+        caddy = CaddyManager(s.caddy_admin_url)
+        with _cl.suppress(Exception):
+            await caddy.setup_panel_route(s.panel_subdomain, s.effective_domain, s.port)
     yield
 
 
