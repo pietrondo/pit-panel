@@ -30,8 +30,10 @@ async def _get_admin(request: Request, db: AsyncSession) -> User | None:
     return None
 
 
+from fastapi import Response
+
 @router.get("/security", response_class=HTMLResponse)
-async def security_overview(request: Request, db: AsyncSession = Depends(get_db)):
+async def security_overview(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
     user = await _get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -72,12 +74,13 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
 async def security_unban(
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> Response:
     form = await request.form()
-    ip = form.get("ip", "")
+    ip_raw = form.get("ip", "")
 
-    if isinstance(ip, str):
-        ip = ip.strip()
+    ip: str = ""
+    if isinstance(ip_raw, str):
+        ip = ip_raw.strip()
 
     user = await _get_admin(request, db)
     if not user:
@@ -124,13 +127,17 @@ async def security_unban(
 async def security_revoke_session(
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> Response:
     user = await _get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
     form = await request.form()
-    session_id = int(form.get("session_id", 0))
+    session_id_raw = form.get("session_id", "0")
+    session_id = 0
+    if isinstance(session_id_raw, str) and session_id_raw.isdigit():
+        session_id = int(session_id_raw)
+
     if session_id:
         await revoke_session(db, session_id)
 
