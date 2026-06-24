@@ -138,8 +138,11 @@ sleep 2
 if systemctl is-active --quiet pit-panel.service; then
     echo "pit-panel service is running."
 else
-    echo "WARNING: pit-panel service failed to start."
-    echo "Check logs: journalctl -xeu pit-panel.service -n 30"
+    echo ""
+    echo "=== SERVICE FAILED - last 20 log lines ==="
+    journalctl -xeu pit-panel.service -n 20 --no-pager 2>/dev/null || true
+    echo "=== END LOG ==="
+    echo ""
 fi
 
 echo ""
