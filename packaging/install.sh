@@ -80,9 +80,14 @@ usermod -a -G systemd-journal pit-panel 2>/dev/null || true
 
 # Allow pit-panel to run upgrade + restart without password
 cat > /etc/sudoers.d/pit-panel <<'SUDOERS'
-pit-panel ALL=(root) NOPASSWD: /opt/pit-panel/scripts/upgrade.sh
-pit-panel ALL=(root) NOPASSWD: /bin/systemctl restart pit-panel.service
-pit-panel ALL=(root) NOPASSWD: /bin/systemctl daemon-reload
+pit-panel ALL=(root) NOPASSWD: /usr/bin/git -C /opt/pit-panel *
+pit-panel ALL=(root) NOPASSWD: /usr/bin/uv -C /opt/pit-panel *
+pit-panel ALL=(root) NOPASSWD: /usr/bin/uv --directory /opt/pit-panel *
+pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload
+pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl restart pit-panel.service
+pit-panel ALL=(root) NOPASSWD: /bin/cp /opt/pit-panel/packaging/*.service /etc/systemd/system/
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/usermod -a -G systemd-journal pit-panel
+pit-panel ALL=(root) NOPASSWD: /usr/bin/journalctl -u pit-panel.service *
 SUDOERS
 chmod 440 /etc/sudoers.d/pit-panel
 

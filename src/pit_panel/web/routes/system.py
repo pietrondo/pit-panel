@@ -1,10 +1,8 @@
-"""System: upgrade check and trigger with self-restart."""
+"""System: upgrade check and trigger via sudo."""
 
 import contextlib
 import datetime as dt
-import os
 import subprocess
-import sys
 
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -19,6 +17,18 @@ from pit_panel.web.render import render
 from pit_panel.web.router import router
 
 INSTALL_DIR = "/opt/pit-panel"
+
+
+def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess:
+    """Run a privileged command via sudo -n (non-interactive, no password prompt).
+
+    Required because pit-panel runs under systemd ProtectSystem=strict
+    and cannot write to /opt/pit-panel/.git/ or /etc/systemd/system/.
+    """
+    return subprocess.run(
+        ["sudo", "-n", *cmd],
+        capture_output=True, text=True, timeout=timeout,
+    )
 
 
 async def _get_admin(request: Request, db: AsyncSession) -> User | None:
@@ -107,43 +117,38 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    # Run git operations directly in-process
-    result_msg = ""
-    try:
-        subprocess.run(
-            ["git", "fetch", "origin", "--prune"],
-            capture_output=True, timeout=60, cwd=INSTALL_DIR,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "reset", "--hard", "origin/main"],
-            capture_output=True, timeout=30, cwd=INSTALL_DIR,
-            check=True,
-        )
-        subprocess.run(
-            ["uv", "sync"], capture_output=True, timeout=120, cwd=INSTALL_DIR, check=True
-        )
-        # Try to copy service file (may fail if no sudo)
-        with contextlib.suppress(Exception):
-            subprocess.run(
-                ["cp", f"{INSTALL_DIR}/packaging/pit-panel.service",
-                 "/etc/systemd/system/pit-panel.service"],
-                capture_output=True, timeout=10,
-            )
-            subprocess.run(
-                ["systemctl", "daemon-reload"], capture_output=True, timeout=10,
-            )
-        result_msg = "Upgrade complete. Restarting..."
-    except subprocess.CalledProcessError as e:
-        result_msg = f"Upgrade failed: {e.stderr[:200] if e.stderr else e}"
+    # All privileged operations run via sudo -n.
+    # The pit-panel service runs under systemd ProtectSystem=strict
+    # and cannot write to /opt/pit-panel/.git/ or /etc/systemd/system/.
+    steps = [
+        (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60),
+        (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30),
+        (["uv", "--directory", INSTALL_DIR, "sync"], 180),
+        (["cp", f"{INSTALL_DIR}/packaging/pit-panel.service",
+          "/etc/systemd/system/pit-panel.service"], 10),
+        (["systemctl", "daemon-reload"], 10),
+        (["systemctl", "restart", "pit-panel.service"], 30),
+    ]
 
-    # Log to update history
+    log_lines: list[str] = []
+    ok = True
+    for cmd, timeout in steps:
+        result = _sudo(cmd, timeout=timeout)
+        if result.returncode != 0:
+            err = (result.stderr or result.stdout or "").strip()[:200]
+            log_lines.append(f"FAIL {' '.join(cmd)}: {err}")
+            ok = False
+            break
+        log_lines.append(f"OK   {' '.join(cmd)}")
+
+    result_msg = "\n".join(log_lines) if log_lines else "no steps ran"
+
     try:
         current, _ = _get_git_info()
         entry = UpdateHistory(
             version_from=current,
             version_to="latest",
-            status="completed" if "complete" in result_msg else "failed",
+            status="completed" if ok else "failed",
             started_at=dt.datetime.now(dt.UTC),
             completed_at=dt.datetime.now(dt.UTC),
         )
@@ -151,10 +156,6 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
         await db.commit()
     except Exception:
         pass
-
-    # Self-restart: replace current process with new code
-    if "complete" in result_msg:
-        os.execv(sys.executable, [sys.executable, "-c", "from pit_panel.main import main; main()"])
 
     current, remote = _get_git_info()
     return render(
