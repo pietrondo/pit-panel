@@ -10,8 +10,26 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from pit_panel.config import Settings, init_settings
-from pit_panel.db.session import init_db
+from pit_panel.db.session import get_sessionmaker, init_db
+from pit_panel.security.ipban import is_ip_banned
 from pit_panel.web.router import router
+
+
+async def _ip_ban_middleware(request: Request, call_next):
+    client_ip = request.client.host if request.client else "unknown"
+    try:
+        sessionmaker = get_sessionmaker()
+        async with sessionmaker() as db:
+            if await is_ip_banned(db, client_ip):
+                from fastapi.responses import JSONResponse
+
+                return JSONResponse(
+                    {"detail": "IP banned due to suspicious activity"},
+                    status_code=403,
+                )
+    except Exception:
+        pass
+    return await call_next(request)
 
 
 async def _security_headers_middleware(request: Request, call_next):
@@ -62,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.limiter = limiter
 
     app.add_exception_handler(RateLimitExceeded, _make_ratelimit_handler())
+    app.middleware("http")(_ip_ban_middleware)
     app.middleware("http")(_security_headers_middleware)
 
     static_dir = Path(__file__).parent / "static"
@@ -76,9 +95,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         auth_routes,
         containers,
         dashboard,
+        security,
         settings,
         ssl,
         subdomains,
+        system,
     )
 
     app.include_router(router)

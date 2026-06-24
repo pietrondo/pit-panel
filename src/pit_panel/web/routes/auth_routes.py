@@ -12,6 +12,7 @@ from pit_panel.config import get_settings
 from pit_panel.db.models import User
 from pit_panel.db.session import get_db
 from pit_panel.security.crypto import hash_token, verify_password
+from pit_panel.security.ipban import record_login_attempt
 from pit_panel.security.totp import generate_totp_secret, get_totp_uri, verify_totp
 from pit_panel.web.auth import (
     SESSION_COOKIE,
@@ -45,6 +46,9 @@ async def login_post(
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(password, user.password_hash):
+        await record_login_attempt(
+            db, request.client.host if request.client else "unknown", username, False
+        )
         return render("login.html", error="Invalid credentials")
 
     if user.totp_enabled:
@@ -55,6 +59,9 @@ async def login_post(
                 "login.html", totp_required=True, username=username, error=None
             )
         if not verify_totp(user.totp_secret or "", totp_code):
+            await record_login_attempt(
+                db, request.client.host if request.client else "unknown", username, False
+            )
             return render(
                 "login.html",
                 totp_required=True,
@@ -75,6 +82,10 @@ async def login_post(
 
     user.last_login = datetime.datetime.now(datetime.UTC)
     await db.commit()
+
+    await record_login_attempt(
+        db, request.client.host if request.client else "unknown", username, True
+    )
 
     resp = RedirectResponse("/", status_code=302)
     resp.set_cookie(

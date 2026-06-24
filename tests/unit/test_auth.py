@@ -33,11 +33,17 @@ class TestAppFactory:
         app = create_app(settings)
         assert app.title == "pit-panel"
 
-    def test_app_health_endpoint(self, settings):
+    def test_app_health_endpoint(self, settings, monkeypatch):
+        import tempfile
         from fastapi.testclient import TestClient
 
+        from pit_panel.config import Settings, init_settings
         from pit_panel.web.app import create_app
 
+        tmpdir = tempfile.mkdtemp()
+        settings = Settings(secret_key="test", database_url=f"sqlite+aiosqlite:///{tmpdir}/test.db")
+        init_settings()
+        monkeypatch.setattr("pit_panel.config._settings", settings)
         app = create_app(settings)
         client = TestClient(app)
         resp = client.get("/health")

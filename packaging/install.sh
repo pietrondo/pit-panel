@@ -1,8 +1,26 @@
 #!/bin/bash
 set -euo pipefail
 
+# When piped from curl, stdin may not be available for read.
+# Save stdin from /dev/tty if available, else use default values.
+if [ -t 0 ]; then
+    INPUT_TTY=/dev/tty
+else
+    INPUT_TTY=/dev/stdin
+fi
+
 echo "=== pit-panel installer ==="
 echo ""
+
+# Check if running interactively
+INTERACTIVE=true
+if [ ! -t 0 ]; then
+    echo "WARNING: Non-interactive mode. Using defaults."
+    echo "Run directly from a terminal for full setup:"
+    echo "  wget https://raw.githubusercontent.com/pietrondo/pit-panel/main/packaging/install.sh"
+    echo "  sudo bash install.sh"
+    INTERACTIVE=false
+fi
 
 # Check system
 if ! command -v python3 &>/dev/null; then
@@ -54,9 +72,16 @@ chown -R pit-panel:pit-panel /var/lib/pit-panel /opt/pit-panel/apps
 if [ ! -f /etc/pit-panel/config.toml ]; then
     echo "Generating config..."
     SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-    read -rp "Your domain (leave empty for nip.io auto): " BASE_DOMAIN
-    read -rp "Panel subdomain [panel]: " PANEL_SUB
-    PANEL_SUB=${PANEL_SUB:-panel}
+    BASE_DOMAIN=""
+    PANEL_SUB="panel"
+    if $INTERACTIVE; then
+        read -rp "Your domain (leave empty for nip.io auto): " BASE_DOMAIN <"$INPUT_TTY"
+        read -rp "Panel subdomain [panel]: " PANEL_SUB_TMP <"$INPUT_TTY"
+        PANEL_SUB=${PANEL_SUB_TMP:-panel}
+    else
+        BASE_DOMAIN="${PITPANEL_DOMAIN:-}"
+        PANEL_SUB="${PITPANEL_PANEL_SUB:-panel}"
+    fi
     cat > /etc/pit-panel/config.toml <<EOF
 secret_key = "$SECRET"
 base_domain = "$BASE_DOMAIN"
@@ -81,28 +106,48 @@ systemctl daemon-reload
 
 # Create admin user
 echo ""
-read -rp "Admin username: " ADMIN_USER
-read -rsp "Admin password: " ADMIN_PASS
-echo ""
-read -rp "Admin email: " ADMIN_EMAIL
+ADMIN_USER="${PITPANEL_ADMIN_USER:-}"
+ADMIN_PASS="${PITPANEL_ADMIN_PASS:-}"
+ADMIN_EMAIL="${PITPANEL_ADMIN_EMAIL:-}"
 
-uv run pit-panel-admin create-admin --username "$ADMIN_USER" --password "$ADMIN_PASS" --email "$ADMIN_EMAIL"
+if $INTERACTIVE && [ -z "$ADMIN_USER" ]; then
+    read -rp "Admin username: " ADMIN_USER <"$INPUT_TTY"
+    read -rsp "Admin password: " ADMIN_PASS <"$INPUT_TTY"
+    echo ""
+    read -rp "Admin email: " ADMIN_EMAIL <"$INPUT_TTY"
+fi
+
+if [ -n "$ADMIN_USER" ] && [ -n "$ADMIN_PASS" ] && [ -n "$ADMIN_EMAIL" ]; then
+    uv run pit-panel-admin create-admin --username "$ADMIN_USER" --password "$ADMIN_PASS" --email "$ADMIN_EMAIL"
+else
+    echo "Skipping admin creation (no credentials provided)."
+    echo "Run manually: uv run pit-panel-admin create-admin --username <user> --password <pass> --email <email>"
+fi
 
 # Enable and start
 systemctl enable --now pit-panel.service pit-panel-updater.timer
 
 echo ""
 echo "=== pit-panel installed ==="
-if [ -n "$BASE_DOMAIN" ]; then
-    echo ""
-    echo "Panel URL: https://${PANEL_SUB}.${BASE_DOMAIN}"
-    echo ""
-    echo "IMPORTANT: Configure Caddy with DNS-01 challenge:"
-    echo "  1. Edit /etc/caddy/Caddyfile (see docker/caddy/Caddyfile.tpl)"
-    echo "  2. Add your DNS API token (Cloudflare, DO, Route53...)"
-    echo "  3. systemctl restart caddy"
+if $INTERACTIVE; then
+    if [ -n "$BASE_DOMAIN" ]; then
+        echo ""
+        echo "Panel URL: https://${PANEL_SUB}.${BASE_DOMAIN}"
+        echo ""
+        echo "IMPORTANT: Configure Caddy with DNS-01 challenge:"
+        echo "  1. Edit /etc/caddy/Caddyfile (see /opt/pit-panel/docker/caddy/Caddyfile.tpl)"
+        echo "  2. Add your DNS API token (Cloudflare, DO, Route53...)"
+        echo "  3. systemctl restart caddy"
+    else
+        echo "Access at: http://$(hostname -I | awk '{print $1}'):8080"
+    fi
 else
-    echo "Access at: http://$(hostname -I | awk '{print $1}'):8080"
+    echo "Panel started on http://$(hostname -I | awk '{print $1}'):8080"
 fi
 echo ""
-echo "Upgrade:  curl -fsSL https://raw.githubusercontent.com/pietrondo/pit-panel/main/scripts/upgrade.sh | bash"
+echo "Upgrade:  sudo bash /opt/pit-panel/scripts/upgrade.sh"
+echo ""
+if [ -z "${ADMIN_USER:-}" ]; then
+    echo "Create admin user:"
+    echo "  sudo -u pit-panel /opt/pit-panel/.venv/bin/pit-panel-admin create-admin --username admin --password secret --email a@b.com"
+fi

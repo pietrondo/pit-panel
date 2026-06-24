@@ -19,6 +19,8 @@
 - `uv run pytest` for all tests
 - Integration tests use testcontainers
 - E2E tests use Playwright
+- **ALWAYS write/update tests when adding features** — minimum 1 test per new function/module
+- Regression protection: if you fix a bug, write a test that reproduces it first
 
 ## Issue Tracking
 - Use `bd` (beads) for ALL task tracking
