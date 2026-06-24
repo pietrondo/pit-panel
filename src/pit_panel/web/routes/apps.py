@@ -1,6 +1,7 @@
 """App deployment wizard routes."""
 
 import contextlib
+import datetime
 
 from fastapi import Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -82,7 +83,7 @@ async def app_deploy(
         await docker_mgr.compose_up(sd.subdomain)
 
     sd.app_type = stack_type
-    sd.last_deployed = __import__("datetime").datetime.now(__import__("datetime").UTC)
+    sd.last_deployed = datetime.datetime.now(datetime.UTC)
 
     deployment = AppDeployment(
         subdomain_id=sd.id,
