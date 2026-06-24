@@ -21,7 +21,7 @@ from pit_panel.web.router import router
 INSTALL_DIR = "/opt/pit-panel"
 
 
-def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess:
+def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
     """Run a privileged command via sudo -n (non-interactive, no password prompt).
 
     Required because pit-panel runs under systemd ProtectSystem=strict
