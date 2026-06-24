@@ -16,7 +16,8 @@ echo "Current version: $CURRENT"
 
 # Fetch latest
 echo "Fetching updates..."
-git fetch origin "$BRANCH" --tags
+git fetch origin --prune
+git fetch origin --tags 2>/dev/null || true
 
 REMOTE=$(git rev-parse --short "origin/$BRANCH")
 echo "Remote version:  $REMOTE"
