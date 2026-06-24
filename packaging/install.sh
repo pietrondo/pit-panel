@@ -66,7 +66,10 @@ fi
 
 # Setup directories
 mkdir -p /etc/pit-panel /var/lib/pit-panel /opt/pit-panel/apps
-chown -R pit-panel:pit-panel /var/lib/pit-panel /opt/pit-panel/apps
+chown -R pit-panel:pit-panel /opt/pit-panel /var/lib/pit-panel
+
+# Fix: ensure pit-panel can read its own files (venv was created as root)
+chmod -R u+rwX /opt/pit-panel/.venv 2>/dev/null || true
 
 # Generate config if missing
 if [ ! -f /etc/pit-panel/config.toml ]; then
@@ -129,25 +132,22 @@ systemctl enable --now pit-panel.service pit-panel-updater.timer
 
 echo ""
 echo "=== pit-panel installed ==="
+echo ""
+echo "Debug:    journalctl -xeu pit-panel.service"
+echo "Status:   systemctl status pit-panel.service"
+echo "Restart:  systemctl restart pit-panel.service"
 if $INTERACTIVE; then
     if [ -n "$BASE_DOMAIN" ]; then
-        echo ""
-        echo "Panel URL: https://${PANEL_SUB}.${BASE_DOMAIN}"
-        echo ""
-        echo "IMPORTANT: Configure Caddy with DNS-01 challenge:"
-        echo "  1. Edit /etc/caddy/Caddyfile (see /opt/pit-panel/docker/caddy/Caddyfile.tpl)"
-        echo "  2. Add your DNS API token (Cloudflare, DO, Route53...)"
-        echo "  3. systemctl restart caddy"
+        echo "Panel:    https://${PANEL_SUB}.${BASE_DOMAIN}"
     else
-        echo "Access at: http://$(hostname -I | awk '{print $1}'):8080"
+        echo "Panel:    http://$(hostname -I | awk '{print $1}'):8080"
     fi
 else
-    echo "Panel started on http://$(hostname -I | awk '{print $1}'):8080"
+    echo "Panel:    http://$(hostname -I | awk '{print $1}'):8080"
 fi
-echo ""
 echo "Upgrade:  sudo bash /opt/pit-panel/scripts/upgrade.sh"
 echo ""
 if [ -z "${ADMIN_USER:-}" ]; then
     echo "Create admin user:"
-    echo "  sudo -u pit-panel /opt/pit-panel/.venv/bin/pit-panel-admin create-admin --username admin --password secret --email a@b.com"
+    echo "  cd /opt/pit-panel && uv run pit-panel-admin create-admin --username admin --password secret --email a@b.com"
 fi

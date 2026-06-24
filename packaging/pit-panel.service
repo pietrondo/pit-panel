@@ -1,21 +1,22 @@
 [Unit]
 Description=pit-panel VPS Management Panel
-After=network-online.target docker.service caddy.service
-Wants=network-online.target docker.service
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-Type=notify
+Type=simple
 User=pit-panel
 Group=pit-panel
 WorkingDirectory=/opt/pit-panel
 Environment="PATH=/opt/pit-panel/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="PITPANEL_CONFIG_PATH=/etc/pit-panel/config.toml"
+ExecStartPre=/bin/mkdir -p /var/lib/pit-panel /opt/pit-panel/apps
+ExecStartPre=/bin/chown pit-panel:pit-panel /var/lib/pit-panel /opt/pit-panel/apps
 ExecStart=/opt/pit-panel/.venv/bin/python -m pit_panel
 Restart=on-failure
 RestartSec=10
-WatchdogSec=30
 
-# Sandboxing
+# Sandboxing (compatible with Python)
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
@@ -25,17 +26,15 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-RestrictNamespaces=true
 RestrictRealtime=true
 LockPersonality=true
-MemoryDenyWriteExecute=true
 
-# Filesystem access
-ReadWritePaths=/var/lib/pit-panel /opt/pit-panel/apps
+# Filesystem access — venv + data + apps
+ReadWritePaths=/opt/pit-panel/.venv /var/lib/pit-panel /opt/pit-panel/apps
 StateDirectory=pit-panel
 ConfigurationDirectory=pit-panel
 
-# Capabilities
+# Capabilities (none needed)
 CapabilityBoundingSet=
 AmbientCapabilities=
 
