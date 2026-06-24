@@ -44,7 +44,7 @@ def _get_git_info():
         ).stdout.strip()
     with contextlib.suppress(Exception):
         subprocess.run(
-            ["git", "fetch", "origin", "main"], capture_output=True, timeout=30,
+            ["git", "fetch", "origin"], capture_output=True, timeout=30,
             cwd=INSTALL_DIR,
         )
         remote = subprocess.run(
