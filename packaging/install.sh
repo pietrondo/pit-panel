@@ -93,6 +93,7 @@ if [ ! -f /etc/pit-panel/config.toml ]; then
 secret_key = "$SECRET"
 base_domain = "$BASE_DOMAIN"
 panel_subdomain = "$PANEL_SUB"
+host = "0.0.0.0"
 debug = false
 EOF
     chmod 640 /etc/pit-panel/config.toml
@@ -128,6 +129,12 @@ if [ -n "$ADMIN_USER" ] && [ -n "$ADMIN_PASS" ] && [ -n "$ADMIN_EMAIL" ]; then
     uv run pit-panel-admin create-admin --username "$ADMIN_USER" --password "$ADMIN_PASS" --email "$ADMIN_EMAIL"
 else
     echo "Skipping admin creation (no credentials provided)."
+fi
+
+# Firewall — allow panel port if no domain (direct access)
+if [ -z "$BASE_DOMAIN" ] && command -v ufw &>/dev/null; then
+    ufw allow 8080/tcp comment "pit-panel" 2>/dev/null || true
+    echo "UFW: allowed port 8080"
 fi
 
 # Start services (will restart if already running from previous install)
