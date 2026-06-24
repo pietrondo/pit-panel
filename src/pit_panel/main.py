@@ -19,6 +19,10 @@ def main():
     port = args.port or settings.port
     reload = args.reload or settings.debug
 
+    # When no domain configured, bind to all interfaces for direct IP access
+    if not settings.base_domain and host == "127.0.0.1":
+        host = "0.0.0.0"
+
     uvicorn.run(
         "pit_panel.web.app:create_app",
         host=host,

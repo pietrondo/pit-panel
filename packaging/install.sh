@@ -62,6 +62,13 @@ fi
 
 # Setup project
 echo "Setting up environment..."
+
+# Ensure host=0.0.0.0 for direct IP access when no domain
+if [ -f /etc/pit-panel/config.toml ] && ! grep -q '^host = "0\.0\.0\.0"' /etc/pit-panel/config.toml 2>/dev/null; then
+    sed -i '/^host =/d' /etc/pit-panel/config.toml 2>/dev/null || true
+    echo 'host = "0.0.0.0"' >> /etc/pit-panel/config.toml
+fi
+
 cd "$INSTALL_DIR"
 uv sync
 
