@@ -99,12 +99,15 @@ async def login_post(
     )
 
     resp = RedirectResponse("/", status_code=302)
+    is_https = request.url.scheme == "https" or (
+        request.headers.get("x-forwarded-proto", "") == "https"
+    )
     resp.set_cookie(
         SESSION_COOKIE,
         final_cookie,
         httponly=True,
-        secure=not settings.debug,
-        samesite="strict",
+        secure=is_https,
+        samesite="strict" if is_https else "lax",
         max_age=settings.session_duration_hours * 3600,
     )
     return resp
