@@ -1,6 +1,6 @@
 """Security overview: IP bans, login attempts, active sessions."""
 
-from fastapi import Depends, Request
+from fastapi import Depends, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +30,6 @@ async def _get_admin(request: Request, db: AsyncSession) -> User | None:
     return None
 
 
-from fastapi import Response
 
 @router.get("/security", response_class=HTMLResponse)
 async def security_overview(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
