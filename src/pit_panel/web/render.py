@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi.responses import HTMLResponse
 
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 _templates = None
 
