@@ -1,0 +1,7 @@
+{
+    "name": "Node.js",
+    "version": "1.0",
+    "description": "Generic Node.js application",
+    "requires_db": false,
+    "default_port": 3000
+}

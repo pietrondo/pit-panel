@@ -1,0 +1,7 @@
+{
+    "name": "WordPress",
+    "version": "1.0",
+    "description": "WordPress with MySQL database",
+    "requires_db": true,
+    "default_port": 8081
+}

@@ -1,0 +1,43 @@
+[Unit]
+Description=pit-panel self-updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pit-panel
+Group=pit-panel
+WorkingDirectory=/opt/pit-panel
+Environment="PATH=/opt/pit-panel/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/opt/pit-panel/.venv/bin/python -c "
+import asyncio, subprocess, sys
+from pit_panel.config import Settings
+from pit_panel.core.updater import Updater
+from pit_panel.core.health import check_post_update
+
+async def run():
+    settings = Settings.from_config_file()
+    updater = Updater(settings)
+    sha = await updater.check_for_updates()
+    if sha is None:
+        print('No updates available')
+        return
+    applied = await updater.apply_update(sha)
+    if not applied:
+        sys.exit(1)
+    subprocess.run(['systemctl', 'restart', 'pit-panel.service'])
+    ok = await check_post_update()
+    if not ok:
+        await updater.rollback()
+        subprocess.run(['systemctl', 'restart', 'pit-panel.service'])
+        sys.exit(1)
+    print(f'Updated to {sha[:8]}')
+
+asyncio.run(run())
+"
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/pit-panel /opt/pit-panel
+CapabilityBoundingSet=

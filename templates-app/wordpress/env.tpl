@@ -1,0 +1,4 @@
+DB_NAME=wordpress
+DB_USER=wordpress
+DB_PASSWORD=CHANGE_ME
+PORT=8081

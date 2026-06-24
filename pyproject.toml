@@ -1,0 +1,72 @@
+[project]
+name = "pit-panel"
+version = "0.1.0"
+description = "VPS Management Panel - cPanel alternative for Debian"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "pietrondo" }]
+readme = "README.md"
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.18",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "aiosqlite>=0.20.0",
+    "alembic>=1.14.0",
+    "bcrypt>=4.2.0",
+    "pyotp>=2.9.0",
+    "itsdangerous>=2.2.0",
+    "pydantic-settings>=2.7.0",
+    "python-dotenv>=1.0.0",
+    "slowapi>=0.1.9",
+    "cryptography>=44.0.0",
+    "tomli>=2.2.0",
+    "qrcode[pil]>=8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "pytest-httpx>=0.35.0",
+    "httpx>=0.28.0",
+    "ruff>=0.9.0",
+    "mypy>=1.14.0",
+    "pre-commit>=4.0.0",
+    "testcontainers>=4.9.0",
+    "playwright>=1.50.0",
+]
+
+[project.scripts]
+pit-panel = "pit_panel.main:main"
+pit-panel-admin = "pit_panel.cli.admin:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/pit_panel/web/app.py" = ["B008"]
+"src/pit_panel/web/deps.py" = ["B008"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"

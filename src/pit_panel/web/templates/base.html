@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pit-panel{% if title %} - {{ title }}{% endif %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+        .htmx-request .htmx-indicator { opacity: 1; }
+        .htmx-request.htmx-indicator { opacity: 1; }
+        .toast { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .card { @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700; }
+        .stat-card { @apply card p-6; }
+        .stat-value { @apply text-3xl font-bold text-gray-900 dark:text-white; }
+        .stat-label { @apply text-sm text-gray-500 dark:text-gray-400 mt-1; }
+        .btn { @apply px-4 py-2 rounded-lg font-medium text-sm transition-colors duration-150; }
+        .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2; }
+        .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
+        .btn-ghost { @apply btn text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700; }
+        .input { @apply w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none; }
+        .label { @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1; }
+    </style>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100"
+      x-data="{ dark: localStorage.getItem('dark') === 'true', sidebarOpen: true }"
+      x-init="$watch('dark', v => { localStorage.setItem('dark', v); document.documentElement.classList.toggle('dark', v) }); document.documentElement.classList.toggle('dark', dark)">
+    <div class="flex h-full">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col"
+               :class="{ 'hidden': !sidebarOpen }">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-800">
+                <a href="/" class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                    <span class="font-bold text-lg text-gray-900 dark:text-white">pit-panel</span>
+                </a>
+            </div>
+            <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+                <a href="/" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"/>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="/subdomains" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/>
+                    </svg>
+                    Subdomains
+                </a>
+                <a href="/apps" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M4 7c0-2 1-3 3-3h10c2 0 3 1 3 3M4 7h16"/>
+                    </svg>
+                    Apps
+                </a>
+                <a href="/containers" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                    Containers
+                </a>
+                {% if user and user.is_admin %}
+                <a href="/settings" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    Settings
+                </a>
+                {% endif %}
+            </nav>
+            <div class="p-3 border-t border-gray-200 dark:border-gray-800">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">v0.1.0</span>
+                    <button @click="dark = !dark" class="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
+                        <svg x-show="!dark" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                        </svg>
+                        <svg x-show="dark" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                    </button>
+                    <a href="/logout" class="btn-ghost text-xs">Logout</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <main class="flex-1 overflow-y-auto">
+            <!-- Top bar -->
+            <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-3 flex items-center justify-between">
+                <button @click="sidebarOpen = !sidebarOpen" class="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <div class="flex items-center gap-3 ml-auto">
+                    {% if user %}
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-brand-100 dark:bg-brand-900 rounded-full flex items-center justify-center">
+                            <span class="text-sm font-medium text-brand-700 dark:text-brand-300">{{ user.username[0].upper() }}</span>
+                        </div>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ user.username }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </header>
+
+            <!-- Page content -->
+            <div class="p-6">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toasts" class="fixed top-4 right-4 z-50 space-y-2" x-data></div>
+</body>
+</html>

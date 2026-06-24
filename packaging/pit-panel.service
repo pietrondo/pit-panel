@@ -1,0 +1,43 @@
+[Unit]
+Description=pit-panel VPS Management Panel
+After=network-online.target docker.service caddy.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=notify
+User=pit-panel
+Group=pit-panel
+WorkingDirectory=/opt/pit-panel
+Environment="PATH=/opt/pit-panel/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PITPANEL_CONFIG_PATH=/etc/pit-panel/config.toml"
+ExecStart=/opt/pit-panel/.venv/bin/python -m pit_panel
+Restart=on-failure
+RestartSec=10
+WatchdogSec=30
+
+# Sandboxing
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+# Filesystem access
+ReadWritePaths=/var/lib/pit-panel /opt/pit-panel/apps
+StateDirectory=pit-panel
+ConfigurationDirectory=pit-panel
+
+# Capabilities
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

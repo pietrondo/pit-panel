@@ -1,0 +1,7 @@
+{
+    "name": "Static Site",
+    "version": "1.0",
+    "description": "Static HTML site served by Nginx",
+    "requires_db": false,
+    "default_port": 8082
+}

@@ -1,0 +1,7 @@
+{
+    "name": "Custom Compose",
+    "version": "1.0",
+    "description": "Blank template for custom docker-compose.yml",
+    "requires_db": false,
+    "default_port": 8080
+}
