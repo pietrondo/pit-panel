@@ -1,5 +1,7 @@
 """Application log viewer."""
 
+import asyncio
+import collections
 import subprocess
 
 from fastapi import Depends, Request
@@ -34,13 +36,16 @@ async def _get_admin(request: Request, db: AsyncSession) -> User | None:
     return None
 
 
-def _read_log(path: str, tail: int = 500) -> str:
+def _sync_read_log(path: str, tail: int = 500) -> str:
     try:
         with open(path) as f:
-            lines = f.readlines()
-            return "".join(lines[-tail:])
+            return "".join(collections.deque(f, maxlen=tail))
     except (FileNotFoundError, PermissionError):
         return "[log file not found or inaccessible]"
+
+
+async def _read_log(path: str, tail: int = 500) -> str:
+    return await asyncio.to_thread(_sync_read_log, path, tail)
 
 
 def _read_journal(n: int = 200) -> str:
@@ -73,7 +78,7 @@ async def logs_page(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    app_log = _read_log(APP_LOG)
+    app_log = await _read_log(APP_LOG)
     journal = _read_journal()
 
     return render(
@@ -95,7 +100,7 @@ async def journal_partial(request: Request):
 
 @router.get("/logs/applog", response_class=HTMLResponse)
 async def applog_partial(request: Request):
-    app_log = _read_log(APP_LOG)
+    app_log = await _read_log(APP_LOG)
     return HTMLResponse(
         '<pre class="text-xs font-mono text-green-400'
         f' whitespace-pre-wrap">{app_log}</pre>'
