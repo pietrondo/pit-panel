@@ -42,30 +42,30 @@ def _get_git_info():
             capture_output=True, text=True, timeout=10,
             cwd=INSTALL_DIR,
         ).stdout.strip()
+    # Always check GitHub API — git fetch may fail on some VPS networks
     with contextlib.suppress(Exception):
-        subprocess.run(
-            ["git", "remote", "update"], capture_output=True, timeout=30,
-            cwd=INSTALL_DIR,
-        )
-    with contextlib.suppress(Exception):
-        remote = subprocess.run(
-            ["git", "rev-parse", "--short", "origin/main"],
-            capture_output=True, text=True, timeout=10,
-            cwd=INSTALL_DIR,
-        ).stdout.strip()
-    # Fallback: check GitHub API for latest commit SHA
-    if remote == "unknown" or remote == current:
-        with contextlib.suppress(Exception):
-            import json
-            import urllib.request
+        import json
+        import urllib.request
 
-            url = "https://api.github.com/repos/pietrondo/pit-panel/commits/main"
-            req = urllib.request.Request(url, headers={"Accept": "application/vnd.github.v3+json"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read())
-                api_sha = data.get("sha", "")[:7]
-                if api_sha and api_sha != current:
-                    remote = api_sha
+        url = "https://api.github.com/repos/pietrondo/pit-panel/commits/main"
+        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github.v3+json"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            api_sha = data.get("sha", "")[:7]
+            if api_sha:
+                remote = api_sha
+    # Fallback: try git remote update
+    if remote == "unknown":
+        with contextlib.suppress(Exception):
+            subprocess.run(
+                ["git", "remote", "update"], capture_output=True, timeout=30,
+                cwd=INSTALL_DIR,
+            )
+            remote = subprocess.run(
+                ["git", "rev-parse", "--short", "origin/main"],
+                capture_output=True, text=True, timeout=10,
+                cwd=INSTALL_DIR,
+            ).stdout.strip()
     return current, remote
 
 
