@@ -203,22 +203,39 @@ async def ssl_generate(
     )
     result_msg = ""
 
+    # Try loading via Caddy admin API first (preferred)
     try:
-        Path(CADDYFILE_PATH).write_text(caddyfile)
-        if api_token and dns_provider:
-            env_line = f"{api_var}={api_token}\n"
-            env_path = Path("/etc/caddy/.env")
-            if env_path.exists():
-                content = env_path.read_text()
-                if api_var not in content:
-                    env_path.write_text(content + env_line)
+        import httpx
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{get_settings().caddy_admin_url}/load",
+                content=caddyfile.encode(),
+                headers={"Content-Type": "text/caddyfile"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                result_msg = "Config loaded via Caddy admin API. SSL will be provisioned shortly."
             else:
-                env_path.write_text(env_line)
-        result_msg = f"Caddyfile written to {CADDYFILE_PATH}"
-    except PermissionError:
-        result_msg = "Error: permission denied. Run: sudo pit-panel setup SSL"
-    except Exception as e:
-        result_msg = f"Error: {e}"
+                raise Exception(f"HTTP {resp.status_code}")
+    except Exception:
+        # Fallback: write to disk
+        try:
+            Path(CADDYFILE_PATH).write_text(caddyfile)
+            if api_token and dns_provider:
+                env_line = f"{api_var}={api_token}\n"
+                env_path = Path("/etc/caddy/.env")
+                if env_path.exists():
+                    content = env_path.read_text()
+                    if api_var not in content:
+                        env_path.write_text(content + env_line)
+                else:
+                    env_path.write_text(env_line)
+            result_msg = f"Caddyfile written to {CADDYFILE_PATH}. Restart Caddy to apply."
+        except PermissionError:
+            result_msg = "Error: permission denied. Try: sudo systemctl restart caddy"
+        except Exception as e2:
+            result_msg = f"Error: {e2}"
 
     caddy = CaddyManager(settings.caddy_admin_url)
     certs = await caddy.get_certificates()
