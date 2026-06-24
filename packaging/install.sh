@@ -82,6 +82,10 @@ mkdir -p /etc/pit-panel /var/lib/pit-panel /opt/pit-panel/apps
 chown -R pit-panel:pit-panel /opt/pit-panel /var/lib/pit-panel
 chmod -R u+rwX /opt/pit-panel/.venv 2>/dev/null || true
 
+# Defaults
+BASE_DOMAIN="${PITPANEL_DOMAIN:-}"
+PANEL_SUB="${PITPANEL_PANEL_SUB:-panel}"
+
 # Generate config if missing
 if [ ! -f /etc/pit-panel/config.toml ]; then
     echo "Generating config..."
@@ -145,7 +149,7 @@ echo "  Username: $ADMIN_USER"
 echo "  Password: $ADMIN_PASS"
 
 # Firewall — allow panel port if no domain (direct access)
-if [ -z "$BASE_DOMAIN" ] && command -v ufw &>/dev/null; then
+if [ -z "${BASE_DOMAIN:-}" ] && command -v ufw &>/dev/null; then
     ufw allow 8080/tcp comment "pit-panel" 2>/dev/null || true
     echo "UFW: allowed port 8080"
 fi

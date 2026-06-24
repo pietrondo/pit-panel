@@ -80,6 +80,17 @@ async def login_post(
     )
     _, final_cookie = create_session_token(settings, user.id, session_id)
 
+    # Fix: update session token_hash to match cookie
+    data = unsign_session_token(settings, final_cookie)
+    if data:
+        from pit_panel.db.models import Session as DBSession
+
+        sess_result = await db.execute(select(DBSession).where(DBSession.id == session_id))
+        sess_obj = sess_result.scalar_one_or_none()
+        if sess_obj:
+            sess_obj.token_hash = data["tok"]
+            await db.commit()
+
     user.last_login = datetime.datetime.now(datetime.UTC)
     await db.commit()
 
