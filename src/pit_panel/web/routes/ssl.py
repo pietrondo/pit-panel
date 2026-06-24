@@ -74,7 +74,6 @@ def _generate_caddyfile(
     if dns_provider:
         return f"""{{
     email {email}
-    admin off
 }}
 
 *.{domain}, {domain} {{
@@ -98,7 +97,6 @@ def _generate_caddyfile(
 
         return f"""{{
     email {email}
-    admin off
 }}
 
 {panel_sub}.{domain} {{{acme_clause}

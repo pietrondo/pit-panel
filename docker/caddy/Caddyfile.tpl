@@ -13,7 +13,6 @@
 
 {
     email YOUR_EMAIL
-    admin off
 }
 
 # === DNS-01 WILDCARD (uncomment for Cloudflare/DO/Route53) ===
