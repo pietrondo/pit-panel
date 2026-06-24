@@ -19,7 +19,9 @@ def get_serializer(settings: Settings) -> URLSafeTimedSerializer:
     )
 
 
-def create_session_token(settings: Settings, user_id: int, session_id: int, raw: str | None = None) -> tuple[str, str]:
+def create_session_token(
+    settings: Settings, user_id: int, session_id: int, raw: str | None = None
+) -> tuple[str, str]:
     serializer = get_serializer(settings)
     if raw is None:
         raw = secrets.token_urlsafe(64)
