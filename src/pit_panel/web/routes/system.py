@@ -45,11 +45,19 @@ def _get_git_info():
     # Always check GitHub API — git fetch may fail on some VPS networks
     with contextlib.suppress(Exception):
         import json
+        import ssl
         import urllib.request
 
         url = "https://api.github.com/repos/pietrondo/pit-panel/commits/main"
-        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github.v3+json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        ctx = ssl.create_default_context()
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "pit-panel",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             data = json.loads(resp.read())
             api_sha = data.get("sha", "")[:7]
             if api_sha:
