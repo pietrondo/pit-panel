@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block content %}
+{% set title = "Settings" %}
+
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Panel configuration and audit trail</p>
+</div>
+
+<!-- System info -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="card p-6">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">System</h2>
+        <dl class="space-y-3">
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Version</dt>
+                <dd class="text-sm font-mono text-gray-900 dark:text-white">0.1.0</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Base Domain</dt>
+                <dd class="text-sm font-mono text-gray-900 dark:text-white">{{ settings.base_domain or 'Not set' }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Caddy Admin</dt>
+                <dd class="text-sm font-mono text-gray-900 dark:text-white">{{ settings.caddy_admin_url }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Auto Update</dt>
+                <dd class="text-sm text-gray-900 dark:text-white">{{ 'enabled' if settings.auto_update else 'disabled' }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Data Directory</dt>
+                <dd class="text-sm font-mono text-gray-900 dark:text-white text-xs truncate">{{ settings.data_dir }}</dd>
+            </div>
+        </dl>
+    </div>
+
+    <div class="card p-6">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Security</h2>
+        <dl class="space-y-3">
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Session Duration</dt>
+                <dd class="text-sm text-gray-900 dark:text-white">{{ settings.session_duration_hours }} hours</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Rate Limit (login)</dt>
+                <dd class="text-sm font-mono text-gray-900 dark:text-white">{{ settings.rate_limit_login }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Rate Limit (API)</dt>
+                <dd class="text-sm font-mono text-gray-900 dark:text-white">{{ settings.rate_limit_api }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Update Interval</dt>
+                <dd class="text-sm text-gray-900 dark:text-white">Every {{ settings.update_interval_hours }}h</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Security Headers</dt>
+                <dd class="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-green-500"></span> Active
+                </dd>
+            </div>
+        </dl>
+    </div>
+</div>
+
+<!-- Recent audit log -->
+<div class="card">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Audit Log</h2>
+        <a href="/settings/audit" class="btn-ghost text-xs">View All</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700">
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Time</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Action</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Target</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">IP</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for entry in audit_entries %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <td class="px-6 py-2 text-xs text-gray-500 dark:text-gray-400 font-mono">
+                        {{ entry.timestamp.strftime('%Y-%m-%d %H:%M:%S') if entry.timestamp else '-' }}
+                    </td>
+                    <td class="px-6 py-2">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if 'create' in entry.action or 'deploy' in entry.action %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                            {% elif 'delete' in entry.action or 'stop' in entry.action %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                            {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400{% endif %}">
+                            {{ entry.action }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-2 text-xs text-gray-900 dark:text-white">{{ entry.target_type }} #{{ entry.target_id }}</td>
+                    <td class="px-6 py-2 text-xs text-gray-500 dark:text-gray-400 font-mono">{{ entry.ip or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No audit entries yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

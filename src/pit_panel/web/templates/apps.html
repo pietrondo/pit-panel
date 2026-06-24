@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block content %}
+{% set title = "Apps" %}
+
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">App Deployments</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Deploy and manage applications on your subdomains</p>
+</div>
+
+{% if error %}
+<div class="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
+    {{ error }}
+</div>
+{% endif %}
+
+{% if subdomains %}
+<div class="card mb-8">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy New App</h2>
+    </div>
+    <div class="p-6">
+        <form method="POST" action="/apps/deploy" class="flex items-end gap-4">
+            <div class="w-64">
+                <label class="label">Subdomain</label>
+                <select name="subdomain_id" class="input">
+                    {% for sd in subdomains %}
+                    <option value="{{ sd.id }}">{{ sd.subdomain }}.{{ sd.base_domain }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="w-48">
+                <label class="label">Stack</label>
+                <select name="stack_type" class="input">
+                    {% for t in templates %}
+                    <option value="{{ t }}">{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn-primary">Deploy</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- Deployed apps list -->
+<div class="card">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deployed Apps</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700">
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Subdomain</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Stack</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Deployed</th>
+                    <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for sd in subdomains %}
+                {% if sd.app_type %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white">{{ sd.subdomain }}.{{ sd.base_domain }}</td>
+                    <td class="px-6 py-3">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                            {{ sd.app_type }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-3 text-sm text-gray-500 dark:text-gray-400">
+                        {{ sd.last_deployed.strftime('%Y-%m-%d %H:%M') if sd.last_deployed else 'just now' }}
+                    </td>
+                    <td class="px-6 py-3 text-right space-x-2">
+                        <a href="/containers#sd-{{ sd.id }}" class="btn-ghost text-xs">View</a>
+                        <form method="POST" action="/apps/{{ sd.id }}/stop" class="inline">
+                            <button type="submit" class="btn-ghost text-red-600 hover:text-red-700 text-xs">Stop</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+                {% if subdomains|selectattr('app_type')|list|length == 0 %}
+                <tr>
+                    <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No apps deployed yet. Select a subdomain and stack above to deploy.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-6 p-4 card border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
+    <div class="flex gap-3">
+        <span class="text-yellow-600 dark:text-yellow-400 text-lg">&#9888;</span>
+        <div>
+            <p class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Available templates</p>
+            <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                {% for t in templates %}<code class="bg-yellow-100 dark:bg-yellow-900/40 px-1 rounded">{{ t }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

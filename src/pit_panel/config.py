@@ -59,3 +59,19 @@ class Settings(BaseSettings):
         if self.database_url:
             return self.database_url
         return f"sqlite+aiosqlite:///{self.data_dir}/pit-panel.db"
+
+
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    global _settings
+    if _settings is None:
+        _settings = Settings.from_config_file()
+    return _settings
+
+
+def init_settings(path: str | None = None) -> Settings:
+    global _settings
+    _settings = Settings.from_config_file(path)
+    return _settings

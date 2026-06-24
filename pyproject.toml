@@ -24,6 +24,7 @@ dependencies = [
     "cryptography>=44.0.0",
     "tomli>=2.2.0",
     "qrcode[pil]>=8.0",
+    "httpx>=0.28.0",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +56,7 @@ target-version = "py311"
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
+"src/pit_panel/web/routes/*.py" = ["B008"]
 "src/pit_panel/web/app.py" = ["B008"]
 "src/pit_panel/web/deps.py" = ["B008"]
 

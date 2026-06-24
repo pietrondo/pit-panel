@@ -1,0 +1,159 @@
+"""Subdomain CRUD routes with Caddy integration and audit logging."""
+
+import contextlib
+
+from fastapi import Depends, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from pit_panel.config import get_settings
+from pit_panel.core.caddy import CaddyManager
+from pit_panel.db.models import AuditLog, Subdomain, User
+from pit_panel.db.session import get_db
+from pit_panel.web.auth import SESSION_COOKIE, unsign_session_token
+from pit_panel.web.render import render
+from pit_panel.web.router import router
+
+
+async def _get_user(request: Request, db: AsyncSession) -> User | None:
+    settings = get_settings()
+    cookie = request.cookies.get(SESSION_COOKIE)
+    if not cookie:
+        return None
+    data = unsign_session_token(settings, cookie)
+    if not data:
+        return None
+    result = await db.execute(select(User).where(User.id == data.get("uid")))
+    return result.scalar_one_or_none()
+
+
+async def _log_audit(
+    db: AsyncSession,
+    user_id: int | None,
+    action: str,
+    target_type: str,
+    target_id: int | None,
+    details: dict | None,
+    request: Request,
+):
+    entry = AuditLog(
+        user_id=user_id,
+        action=action,
+        target_type=target_type,
+        target_id=target_id,
+        details=details,
+        ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    db.add(entry)
+    await db.commit()
+
+
+@router.get("/subdomains", response_class=HTMLResponse)
+async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await _get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+    subdomains = result.scalars().all()
+
+    return render("subdomains.html", user=user, subdomains=subdomains, error=None)
+
+
+@router.post("/subdomains/add", response_class=HTMLResponse)
+async def subdomain_add(
+    request: Request,
+    subdomain: str = Form(...),
+    app_type: str = Form("none"),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await _get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    settings = get_settings()
+
+    safe_subdomain = subdomain.strip().lower().replace(" ", "-")
+    if not safe_subdomain or "." in safe_subdomain:
+        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+        subdomains = result.scalars().all()
+        return render(
+            "subdomains.html",
+            user=user,
+            subdomains=subdomains,
+            error="Invalid subdomain name",
+        )
+
+    existing = await db.execute(
+        select(Subdomain).where(
+            Subdomain.subdomain == safe_subdomain,
+            Subdomain.base_domain == settings.base_domain,
+        )
+    )
+    if existing.scalar_one_or_none():
+        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+        subdomains = result.scalars().all()
+        return render(
+            "subdomains.html",
+            user=user,
+            subdomains=subdomains,
+            error="Subdomain already exists",
+        )
+
+    sd = Subdomain(
+        subdomain=safe_subdomain,
+        base_domain=settings.base_domain,
+        owner_user_id=user.id,
+        app_type=app_type if app_type != "none" else None,
+    )
+    db.add(sd)
+    await db.flush()
+
+    if settings.base_domain:
+        caddy = CaddyManager(settings.caddy_admin_url)
+        with contextlib.suppress(Exception):
+            await caddy.add_subdomain(safe_subdomain, settings.base_domain)
+
+    await _log_audit(
+        db,
+        user.id,
+        "subdomain_create",
+        "subdomain",
+        sd.id,
+        {"subdomain": safe_subdomain},
+        request,
+    )
+    await db.commit()
+
+    return RedirectResponse("/subdomains", status_code=302)
+
+
+@router.post("/subdomains/{sd_id}/delete", response_class=HTMLResponse)
+async def subdomain_delete(
+    request: Request,
+    sd_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await _get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if sd:
+        settings = get_settings()
+        if settings.base_domain:
+            caddy = CaddyManager(settings.caddy_admin_url)
+        with contextlib.suppress(Exception):
+            await caddy.remove_subdomain(sd.subdomain, settings.base_domain)
+
+        await _log_audit(
+            db, user.id, "subdomain_delete", "subdomain", sd.id,
+            {"subdomain": sd.subdomain}, request,
+        )
+        await db.delete(sd)
+        await db.commit()
+
+    return RedirectResponse("/subdomains", status_code=302)

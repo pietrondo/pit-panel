@@ -1,0 +1,170 @@
+import base64
+import datetime
+import io
+
+import qrcode
+from fastapi import Depends, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from pit_panel.config import get_settings
+from pit_panel.db.models import User
+from pit_panel.db.session import get_db
+from pit_panel.security.crypto import hash_token, verify_password
+from pit_panel.security.totp import generate_totp_secret, get_totp_uri, verify_totp
+from pit_panel.web.auth import (
+    SESSION_COOKIE,
+    create_session_record,
+    create_session_token,
+    revoke_session,
+    unsign_session_token,
+)
+from pit_panel.web.render import render
+from pit_panel.web.router import router
+
+
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    cookie = request.cookies.get(SESSION_COOKIE)
+    if cookie and unsign_session_token(get_settings(), cookie):
+        return RedirectResponse("/", status_code=302)
+    return render("login.html", error=None)
+
+
+@router.post("/login", response_class=HTMLResponse)
+@router.state.limiter.limit("5/minute")
+async def login_post(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    settings = get_settings()
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+
+    if not user or not verify_password(password, user.password_hash):
+        return render("login.html", error="Invalid credentials")
+
+    if user.totp_enabled:
+        form_data = await request.form()
+        totp_code = form_data.get("totp_code")
+        if not totp_code:
+            return render(
+                "login.html", totp_required=True, username=username, error=None
+            )
+        if not verify_totp(user.totp_secret or "", totp_code):
+            return render(
+                "login.html",
+                totp_required=True,
+                username=username,
+                error="Invalid TOTP code",
+            )
+
+    raw, _ = create_session_token(settings, user.id, 0)
+    session_id = await create_session_record(
+        db,
+        user.id,
+        hash_token(raw),
+        request.client.host if request.client else None,
+        request.headers.get("user-agent"),
+        settings,
+    )
+    _, final_cookie = create_session_token(settings, user.id, session_id)
+
+    user.last_login = datetime.datetime.now(datetime.UTC)
+    await db.commit()
+
+    resp = RedirectResponse("/", status_code=302)
+    resp.set_cookie(
+        SESSION_COOKIE,
+        final_cookie,
+        httponly=True,
+        secure=not settings.debug,
+        samesite="strict",
+        max_age=settings.session_duration_hours * 3600,
+    )
+    return resp
+
+
+@router.get("/logout")
+async def logout(request: Request, db: AsyncSession = Depends(get_db)):
+    cookie = request.cookies.get(SESSION_COOKIE)
+    if cookie:
+        data = unsign_session_token(get_settings(), cookie)
+        if data:
+            await revoke_session(db, data.get("sid", 0))
+    resp = RedirectResponse("/login", status_code=302)
+    resp.delete_cookie(SESSION_COOKIE)
+    return resp
+
+
+@router.get("/setup-2fa", response_class=HTMLResponse)
+async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):
+    settings = get_settings()
+    cookie = request.cookies.get(SESSION_COOKIE)
+    if not cookie:
+        return RedirectResponse("/login", status_code=302)
+    data = unsign_session_token(settings, cookie)
+    if not data:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(User).where(User.id == data.get("uid")))
+    user = result.scalar_one_or_none()
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    if not user.totp_secret:
+        user.totp_secret = generate_totp_secret()
+        await db.commit()
+
+    uri = get_totp_uri(user.totp_secret, user.username)
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    return render("setup_2fa.html", totp_secret=user.totp_secret, qr_code=qr_b64, error=None)
+
+
+@router.post("/setup-2fa", response_class=HTMLResponse)
+async def setup_2fa_post(
+    request: Request,
+    code: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    settings = get_settings()
+    cookie = request.cookies.get(SESSION_COOKIE)
+    if not cookie:
+        return RedirectResponse("/login", status_code=302)
+    data = unsign_session_token(settings, cookie)
+    if not data:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(User).where(User.id == data.get("uid")))
+    user = result.scalar_one_or_none()
+    if not user or not user.totp_secret:
+        return RedirectResponse("/login", status_code=302)
+
+    if not verify_totp(user.totp_secret, code):
+        import base64 as b64
+        import io as io_mod
+
+        import qrcode as qr
+
+        uri = get_totp_uri(user.totp_secret, user.username)
+        img = qr.make(uri)
+        buf = io_mod.BytesIO()
+        img.save(buf, format="PNG")
+        qr_b64 = b64.b64encode(buf.getvalue()).decode()
+        return render(
+            "setup_2fa.html",
+            totp_secret=user.totp_secret,
+            qr_code=qr_b64,
+            error="Invalid code",
+        )
+
+    user.totp_enabled = True
+    await db.commit()
+    return RedirectResponse("/", status_code=302)
