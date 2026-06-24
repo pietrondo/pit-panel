@@ -203,7 +203,7 @@ async def ssl_generate(
     )
     result_msg = ""
 
-    # Try loading via Caddy admin API first (preferred)
+    # Load via Caddy admin API (no file write needed for Caddyfile)
     try:
         import httpx
 
@@ -215,27 +215,29 @@ async def ssl_generate(
                 timeout=10,
             )
             if resp.status_code == 200:
-                result_msg = "Config loaded via Caddy admin API. SSL will be provisioned shortly."
+                result_msg = "Config loaded. Caddy will provision SSL certificates now."
             else:
-                raise Exception(f"HTTP {resp.status_code}")
+                result_msg = f"Caddy API error: HTTP {resp.status_code}. Is Caddy running?"
     except Exception:
-        # Fallback: write to disk
+        result_msg = (
+            "Caddy admin API not reachable. Make sure Caddy is installed and running: "
+            "systemctl start caddy"
+        )
+
+    # Store API token for DNS-01 providers (Caddy reads from env)
+    if api_token and dns_provider:
         try:
-            Path(CADDYFILE_PATH).write_text(caddyfile)
-            if api_token and dns_provider:
-                env_line = f"{api_var}={api_token}\n"
-                env_path = Path("/etc/caddy/.env")
-                if env_path.exists():
-                    content = env_path.read_text()
-                    if api_var not in content:
-                        env_path.write_text(content + env_line)
-                else:
-                    env_path.write_text(env_line)
-            result_msg = f"Caddyfile written to {CADDYFILE_PATH}. Restart Caddy to apply."
-        except PermissionError:
-            result_msg = "Error: permission denied. Try: sudo systemctl restart caddy"
-        except Exception as e2:
-            result_msg = f"Error: {e2}"
+            env_path = Path("/etc/caddy/.env")
+            env_line = f"{api_var}={api_token}\n"
+            if env_path.exists():
+                content = env_path.read_text()
+                if api_var not in content:
+                    env_path.write_text(content + env_line)
+            else:
+                env_path.write_text(env_line)
+            result_msg += " API token saved."
+        except (PermissionError, OSError):
+            result_msg += " (API token not saved — set manually in /etc/caddy/.env)"
 
     caddy = CaddyManager(settings.caddy_admin_url)
     certs = await caddy.get_certificates()
