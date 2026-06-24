@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -78,9 +80,6 @@ class TestSetup2FA:
         assert resp.status_code == 302
 
 
-from unittest.mock import AsyncMock, patch
-
-
 class TestSubdomainValidation:
     def test_invalid_subdomain_path_traversal(self, client):
         from pit_panel.db.models import User
@@ -91,11 +90,13 @@ class TestSubdomainValidation:
             patch(
                 "pit_panel.web.routes.subdomains._get_user", new_callable=AsyncMock
             ) as mock_get_user,
-            patch("pit_panel.web.routes.subdomains.AsyncSession", autospec=True) as MockSession,
+            patch(
+                "pit_panel.web.routes.subdomains.AsyncSession", autospec=True
+            ) as mock_session_class,
         ):
             mock_get_user.return_value = dummy_user
 
-            mock_session = MockSession.return_value
+            mock_session = mock_session_class.return_value
             from unittest.mock import MagicMock
 
             mock_result = MagicMock()

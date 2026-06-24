@@ -57,7 +57,7 @@ class TestLoginAttemptModel:
 
     @pytest.mark.asyncio
     async def test_multiple_attempts(self, db_session):
-        for i in range(5):
+        for _i in range(5):
             db_session.add(LoginAttempt(ip_address="5.5.5.5", username="user", success=False))
         await db_session.commit()
 
@@ -90,7 +90,7 @@ class TestIPBanLogic:
     async def test_record_login_failure_triggers_ban(self, db_session):
         from pit_panel.security.ipban import is_ip_banned, record_login_attempt
 
-        for i in range(5):
+        for _i in range(5):
             await record_login_attempt(db_session, "192.168.1.100", "admin", False)
 
         banned = await is_ip_banned(db_session, "192.168.1.100")
