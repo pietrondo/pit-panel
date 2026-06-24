@@ -47,14 +47,19 @@ if ! command -v docker &>/dev/null; then
     curl -fsSL https://get.docker.com | bash
 fi
 
-# Clone repo
+# Clone or update repo
 INSTALL_DIR="/opt/pit-panel"
 if [ ! -d "$INSTALL_DIR" ]; then
     echo "Cloning repository..."
     git clone https://github.com/pietrondo/pit-panel.git "$INSTALL_DIR"
+else
+    echo "Updating existing installation..."
+    cd "$INSTALL_DIR"
+    git fetch origin main
+    git reset --hard origin/main
 fi
 
-# Setup
+# Setup project
 echo "Setting up environment..."
 cd "$INSTALL_DIR"
 uv sync
