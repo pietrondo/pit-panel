@@ -42,7 +42,7 @@ class TestSettings:
             Path(path).unlink()
 
     def test_get_settings_singleton(self):
-        from pit_panel.config import Settings, get_settings, init_settings
+        from pit_panel.config import get_settings, init_settings
 
         s1 = init_settings()
         s2 = get_settings()

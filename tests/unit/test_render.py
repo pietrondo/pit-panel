@@ -1,5 +1,7 @@
 import pytest
+
 from pit_panel.web import render
+
 
 def test_render_with_mock_template(tmp_path, monkeypatch):
     # Setup a fake template directory
