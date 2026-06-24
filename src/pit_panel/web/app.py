@@ -53,14 +53,25 @@ limiter = Limiter(key_func=get_remote_address)
 async def lifespan(app: FastAPI):
     await init_db(app.state.settings)
     s = app.state.settings
-    if s.effective_domain and s.panel_subdomain:
-        import contextlib as _cl
 
-        caddy = None
+    # Load runtime settings from DB (overrides from web GUI)
+    sessionmaker = get_sessionmaker()
+    async with sessionmaker() as db:
+        from sqlalchemy import select  # noqa: E402
+
+        from pit_panel.db.models import SystemSettings  # noqa: E402
+
+        result = await db.execute(select(SystemSettings))
+        for row in result.scalars().all():
+            val = row.value.get("v", "") if isinstance(row.value, dict) else row.value
+            if row.key in ("base_domain", "panel_subdomain", "host"):
+                setattr(s, row.key, val)
+
+    if s.effective_domain and s.panel_subdomain:
         from pit_panel.core.caddy import CaddyManager
 
         caddy = CaddyManager(s.caddy_admin_url)
-        with _cl.suppress(Exception):
+        with contextlib.suppress(Exception):
             await caddy.setup_panel_route(s.panel_subdomain, s.effective_domain, s.port)
     yield
 
