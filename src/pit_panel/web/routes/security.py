@@ -19,10 +19,10 @@ from pit_panel.web.render import render
 from pit_panel.web.router import router
 
 
-def _run_cmd(cmd: list[str], timeout: int = 10) -> str:
+def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) -> str:
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
+            cmd, capture_output=True, text=True, timeout=timeout, input=input
         )
         return result.stdout.strip() or result.stderr.strip()
     except Exception:
