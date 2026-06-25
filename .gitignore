@@ -22,5 +22,7 @@ node_modules/
 .dolt/
 .beads-credential-key
 
-# Prevent Jules bot from committing PR description files
-pr_body.txt
+# Agent skills (installed via npx skills)
+.agents/
+.claude/skills/
+skills-lock.json
