@@ -1,5 +1,6 @@
 """Application log viewer."""
 
+import asyncio
 import subprocess
 
 from fastapi import Depends, Request
@@ -16,13 +17,16 @@ DOCKER_LOG_DIR = "/var/log/pit-panel/docker"
 SYSLOG_CMD = ["journalctl", "-u", "pit-panel.service", "-n", "200", "--no-pager"]
 
 
-def _read_log(path: str, tail: int = 500) -> str:
-    try:
-        with open(path) as f:
-            lines = f.readlines()
-            return "".join(lines[-tail:])
-    except (FileNotFoundError, PermissionError):
-        return "[log file not found or inaccessible]"
+async def _read_log(path: str, tail: int = 500) -> str:
+    def sync_read():
+        try:
+            with open(path) as f:
+                lines = f.readlines()
+                return "".join(lines[-tail:])
+        except (FileNotFoundError, PermissionError):
+            return "[log file not found or inaccessible]"
+
+    return await asyncio.to_thread(sync_read)
 
 
 def _read_journal(n: int = 200) -> str:
@@ -59,7 +63,7 @@ async def logs_page(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    app_log = _read_log(APP_LOG)
+    app_log = await _read_log(APP_LOG)
     journal = _read_journal()
 
     return render(
@@ -80,7 +84,7 @@ async def journal_partial(request: Request):
 
 @router.get("/logs/applog", response_class=HTMLResponse)
 async def applog_partial(request: Request):
-    app_log = _read_log(APP_LOG)
+    app_log = await _read_log(APP_LOG)
     return HTMLResponse(
         f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{app_log}</pre>'
     )
