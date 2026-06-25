@@ -22,8 +22,8 @@ class AppManager:
             base_dir = TEMPLATES_DIR.resolve()
             if template_dir.parent != base_dir:
                 raise ValueError(f"Invalid stack type: {stack_type}")
-        except Exception:
-            raise ValueError(f"Invalid stack type: {stack_type}")
+        except Exception as e:
+            raise ValueError(f"Invalid stack type: {stack_type}") from e
 
         if not template_dir.exists():
             raise ValueError(f"Unknown stack type: {stack_type}")
