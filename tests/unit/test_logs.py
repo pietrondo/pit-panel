@@ -8,7 +8,7 @@ from pit_panel.web.routes.logs import _read_log
 
 @pytest.mark.asyncio
 async def test_read_log_valid_file():
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, newline="\n") as f:
         f.write("line 1\nline 2\n")
         path = f.name
 
@@ -27,7 +27,7 @@ async def test_read_log_invalid_file():
 
 @pytest.mark.asyncio
 async def test_read_log_tail():
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, newline="\n") as f:
         for i in range(10):
             f.write(f"line {i}\n")
         path = f.name
