@@ -154,6 +154,14 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     log_lines: list[str] = []
     ok = True
     for cmd, timeout, use_sudo in steps:
+        if "restart" in cmd and "--no-block" in cmd:
+            subprocess.Popen(
+                ["sudo", "-n", *cmd],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            log_lines.append(f"OK   {' '.join(cmd)} (queued)")
+            continue
         result = _sudo(cmd, timeout=timeout) if use_sudo else _run(cmd, timeout=timeout)
         if result.returncode != 0:
             err = (result.stderr or result.stdout or "").strip()[:200]
