@@ -1,5 +1,6 @@
 """Application deployment from templates."""
 
+import json
 import shutil
 from pathlib import Path
 from string import Template
@@ -45,3 +46,12 @@ class AppManager:
         return [
             d.name for d in TEMPLATES_DIR.iterdir() if d.is_dir() and (d / "meta.json").exists()
         ]
+
+    def get_template_info(self, stack_type: str) -> dict:
+        meta_path = TEMPLATES_DIR / stack_type / "meta.json"
+        if meta_path.exists():
+            try:
+                return json.loads(meta_path.read_text())
+            except json.JSONDecodeError:
+                pass
+        return {"name": stack_type, "description": stack_type}

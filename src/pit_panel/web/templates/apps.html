@@ -13,13 +13,39 @@
 </div>
 {% endif %}
 
+<!-- Template Cards -->
+<div class="mb-8">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for tpl in template_infos %}
+        <div class="card p-5 cursor-pointer hover:ring-2 hover:ring-purple-500 dark:hover:ring-purple-400 transition-all"
+             onclick="document.getElementById('stack-select').value='{{ tpl.name }}'; document.getElementById('stack-select').dispatchEvent(new Event('change'))">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="text-2xl">{{ tpl.meta.get('icon', '📦') }}</span>
+                <div>
+                    <h3 class="font-semibold text-gray-900 dark:text-white">{{ tpl.meta.get('display_name', tpl.name) }}</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ tpl.meta.get('version', '') }}</p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">{{ tpl.meta.get('description', '') }}</p>
+            <div class="flex gap-2 mt-3">
+                {% if tpl.meta.get('requires_db') %}
+                <span class="px-2 py-0.5 text-xs rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">DB</span>
+                {% endif %}
+                <span class="px-2 py-0.5 text-xs rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">Port {{ tpl.meta.get('default_port', '—') }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
 {% if subdomains %}
 <div class="card mb-8">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy New App</h2>
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
     </div>
     <div class="p-6">
-        <form method="POST" action="/apps/deploy" class="flex items-end gap-4">
+        <form method="POST" action="/apps/deploy" class="flex items-end gap-4 flex-wrap">
             <div class="w-64">
                 <label class="label">Subdomain</label>
                 <select name="subdomain_id" class="input">
@@ -30,11 +56,15 @@
             </div>
             <div class="w-48">
                 <label class="label">Stack</label>
-                <select name="stack_type" class="input">
-                    {% for t in templates %}
-                    <option value="{{ t }}">{{ t }}</option>
+                <select name="stack_type" class="input" id="stack-select">
+                    {% for tpl in template_infos %}
+                    <option value="{{ tpl.name }}">{{ tpl.meta.get('display_name', tpl.name) }}</option>
                     {% endfor %}
                 </select>
+            </div>
+            <div class="w-24">
+                <label class="label">Port</label>
+                <input name="port" type="number" value="8000" class="input" id="port-input">
             </div>
             <button type="submit" class="btn-primary">Deploy</button>
         </form>
@@ -82,24 +112,12 @@
                 {% if subdomains|selectattr('app_type')|list|length == 0 %}
                 <tr>
                     <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                        No apps deployed yet. Select a subdomain and stack above to deploy.
+                        No apps deployed yet. Pick a stack above and deploy to a subdomain.
                     </td>
                 </tr>
                 {% endif %}
             </tbody>
         </table>
-    </div>
-</div>
-
-<div class="mt-6 p-4 card border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
-    <div class="flex gap-3">
-        <span class="text-yellow-600 dark:text-yellow-400 text-lg">&#9888;</span>
-        <div>
-            <p class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Available templates</p>
-            <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                {% for t in templates %}<code class="bg-yellow-100 dark:bg-yellow-900/40 px-1 rounded">{{ t }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
-            </p>
-        </div>
     </div>
 </div>
 {% endblock %}
