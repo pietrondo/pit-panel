@@ -1,8 +1,7 @@
 """Caddy reverse proxy integration via admin API."""
 
-from typing import Any
-
 import datetime as dt
+from typing import Any
 
 import httpx
 
@@ -11,7 +10,9 @@ class CaddyManager:
     def __init__(self, admin_url: str = "http://127.0.0.1:2019"):
         self.admin_url = admin_url.rstrip("/")
 
-    async def add_subdomain(self, subdomain: str, base_domain: str, port: int = 80) -> dict[str, Any]:
+    async def add_subdomain(
+        self, subdomain: str, base_domain: str, port: int = 80
+    ) -> dict[str, Any]:
         fqdn = f"{subdomain}.{base_domain}"
         route = {
             "@id": fqdn,
