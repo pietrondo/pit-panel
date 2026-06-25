@@ -28,9 +28,9 @@
 - **`packaging/pit-panel.service`** — systemd unit. Keep `Type=simple`. Ensure `ReadWritePaths` includes `.venv/` and `/var/lib/pit-panel`. **Never** use `StateDirectory=` or `ConfigurationDirectory=` with `ProtectSystem=strict` (they create empty private dirs that hide real files). Use `BindReadOnlyPaths=` for config files instead.
 
 ## Commit Rules
-- Every commit MUST pass: `uv run ruff check src/` AND `uv run pytest -q`
-- Fix lint BEFORE committing — never commit with lint errors
-- Fix failing tests BEFORE committing — never commit broken tests
+- **ALWAYS lint before committing**: `uv run ruff check src/ tests/` — fix ALL errors, never commit with lint
+- **ALWAYS run tests before committing**: `uv run pytest -q` — 100% must pass
+- Every commit MUST pass both commands — no exceptions
 
 ## Issue Tracking
 - Use `bd` (beads) for ALL task tracking
