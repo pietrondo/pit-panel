@@ -48,8 +48,7 @@ async def get_user(request: Request, db: AsyncSession) -> User | None:
     data = unsign_session_token(settings, cookie)
     if not data:
         return None
-    result = await db.execute(select(User).where(User.id == data.get("uid")))
-    return result.scalar_one_or_none()
+    return await validate_session(db, cookie, settings, data.get("uid", 0))
 
 
 async def get_admin(request: Request, db: AsyncSession) -> User | None:

@@ -11,6 +11,7 @@ from pit_panel.web.render import render
 from pit_panel.web.router import router
 
 
+
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
