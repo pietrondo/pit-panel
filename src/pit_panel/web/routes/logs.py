@@ -1,8 +1,8 @@
 """Application log viewer."""
 
 import asyncio
+import os
 import subprocess
-from collections import deque
 
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -20,8 +20,28 @@ SYSLOG_CMD = ["journalctl", "-u", "pit-panel.service", "-n", "200", "--no-pager"
 
 def _read_log_sync(path: str, tail: int) -> str:
     try:
-        with open(path) as f:
-            return "".join(deque(f, maxlen=tail))
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            file_size = f.tell()
+            if file_size == 0:
+                return ""
+
+            buffer_size = 8192
+            blocks = []
+            lines_found = 0
+            position = file_size
+
+            while position > 0 and lines_found <= tail:
+                read_size = min(buffer_size, position)
+                position -= read_size
+                f.seek(position)
+                block = f.read(read_size)
+                lines_found += block.count(b"\n")
+                blocks.append(block)
+
+            data = b"".join(reversed(blocks))
+            lines = data.splitlines(keepends=True)
+            return b"".join(lines[-tail:]).decode("utf-8", errors="replace")
     except (FileNotFoundError, PermissionError):
         return "[log file not found or inaccessible]"
 
@@ -63,7 +83,7 @@ async def _read_journal(n: int = 200) -> str:
 
 
 @router.get("/logs", response_class=HTMLResponse)
-async def logs_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def logs_page(request: Request, db: AsyncSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
