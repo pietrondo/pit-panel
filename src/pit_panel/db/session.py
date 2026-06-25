@@ -1,4 +1,6 @@
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from pit_panel.config import Settings
 
@@ -6,7 +8,7 @@ _engine = None
 _sessionmaker = None
 
 
-def get_engine(settings: Settings | None = None):
+def get_engine(settings: Settings | None = None) -> AsyncEngine:
     global _engine
     if _engine is None:
         if settings is None:
@@ -26,7 +28,7 @@ def get_sessionmaker(settings: Settings | None = None) -> async_sessionmaker[Asy
     return _sessionmaker
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
         yield session
