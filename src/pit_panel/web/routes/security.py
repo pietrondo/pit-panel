@@ -69,14 +69,14 @@ async def _fail2ban_status() -> dict:
     if "sudo:" in status and "|- Number of jail:" not in status:
         return {"active": False, "jails": []}
     for line in status.split("\n"):
-        stripped = line.strip()
+        stripped = line.strip().lstrip("`")
         if stripped.startswith("- ") and "Jail list:" not in stripped:
             jails.append(stripped.lstrip("- "))
     if active and not jails:
         _ensure_fail2ban_jails()
         status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
         for line in status.split("\n"):
-            stripped = line.strip()
+            stripped = line.strip().lstrip("`")
             if stripped.startswith("- ") and "Jail list:" not in stripped:
                 jails.append(stripped.lstrip("- "))
     return {"active": active, "jails": jails}
