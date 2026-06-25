@@ -103,7 +103,6 @@ class TestSubdomainValidation:
     def test_subdomain_add_invalid_characters(self, client, monkeypatch):
         from pit_panel.db.models import User
         from pit_panel.db.session import get_db
-        from pit_panel.web.router import router
 
         async def mock_get_user(*args, **kwargs):
             return User(id=1, username="test", is_admin=True)
@@ -129,8 +128,6 @@ class TestSubdomainValidation:
         async def mock_get_db():
             yield MockDB()
 
-        from pit_panel.web.app import create_app
-        from pit_panel.config import Settings
 
         # Override the dependencies on the client's app
         client.app.dependency_overrides[get_db] = mock_get_db
@@ -138,14 +135,26 @@ class TestSubdomainValidation:
         monkeypatch.setattr("pit_panel.web.routes.subdomains.get_user", mock_get_user)
 
         # Test valid subdomain
-        resp = client.post("/subdomains/add", data={"subdomain": "valid-123", "app_type": "none"}, follow_redirects=False)
+        resp = client.post(
+            "/subdomains/add",
+            data={"subdomain": "valid-123", "app_type": "none"},
+            follow_redirects=False,
+        )
         assert resp.status_code == 302 # Redirect on success
 
         # Test invalid subdomains
-        resp = client.post("/subdomains/add", data={"subdomain": "../invalid", "app_type": "none"}, follow_redirects=False)
+        resp = client.post(
+            "/subdomains/add",
+            data={"subdomain": "../invalid", "app_type": "none"},
+            follow_redirects=False,
+        )
         assert resp.status_code == 200 # Render form with error
         assert "Invalid subdomain name" in resp.text
 
-        resp = client.post("/subdomains/add", data={"subdomain": "invalid.com", "app_type": "none"}, follow_redirects=False)
+        resp = client.post(
+            "/subdomains/add",
+            data={"subdomain": "invalid.com", "app_type": "none"},
+            follow_redirects=False,
+        )
         assert resp.status_code == 200
         assert "Invalid subdomain name" in resp.text
