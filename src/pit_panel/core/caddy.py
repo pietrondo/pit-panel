@@ -2,6 +2,7 @@
 
 import datetime as dt
 import re
+import subprocess
 from typing import Any
 
 import httpx
@@ -159,31 +160,80 @@ class CaddyManager:
                     domains = (
                         meta.get("sans", meta.get("domains", [])) or []
                     )
-                    not_after = meta.get("not_after", "")
-                    not_before = meta.get("not_before", "")
+                    if not domains:
+                        continue
+
+                    not_before = ""
+                    not_after = ""
                     expires_in = None
-                    if not_after:
+
+                    pem_file = json_file.with_suffix(".crt")
+                    if not pem_file.exists():
+                        pem_file = json_file.with_suffix(".pem")
+                    if not pem_file.exists():
+                        pem_file = json_file.with_name(
+                            json_file.stem.replace(".caddy-identifier", "")
+                            + ".crt"
+                        )
+
+                    if pem_file.exists():
                         try:
-                            expiry = dt.datetime.fromisoformat(
-                                not_after.replace("Z", "+00:00")
+                            result = subprocess.run(
+                                [
+                                    "openssl", "x509", "-in",
+                                    str(pem_file), "-noout",
+                                    "-enddate", "-startdate",
+                                ],
+                                capture_output=True,
+                                text=True,
+                                timeout=5,
                             )
-                            expires_in = (
-                                expiry - dt.datetime.now(dt.UTC)
-                            ).days
-                        except (ValueError, TypeError):
+                            for line in result.stdout.split("\n"):
+                                if line.startswith("notAfter="):
+                                    not_after = line.split("=", 1)[1]
+                                elif line.startswith("notBefore="):
+                                    not_before = line.split("=", 1)[1]
+                            if not_after:
+                                try:
+
+                                    expiry = dt.datetime.strptime(
+                                        not_after,
+                                        "%b %d %H:%M:%S %Y %Z",
+                                    )
+                                    expires_in = (
+                                        expiry.replace(
+                                            tzinfo=dt.UTC
+                                        )
+                                        - dt.datetime.now(dt.UTC)
+                                    ).days
+                                except ValueError:
+                                    pass
+                        except Exception:
                             pass
-                    if domains:
-                        certs.append({
-                            "serial": str(meta.get("id", "?"))[:16],
-                            "domains": ", ".join(domains),
-                            "not_before": not_before if not_before else "",
-                            "not_after": not_after if not_after else "",
-                            "expires_in_days": expires_in,
-                            "issuer": meta.get(
-                                "issuer_common_name",
-                                "Let's Encrypt",
-                            ),
-                        })
+
+                    if not not_after:
+                        not_after = meta.get(
+                            "not_after", ""
+                        )
+                        not_before = meta.get(
+                            "not_before", ""
+                        )
+
+                    issuer = meta.get(
+                        "issuer_common_name",
+                        meta.get(
+                            "issuer_data", {}
+                        ).get("ca", "Let's Encrypt"),
+                    )
+
+                    certs.append({
+                        "serial": str(meta.get("id", "?"))[:16],
+                        "domains": ", ".join(domains),
+                        "not_before": not_before if not_before else "",
+                        "not_after": not_after if not_after else "",
+                        "expires_in_days": expires_in,
+                        "issuer": issuer,
+                    })
                 except Exception:
                     pass
         except Exception:
