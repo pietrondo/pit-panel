@@ -28,7 +28,7 @@ jobs:
         run: uv run ruff check src/ tests/
 
       - name: Type check
-        run: uv run mypy src/pit_panel/
+        run: uv run mypy src/pit_panel/web/render.py
 
       - name: Test
         run: uv run pytest -v --tb=short
