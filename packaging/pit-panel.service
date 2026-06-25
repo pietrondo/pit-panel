@@ -32,7 +32,7 @@ RestrictRealtime=true
 LockPersonality=true
 
 # Filesystem access
-ReadWritePaths=/opt/pit-panel/.venv /var/lib/pit-panel /opt/pit-panel/apps /etc/pit-panel /etc/caddy
+ReadWritePaths=/opt/pit-panel/.venv /var/lib/pit-panel /opt/pit-panel/apps /opt/pit-panel /etc/pit-panel /etc/caddy
 
 # Capabilities: kept empty intentionally so sudo can operate.
 # CapabilityBoundingSet= empty would block sudo from changing UID/GID.
