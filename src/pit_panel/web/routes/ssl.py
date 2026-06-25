@@ -194,40 +194,46 @@ async def ssl_generate(
         email, domain, panel_sub, dns_provider, api_var, acme_provider, eab_key_id, eab_hmac
     )
 
-    # Format via caddy fmt (required by Caddy's /load endpoint)
-    try:
-        fmt = subprocess.run(
-            ["caddy", "fmt", "-"],
-            input=caddyfile, capture_output=True, text=True, timeout=5,
-        )
-        if fmt.returncode == 0 and fmt.stdout.strip():
-            caddyfile = fmt.stdout
-    except Exception:
-        pass
-
     result_msg = ""
+    config_json = ""
 
-    # Load via Caddy admin API (no file write needed for Caddyfile)
+    # Convert Caddyfile to JSON via caddy adapt (avoids formatting issues)
     try:
-        import httpx
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{get_settings().caddy_admin_url}/load",
-                content=caddyfile.encode(),
-                headers={"Content-Type": "text/caddyfile"},
-                timeout=10,
-            )
-            if resp.status_code == 200:
-                result_msg = "Config loaded. Caddy will provision SSL certificates now."
-            else:
-                err_detail = resp.text.strip()[:500] if resp.text else ""
-                result_msg = f"Caddy API error: HTTP {resp.status_code}. {err_detail}"
-    except Exception as e:
-        result_msg = (
-            f"Caddy admin API not reachable ({e}). "
-            "Make sure Caddy is installed and running: systemctl start caddy"
+        adapt = subprocess.run(
+            ["caddy", "adapt", "--config", "-", "--pretty"],
+            input=caddyfile, capture_output=True, text=True, timeout=10,
         )
+        if adapt.returncode != 0:
+            result_msg = f"Caddyfile invalid: {adapt.stderr.strip()[:500]}"
+        else:
+            config_json = adapt.stdout
+    except FileNotFoundError:
+        result_msg = "caddy binary not found. Is Caddy installed?"
+    except Exception as e:
+        result_msg = f"caddy adapt failed: {e}"
+
+    # Load via Caddy admin API if adapt succeeded
+    if config_json:
+        try:
+            import httpx
+
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{get_settings().caddy_admin_url}/load",
+                    content=config_json,
+                    headers={"Content-Type": "application/json"},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    result_msg = "Config loaded. Caddy will provision SSL certificates now."
+                else:
+                    err_detail = resp.text.strip()[:500] if resp.text else ""
+                    result_msg = f"Caddy API error: HTTP {resp.status_code}. {err_detail}"
+        except Exception as e:
+            result_msg = (
+                f"Caddy admin API not reachable ({e}). "
+                "Make sure Caddy is installed and running: systemctl start caddy"
+            )
 
     # Store API token for DNS-01 providers (Caddy reads from env)
     if api_token and dns_provider:
