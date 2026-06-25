@@ -1,8 +1,8 @@
 """Application log viewer."""
 
 import asyncio
+import os
 import subprocess
-from collections import deque
 
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -18,10 +18,35 @@ DOCKER_LOG_DIR = "/var/log/pit-panel/docker"
 SYSLOG_CMD = ["journalctl", "-u", "pit-panel.service", "-n", "200", "--no-pager"]
 
 
-def _read_log_sync(path: str, tail: int) -> str:
+def _read_log_sync(path: str, tail: int, chunk_size: int = 8192) -> str:
     try:
-        with open(path) as f:
-            return "".join(deque(f, maxlen=tail))
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            file_size = f.tell()
+
+            if file_size == 0:
+                return ""
+
+            blocks = []
+            newlines_seen = 0
+            position = file_size
+
+            while position > 0 and newlines_seen <= tail:
+                read_size = min(chunk_size, position)
+                position -= read_size
+                f.seek(position)
+                chunk = f.read(read_size)
+                blocks.append(chunk)
+                newlines_seen += chunk.count(b"\n")
+
+            all_data = b"".join(reversed(blocks))
+            lines = all_data.split(b"\n")
+            if len(lines) > 0 and lines[-1] == b"":
+                last_lines = lines[-(tail + 1) :]
+            else:
+                last_lines = lines[-tail:]
+
+            return b"\n".join(last_lines).decode("utf-8", errors="replace")
     except (FileNotFoundError, PermissionError):
         return "[log file not found or inaccessible]"
 
@@ -62,8 +87,10 @@ async def _read_journal(n: int = 200) -> str:
     return await asyncio.to_thread(_read_journal_sync, n)
 
 
-@router.get("/logs", response_class=HTMLResponse)
-async def logs_page(request: Request, db: AsyncSession = Depends(get_db)):
+@router.get("/logs", response_class=HTMLResponse, response_model=None)
+async def logs_page(
+    request: Request, db: AsyncSession = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
