@@ -17,7 +17,14 @@ class AppManager:
         stack_type: str,
         variables: dict[str, str] | None = None,
     ) -> Path:
-        template_dir = TEMPLATES_DIR / stack_type
+        try:
+            template_dir = (TEMPLATES_DIR / stack_type).resolve()
+            base_dir = TEMPLATES_DIR.resolve()
+            if template_dir.parent != base_dir:
+                raise ValueError(f"Invalid stack type: {stack_type}")
+        except Exception as e:
+            raise ValueError(f"Invalid stack type: {stack_type}") from e
+
         if not template_dir.exists():
             raise ValueError(f"Unknown stack type: {stack_type}")
 
