@@ -78,8 +78,10 @@ class CaddyManager:
             except Exception:
                 pass
 
-            if not certs:
-                certs.extend(self._parse_caddy_storage_certs(client))
+        if not certs:
+            certs.extend(self._parse_caddy_storage_certs(client))
+        else:
+            certs.extend(self._parse_caddy_storage_certs(client))
 
         return certs
 
