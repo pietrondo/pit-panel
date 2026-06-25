@@ -1,6 +1,5 @@
 """System: upgrade check and trigger via sudo."""
 
-import contextlib
 import datetime as dt
 import subprocess
 
@@ -32,51 +31,64 @@ def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess:
     )
 
 
-def _get_git_info():
+async def _get_git_info():
+    import asyncio
+
+    import httpx
+
     current = "unknown"
     remote = "unknown"
-    with contextlib.suppress(Exception):
-        current = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            cwd=INSTALL_DIR,
-        ).stdout.strip()
-    with contextlib.suppress(Exception):
-        result = subprocess.run(
-            [
-                "git",
-                "ls-remote",
-                "https://github.com/pietrondo/pit-panel.git",
-                "refs/heads/main",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            remote = result.stdout.split()[0][:7]
-    if remote == "unknown":
-        with contextlib.suppress(Exception):
-            import json
-            import ssl
-            import urllib.request
 
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "rev-parse",
+            "--short",
+            "HEAD",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=INSTALL_DIR,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+        if proc.returncode == 0:
+            current = stdout.decode().strip()
+    except Exception:
+        pass
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "ls-remote",
+            "https://github.com/pietrondo/pit-panel.git",
+            "refs/heads/main",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
+        if proc.returncode == 0 and stdout.strip():
+            remote = stdout.decode().split()[0][:7]
+    except Exception:
+        pass
+
+    if remote == "unknown":
+        try:
             url = "https://api.github.com/repos/pietrondo/pit-panel/commits/main"
-            ctx = ssl.create_default_context()
-            req = urllib.request.Request(
-                url,
-                headers={
-                    "Accept": "application/vnd.github.v3+json",
-                    "User-Agent": "pit-panel",
-                },
-            )
-            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-                data = json.loads(resp.read())
-                api_sha = data.get("sha", "")[:7]
-                if api_sha:
-                    remote = api_sha
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    url,
+                    headers={
+                        "Accept": "application/vnd.github.v3+json",
+                        "User-Agent": "pit-panel",
+                    },
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    api_sha = data.get("sha", "")[:7]
+                    if api_sha:
+                        remote = api_sha
+        except Exception:
+            pass
+
     return current, remote
 
 
@@ -86,7 +98,7 @@ async def system_page(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    current, remote = _get_git_info()
+    current, remote = await _get_git_info()
     update_available = current != remote and remote != "unknown"
 
     result = await db.execute(
@@ -144,7 +156,7 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     result_msg = "\n".join(log_lines) if log_lines else "no steps ran"
 
     try:
-        current, _ = _get_git_info()
+        current, _ = await _get_git_info()
         entry = UpdateHistory(
             version_from=current,
             version_to="latest",
@@ -157,7 +169,7 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     except Exception:
         pass
 
-    current, remote = _get_git_info()
+    current, remote = await _get_git_info()
     return render(
         "system.html",
         user=user,

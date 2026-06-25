@@ -14,9 +14,7 @@ def _get_templates():
     if _templates is None:
         from jinja2 import Environment, FileSystemLoader
 
-        _templates = Environment(
-            loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=True
-        )
+        _templates = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=True)
     return _templates
 
 

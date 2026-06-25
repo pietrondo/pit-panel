@@ -49,6 +49,5 @@ class AppManager:
         if not TEMPLATES_DIR.exists():
             return []
         return [
-            d.name for d in TEMPLATES_DIR.iterdir()
-            if d.is_dir() and (d / "meta.json").exists()
+            d.name for d in TEMPLATES_DIR.iterdir() if d.is_dir() and (d / "meta.json").exists()
         ]

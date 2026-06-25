@@ -13,7 +13,12 @@ class DockerManager:
     async def compose_up(self, subdomain: str) -> dict:
         path = self.apps_dir / subdomain
         proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", str(path / "docker-compose.yml"), "up", "-d",
+            "docker",
+            "compose",
+            "-f",
+            str(path / "docker-compose.yml"),
+            "up",
+            "-d",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(path),
@@ -28,7 +33,11 @@ class DockerManager:
     async def compose_down(self, subdomain: str) -> dict:
         path = self.apps_dir / subdomain
         proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", str(path / "docker-compose.yml"), "down",
+            "docker",
+            "compose",
+            "-f",
+            str(path / "docker-compose.yml"),
+            "down",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(path),
@@ -43,7 +52,13 @@ class DockerManager:
     async def compose_ps(self, subdomain: str) -> list[dict]:
         path = self.apps_dir / subdomain
         proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", str(path / "docker-compose.yml"), "ps", "--format", "json",
+            "docker",
+            "compose",
+            "-f",
+            str(path / "docker-compose.yml"),
+            "ps",
+            "--format",
+            "json",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(path),
@@ -59,9 +74,13 @@ class DockerManager:
     async def compose_logs(self, subdomain: str, tail: int = 100) -> str:
         path = self.apps_dir / subdomain
         args = [
-            "docker", "compose", "-f",
+            "docker",
+            "compose",
+            "-f",
             str(path / "docker-compose.yml"),
-            "logs", "--tail", str(tail),
+            "logs",
+            "--tail",
+            str(tail),
         ]
         proc = await asyncio.create_subprocess_exec(
             *args,
@@ -75,7 +94,11 @@ class DockerManager:
     async def compose_restart(self, subdomain: str) -> dict:
         path = self.apps_dir / subdomain
         proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", str(path / "docker-compose.yml"), "restart",
+            "docker",
+            "compose",
+            "-f",
+            str(path / "docker-compose.yml"),
+            "restart",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(path),

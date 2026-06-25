@@ -59,18 +59,14 @@ class CaddyManager:
         certs = []
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.get(
-                    f"{self.admin_url}/pki/ca/local/certificates", timeout=5
-                )
+                resp = await client.get(f"{self.admin_url}/pki/ca/local/certificates", timeout=5)
                 if resp.status_code == 200:
                     for c in resp.json() or []:
                         not_after = c.get("not_after", "")
                         expires_in = None
                         if not_after:
                             try:
-                                expiry = dt.datetime.fromisoformat(
-                                    not_after.replace("Z", "+00:00")
-                                )
+                                expiry = dt.datetime.fromisoformat(not_after.replace("Z", "+00:00"))
                                 expires_in = (expiry - dt.datetime.now(dt.UTC)).days
                             except (ValueError, TypeError):
                                 pass
@@ -81,9 +77,7 @@ class CaddyManager:
                                 "not_before": c.get("not_before", ""),
                                 "not_after": not_after,
                                 "expires_in_days": expires_in,
-                                "issuer": c.get("issuer", {}).get(
-                                    "common_name", "?"
-                                ),
+                                "issuer": c.get("issuer", {}).get("common_name", "?"),
                             }
                         )
             except Exception:
