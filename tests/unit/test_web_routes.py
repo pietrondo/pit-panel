@@ -120,13 +120,13 @@ class TestSubdomainsRoutes:
         class MockResult:
             def scalars(self):
                 return self
+
             def all(self):
                 return []
+
         async def mock_execute(*args, **kwargs):
             return MockResult()
 
-        import pit_panel.web.routes.subdomains
-        from fastapi import Request
         from unittest.mock import AsyncMock, MagicMock
 
         mock_db = MagicMock()
@@ -134,6 +134,7 @@ class TestSubdomainsRoutes:
 
         # Override the get_db dependency for the testclient
         from pit_panel.db.session import get_db
+
         client.app.dependency_overrides[get_db] = lambda: mock_db
 
         # Attempt to add a subdomain with path traversal payload
