@@ -135,7 +135,6 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     # git and uv run directly (repo is owned by pit-panel, in ReadWritePaths).
     # cp and systemctl require sudo.
     steps = [
-        (["chown", "-R", "pit-panel:pit-panel", INSTALL_DIR], 10, True),
         (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60, False),
         (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30, False),
         (["/usr/local/bin/uv", "--directory", INSTALL_DIR, "sync"], 180, False),
