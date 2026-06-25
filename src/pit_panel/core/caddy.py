@@ -151,26 +151,43 @@ class CaddyManager:
 
         certs = []
         certs_dir = Path("/var/lib/caddy/.local/share/caddy/certificates")
-        if certs_dir.exists():
-            for meta_file in certs_dir.glob(
-                "**/*.caddy-identifier.json"
-            ):
+
+        try:
+            for json_file in certs_dir.rglob("*.json"):
                 try:
-                    meta = json.loads(meta_file.read_text())
-                    certs.append({
-                        "serial": meta.get("id", "?")[:16],
-                        "domains": ", ".join(
-                            meta.get("domains", []) or []
-                        ),
-                        "not_before": meta.get("not_before", ""),
-                        "not_after": meta.get("not_after", ""),
-                        "expires_in_days": None,
-                        "issuer": meta.get(
-                            "issuer", "Let's Encrypt"
-                        ),
-                    })
+                    meta = json.loads(json_file.read_text())
+                    domains = (
+                        meta.get("sans", meta.get("domains", [])) or []
+                    )
+                    not_after = meta.get("not_after", "")
+                    not_before = meta.get("not_before", "")
+                    expires_in = None
+                    if not_after:
+                        try:
+                            expiry = dt.datetime.fromisoformat(
+                                not_after.replace("Z", "+00:00")
+                            )
+                            expires_in = (
+                                expiry - dt.datetime.now(dt.UTC)
+                            ).days
+                        except (ValueError, TypeError):
+                            pass
+                    if domains:
+                        certs.append({
+                            "serial": str(meta.get("id", "?"))[:16],
+                            "domains": ", ".join(domains),
+                            "not_before": not_before if not_before else "",
+                            "not_after": not_after if not_after else "",
+                            "expires_in_days": expires_in,
+                            "issuer": meta.get(
+                                "issuer_common_name",
+                                "Let's Encrypt",
+                            ),
+                        })
                 except Exception:
                     pass
+        except Exception:
+            pass
         return certs
 
     async def renew_certificate(self, domain: str) -> dict[str, Any]:
