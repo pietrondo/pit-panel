@@ -82,8 +82,10 @@ async def _read_journal(n: int = 200) -> str:
     return await asyncio.to_thread(_read_journal_sync, n)
 
 
-@router.get("/logs", response_class=HTMLResponse)
-async def logs_page(request: Request, db: AsyncSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+@router.get("/logs", response_class=HTMLResponse, response_model=None)
+async def logs_page(
+    request: Request, db: AsyncSession = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
