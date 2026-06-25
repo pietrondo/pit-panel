@@ -2,8 +2,8 @@
 
 import asyncio
 import subprocess
-from collections import deque
 
+import aiofiles
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,16 +18,13 @@ DOCKER_LOG_DIR = "/var/log/pit-panel/docker"
 SYSLOG_CMD = ["journalctl", "-u", "pit-panel.service", "-n", "200", "--no-pager"]
 
 
-def _read_log_sync(path: str, tail: int) -> str:
+async def _read_log(path: str, tail: int = 500) -> str:
     try:
-        with open(path) as f:
-            return "".join(deque(f, maxlen=tail))
+        async with aiofiles.open(path) as f:
+            lines = await f.readlines()
+            return "".join(lines[-tail:])
     except (FileNotFoundError, PermissionError):
         return "[log file not found or inaccessible]"
-
-
-async def _read_log(path: str, tail: int = 500) -> str:
-    return await asyncio.to_thread(_read_log_sync, path, tail)
 
 
 def _read_journal_sync(n: int) -> str:
