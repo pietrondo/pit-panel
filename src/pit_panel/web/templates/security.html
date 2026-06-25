@@ -4,7 +4,7 @@
 
 <div class="mb-8">
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Security</h1>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">IP bans, login attempts, session management</p>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">IP bans, login attempts, session management, firewall, fail2ban</p>
 </div>
 
 {% if unban_result %}
@@ -12,6 +12,14 @@
     {% if unban_result.success %}bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300
     {% else %}bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300{% endif %}">
     {% if unban_result.success %}IP {{ unban_result.ip }} unbanned.{% else %}Unban failed.{% endif %}
+</div>
+{% endif %}
+
+{% if ban_result %}
+<div class="mb-4 p-3 rounded-lg border text-sm
+    {% if ban_result.ok %}bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300
+    {% else %}bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300{% endif %}">
+    {% if ban_result.ok %}IP {{ ban_result.ip }} banned.{% else %}Ban failed (already banned?).{% endif %}
 </div>
 {% endif %}
 
@@ -28,6 +36,117 @@
     <div class="stat-card bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800">
         <span class="stat-label text-green-600 dark:text-green-400">Active Sessions</span>
         <p class="stat-value text-green-700 dark:text-green-300">{{ sessions|length }}</p>
+    </div>
+</div>
+
+<!-- Firewall & Fail2Ban Status -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    {% if firewall %}
+    <div class="card">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Firewall (ufw)</h2>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                {% if firewall.active %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                {{ 'Active' if firewall.active else 'Inactive' }}
+            </span>
+        </div>
+        <div class="p-4">
+            {% if firewall.rules %}
+            <pre class="text-xs font-mono text-gray-600 dark:text-gray-400 max-h-60 overflow-y-auto">{{ firewall.rules|join('\n') }}</pre>
+            {% else %}
+            <p class="text-sm text-gray-500 dark:text-gray-400">No rules or sudo access missing.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if fail2ban %}
+    <div class="card">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Fail2Ban</h2>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                {% if fail2ban.active %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                {% else %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% endif %}">
+                {{ 'Running' if fail2ban.active else 'Not running' }}
+            </span>
+        </div>
+        <div class="p-4">
+            {% if fail2ban.jails %}
+            <div class="flex flex-wrap gap-2">
+                {% for jail in fail2ban.jails %}
+                <span class="px-2 py-1 text-xs font-mono bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">{{ jail }}</span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-500 dark:text-gray-400">No jails active</p>
+            {% endif %}
+        </div>
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Enable Jail</h3>
+            <div class="flex gap-2 flex-wrap">
+                {% set jail_opts = {"sshd": "SSH", "sshd-ddos": "SSH DDoS", "nginx-http-auth": "Nginx", "apache-auth": "Apache", "postfix": "Postfix"} %}
+                {% for jail, label in jail_opts.items() %}
+                <button class="btn-ghost text-xs" hx-post="/security/fail2ban/enable" hx-vals='{"jail":"{{ jail }}"}' hx-swap="none">{{ label }}</button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if abuseipdb_key %}
+<!-- AbuseIPDB -->
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">AbuseIPDB</h2>
+        <button class="btn-ghost text-xs" hx-get="/security/abuseipdb-blacklist" hx-target="#abuseipdb-blacklist" hx-swap="innerHTML">
+            Load Top Offenders
+        </button>
+    </div>
+    <div class="p-4">
+        <form hx-post="/security/abuseipdb-check" hx-target="#abuseipdb-result" class="flex gap-2 mb-4">
+            <input name="ip" placeholder="IP address" class="input flex-1" required>
+            <input name="api_key" type="password" placeholder="API key" class="input" value="{{ settings.abuseipdb_api_key if settings else '' }}">
+            <button type="submit" class="btn-primary">Check</button>
+        </form>
+        <div id="abuseipdb-result" class="mb-2"></div>
+        <div id="abuseipdb-blacklist" class="max-h-80 overflow-y-auto"></div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Public Blocklists -->
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Public IP Blocklists</h2>
+    </div>
+    <div class="p-4" hx-get="/security/blocklist" hx-trigger="load">
+        <p class="text-sm text-gray-500">Loading...</p>
+    </div>
+</div>
+
+<!-- Manual IP Ban -->
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Manual IP Ban</h2>
+    </div>
+    <div class="p-4">
+        <form method="POST" action="/security/ban-ip" class="flex gap-2 flex-wrap items-end">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">IP Address</label>
+                <input name="ip" placeholder="192.168.1.1" class="input" required>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Reason</label>
+                <input name="reason" placeholder="manual" class="input" value="manual">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Duration (min)</label>
+                <input name="duration" type="number" value="60" class="input w-24">
+            </div>
+            <button type="submit" class="btn-primary">Ban IP</button>
+        </form>
     </div>
 </div>
 

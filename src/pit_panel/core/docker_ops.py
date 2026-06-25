@@ -110,3 +110,69 @@ class DockerManager:
             "stdout": stdout.decode(),
             "stderr": stderr.decode(),
         }
+
+    async def ps_all(self) -> list[dict[str, Any]]:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "ps", "-a", "--format", "json",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate()
+        containers = []
+        for line in stdout.decode().strip().split("\n"):
+            if line.strip():
+                with contextlib.suppress(json.JSONDecodeError):
+                    containers.append(json.loads(line))
+        return containers
+
+    async def container_stop(self, container_id: str) -> dict[str, Any]:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "stop", container_id,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        return {
+            "success": proc.returncode == 0,
+            "stdout": stdout.decode(),
+            "stderr": stderr.decode(),
+        }
+
+    async def container_start(self, container_id: str) -> dict[str, Any]:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "start", container_id,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        return {
+            "success": proc.returncode == 0,
+            "stdout": stdout.decode(),
+            "stderr": stderr.decode(),
+        }
+
+    async def container_stats(self, container_id: str) -> dict[str, Any]:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "stats", container_id, "--no-stream", "--format", "json",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate()
+        try:
+            return json.loads(stdout.decode().strip())
+        except json.JSONDecodeError:
+            return {}
+
+    async def container_logs_live(
+        self, container_id: str, tail: int = 100
+    ) -> str:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "logs", container_id, "--tail", str(tail), "--timestamps",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        output = stdout.decode()
+        if stderr:
+            output += "\n" + stderr.decode()
+        return output

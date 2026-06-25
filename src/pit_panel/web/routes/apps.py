@@ -26,9 +26,20 @@ async def apps_list(request: Request, db: AsyncSession = Depends(get_db)):
 
     result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
     subdomains = result.scalars().all()
-    templates = AppManager().list_templates()
+    mgr = AppManager()
+    templates = mgr.list_templates()
+    template_infos = [
+        {"name": t, "meta": mgr.get_template_info(t)} for t in templates
+    ]
 
-    return render("apps.html", user=user, subdomains=subdomains, templates=templates, error=None)
+    return render(
+        "apps.html",
+        user=user,
+        subdomains=subdomains,
+        templates=templates,
+        template_infos=template_infos,
+        error=None,
+    )
 
 
 @router.post("/apps/deploy", response_class=HTMLResponse)
@@ -36,6 +47,7 @@ async def app_deploy(
     request: Request,
     subdomain_id: int = Form(...),
     stack_type: str = Form(...),
+    port: int = Form(8000),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_user(request, db)
@@ -52,16 +64,21 @@ async def app_deploy(
     docker_mgr = DockerManager(settings.apps_dir)
 
     try:
-        mgr.deploy_template(sd.subdomain, stack_type)
+        mgr.deploy_template(sd.subdomain, stack_type, variables={"PORT": str(port)})
     except ValueError:
-        templates = AppManager().list_templates()
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
-        subdomains = result.scalars().all()
+        mgr2 = AppManager()
+        templates = mgr2.list_templates()
+        template_infos = [
+            {"name": t, "meta": mgr2.get_template_info(t)} for t in templates
+        ]
+        result2 = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+        subdomains = result2.scalars().all()
         return render(
             "apps.html",
             user=user,
             subdomains=subdomains,
             templates=templates,
+            template_infos=template_infos,
             error="Invalid stack type",
         )
 
@@ -92,6 +109,59 @@ async def app_deploy(
     await db.commit()
 
     return RedirectResponse("/apps", status_code=302)
+
+
+@router.get("/apps/{sd_id}", response_class=HTMLResponse)
+async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return RedirectResponse("/apps", status_code=302)
+
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    containers = []
+    with contextlib.suppress(Exception):
+        containers = await docker_mgr.compose_ps(sd.subdomain)
+
+    logs = ""
+    try:
+        logs = await docker_mgr.compose_logs(sd.subdomain, tail=50)
+    except Exception:
+        logs = "Error fetching logs"
+
+    mgr = AppManager()
+    app_info = mgr.get_template_info(sd.app_type) if sd.app_type else {}
+
+    return render(
+        "app_detail.html",
+        user=user,
+        sd=sd,
+        containers=containers,
+        logs=logs,
+        app_info=app_info,
+    )
+
+
+@router.post("/apps/{sd_id}/restart", response_class=HTMLResponse)
+async def app_restart(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if sd:
+        settings = get_settings()
+        docker_mgr = DockerManager(settings.apps_dir)
+        await docker_mgr.compose_restart(sd.subdomain)
+
+    return RedirectResponse(f"/apps/{sd_id}", status_code=302)
 
 
 @router.post("/apps/{sd_id}/stop", response_class=HTMLResponse)

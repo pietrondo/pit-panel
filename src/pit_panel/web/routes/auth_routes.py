@@ -21,6 +21,7 @@ from pit_panel.web.auth import (
     revoke_session,
     unsign_session_token,
 )
+from pit_panel.web.deps import get_user
 from pit_panel.web.render import render
 from pit_panel.web.router import router
 
@@ -126,17 +127,8 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> Redire
 
 
 @router.get("/setup-2fa", response_class=HTMLResponse)
-async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
-    settings = get_settings()
-    cookie = request.cookies.get(SESSION_COOKIE)
-    if not cookie:
-        return RedirectResponse("/login", status_code=302)
-    data = unsign_session_token(settings, cookie)
-    if not data:
-        return RedirectResponse("/login", status_code=302)
-
-    result = await db.execute(select(User).where(User.id == data.get("uid")))
-    user = result.scalar_one_or_none()
+async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
@@ -158,17 +150,8 @@ async def setup_2fa_post(
     request: Request,
     code: str = Form(...),
     db: AsyncSession = Depends(get_db),
-) -> Response:
-    settings = get_settings()
-    cookie = request.cookies.get(SESSION_COOKIE)
-    if not cookie:
-        return RedirectResponse("/login", status_code=302)
-    data = unsign_session_token(settings, cookie)
-    if not data:
-        return RedirectResponse("/login", status_code=302)
-
-    result = await db.execute(select(User).where(User.id == data.get("uid")))
-    user = result.scalar_one_or_none()
+):
+    user = await get_user(request, db)
     if not user or not user.totp_secret:
         return RedirectResponse("/login", status_code=302)
 

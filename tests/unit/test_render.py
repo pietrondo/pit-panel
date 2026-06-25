@@ -1,3 +1,4 @@
+import jinja2.exceptions
 import pytest
 from fastapi.responses import HTMLResponse
 from jinja2 import Environment
@@ -46,3 +47,21 @@ def test_render(mock_templates_dir):
     assert isinstance(response, HTMLResponse)
     assert response.body == b"<h1>Hello Tester</h1>"
     assert response.status_code == 200
+
+
+def test_render_template_not_found(mock_templates_dir):
+    """Test that a nonexistent template raises TemplateNotFound."""
+    with pytest.raises(jinja2.exceptions.TemplateNotFound):
+        render_module.render("nonexistent.html")
+
+
+def test_render_no_context(mock_templates_dir):
+    """Test that a template renders correctly without context variables."""
+    tmp_path = mock_templates_dir
+    template_file = tmp_path / "dummy_no_context.html"
+    template_file.write_text("<h1>Hello</h1>")
+
+    response = render_module.render("dummy_no_context.html")
+
+    assert isinstance(response, HTMLResponse)
+    assert response.body == b"<h1>Hello</h1>"

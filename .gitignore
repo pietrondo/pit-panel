@@ -21,3 +21,12 @@ node_modules/
 # Beads / Dolt files (added by bd init)
 .dolt/
 .beads-credential-key
+
+# Agent skills (installed via npx skills)
+.agents/
+.claude/skills/
+skills-lock.json
+
+# Jules bot artifacts
+pr_body.txt
+.jules/

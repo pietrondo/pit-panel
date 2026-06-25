@@ -1,5 +1,4 @@
 from fastapi import Depends, Request
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import Settings
@@ -28,7 +27,10 @@ async def get_current_user(
         .loads(cookie)
     )
 
-    user = await validate_session(db, cookie, settings, data.get("uid", 0))
+    uid = data.get("uid")
+    if uid is None:
+        raise _unauthorized()
+    user = await validate_session(db, cookie, settings, uid, data=data)
     if user is None:
         raise _unauthorized()
     return user
@@ -48,8 +50,10 @@ async def get_user(request: Request, db: AsyncSession) -> User | None:
     data = unsign_session_token(settings, cookie)
     if not data:
         return None
-    result = await db.execute(select(User).where(User.id == data.get("uid")))
-    return result.scalar_one_or_none()
+    uid = data.get("uid")
+    if uid is None:
+        return None
+    return await validate_session(db, cookie, settings, uid, data=data)
 
 
 async def get_admin(request: Request, db: AsyncSession) -> User | None:

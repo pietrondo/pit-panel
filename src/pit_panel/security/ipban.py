@@ -2,7 +2,7 @@
 
 import datetime as dt
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.db.models import IPBan, LoginAttempt
@@ -33,14 +33,15 @@ async def record_login_attempt(db: AsyncSession, ip: str, username: str, success
 
     if not success:
         cutoff = dt.datetime.now(dt.UTC) - dt.timedelta(minutes=FAILED_WINDOW_MINUTES)
+
         result = await db.execute(
-            select(LoginAttempt).where(
+            select(func.count(LoginAttempt.id)).where(
                 LoginAttempt.ip_address == ip,
                 LoginAttempt.success == False,  # noqa: E712
                 LoginAttempt.attempted_at > cutoff,
             )
         )
-        failed_count = len(result.scalars().all())
+        failed_count = result.scalar_one()
 
         if failed_count >= MAX_FAILED_ATTEMPTS:
             existing = await db.execute(select(IPBan).where(IPBan.ip_address == ip))
@@ -71,6 +72,24 @@ async def unban_ip(db: AsyncSession, ip: str, user_id: int | None = None) -> boo
     return False
 
 
+async def ban_ip(
+    db: AsyncSession, ip: str, reason: str, duration_minutes: int = 60
+) -> bool:
+    existing = await db.execute(
+        select(IPBan).where(IPBan.ip_address == ip)
+    )
+    if existing.scalar_one_or_none():
+        return False
+    ban_entry = IPBan(
+        ip_address=ip,
+        reason=reason,
+        expires_at=dt.datetime.now(dt.UTC) + dt.timedelta(minutes=duration_minutes),
+    )
+    db.add(ban_entry)
+    await db.commit()
+    return True
+
+
 async def get_banned_ips(db: AsyncSession) -> list[IPBan]:
     result = await db.execute(select(IPBan).order_by(IPBan.banned_at.desc()))
     return result.scalars().all()
@@ -84,23 +103,20 @@ async def get_recent_attempts(db: AsyncSession, limit: int = 50) -> list[LoginAt
 
 
 async def cleanup_expired_bans(db: AsyncSession) -> int:
+
     result = await db.execute(
-        select(IPBan).where(
+        delete(IPBan).where(
             IPBan.expires_at.isnot(None),
             IPBan.expires_at < dt.datetime.now(dt.UTC),
         )
     )
-    expired = result.scalars().all()
-    for ban in expired:
-        await db.delete(ban)
-    if expired:
+    if result.rowcount > 0:
         await db.commit()
-    return len(expired)
+    return result.rowcount
 
 
 async def cleanup_old_attempts(db: AsyncSession, days: int = 30) -> int:
     cutoff = dt.datetime.now(dt.UTC) - dt.timedelta(days=days)
-    from sqlalchemy import delete
 
     result = await db.execute(delete(LoginAttempt).where(LoginAttempt.attempted_at < cutoff))
     await db.commit()

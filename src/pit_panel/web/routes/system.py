@@ -20,11 +20,20 @@ INSTALL_DIR = "/opt/pit-panel"
 def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
     """Run a privileged command via sudo -n (non-interactive, no password prompt).
 
-    Required because pit-panel runs under systemd ProtectSystem=strict
-    and cannot write to /opt/pit-panel/.git/ or /etc/systemd/system/.
+    Used for systemctl and cp operations that require root.
     """
     return subprocess.run(
         ["sudo", "-n", *cmd],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+def _run(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
+    """Run a command as the pit-panel user (no sudo)."""
+    return subprocess.run(
+        cmd,
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -123,29 +132,37 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    # All privileged operations run via sudo -n.
-    # The pit-panel service runs under systemd ProtectSystem=strict
-    # and cannot write to /opt/pit-panel/.git/ or /etc/systemd/system/.
+    # git and uv run directly (repo is owned by pit-panel, in ReadWritePaths).
+    # cp and systemctl require sudo.
     steps = [
-        (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60),
-        (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30),
-        (["uv", "--directory", INSTALL_DIR, "sync"], 180),
+        (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60, False),
+        (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30, False),
+        (["/usr/local/bin/uv", "--directory", INSTALL_DIR, "sync"], 180, False),
         (
             [
                 "cp",
                 f"{INSTALL_DIR}/packaging/pit-panel.service",
-                "/etc/systemd/system/pit-panel.service",
+                "/etc/systemd/system/",
             ],
             10,
+            True,
         ),
-        (["systemctl", "daemon-reload"], 10),
-        (["systemctl", "restart", "pit-panel.service"], 30),
+        (["systemctl", "daemon-reload"], 10, True),
+        (["systemctl", "restart", "--no-block", "pit-panel.service"], 10, True),
     ]
 
     log_lines: list[str] = []
     ok = True
-    for cmd, timeout in steps:
-        result = _sudo(cmd, timeout=timeout)
+    for cmd, timeout, use_sudo in steps:
+        if use_sudo and "restart" in cmd and "--no-block" in cmd:
+            subprocess.Popen(
+                ["sudo", "-n", *cmd],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            log_lines.append(f"OK   {' '.join(cmd)} (queued)")
+            continue
+        result = _sudo(cmd, timeout=timeout) if use_sudo else _run(cmd, timeout=timeout)
         if result.returncode != 0:
             err = (result.stderr or result.stdout or "").strip()[:200]
             log_lines.append(f"FAIL {' '.join(cmd)}: {err}")
