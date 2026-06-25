@@ -34,9 +34,9 @@ LockPersonality=true
 # Filesystem access
 ReadWritePaths=/opt/pit-panel/.venv /var/lib/pit-panel /opt/pit-panel/apps /etc/pit-panel /etc/caddy
 
-# Capabilities (none needed)
-CapabilityBoundingSet=
-AmbientCapabilities=
+# Capabilities: kept empty intentionally so sudo can operate.
+# CapabilityBoundingSet= empty would block sudo from changing UID/GID.
+# AmbientCapabilities= empty is harmless but unnecessary with sudo.
 
 [Install]
 WantedBy=multi-user.target
