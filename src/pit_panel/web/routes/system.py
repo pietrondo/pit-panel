@@ -142,7 +142,7 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
             [
                 "cp",
                 f"{INSTALL_DIR}/packaging/pit-panel.service",
-                "/etc/systemd/system/pit-panel.service",
+                "/etc/systemd/system/",
             ],
             10,
             True,
