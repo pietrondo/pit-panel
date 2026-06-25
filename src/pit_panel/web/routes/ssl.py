@@ -104,11 +104,17 @@ def _generate_caddyfile(
         if acme_cfg and acme_cfg != "issuer acme":
             acme_clause = "\n" + _get_tls_block(acme_cfg, "", "")
 
-        return f"""{{
+        if acme_clause:
+            return f"""{{
     email {email}
 }}
 
 {panel_sub}.{domain} {{{acme_clause}
+    reverse_proxy 127.0.0.1:8080
+}}
+"""
+        else:
+            return f"""{panel_sub}.{domain} {{
     reverse_proxy 127.0.0.1:8080
 }}
 """
