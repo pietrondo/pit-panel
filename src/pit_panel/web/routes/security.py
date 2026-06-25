@@ -30,11 +30,11 @@ def _run_cmd(cmd: list[str], timeout: int = 10) -> str:
 
 async def _firewall_status() -> dict:
     ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
-    if "not found" in ufw.lower():
+    if "not found" in ufw.lower() or "command not found" in ufw.lower():
         install = _run_cmd(
-            ["sudo", "-n", "apt-get", "install", "-y", "ufw"], timeout=30
+            ["sudo", "-n", "apt-get", "install", "-y", "ufw"], timeout=60
         )
-        if "Setting up ufw" in install:
+        if "Setting up ufw" in install or "ufw is already" in install:
             _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
             ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
     active = "Status: active" in ufw
@@ -52,15 +52,15 @@ async def _firewall_status() -> dict:
 
 async def _fail2ban_status() -> dict:
     status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
-    if "not found" in status.lower():
+    if "not found" in status.lower() or "command not found" in status.lower():
         install = _run_cmd(
-            ["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=30
+            ["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=60
         )
-        if "Setting up fail2ban" in install:
+        if "Setting up fail2ban" in install or "fail2ban is already" in install:
             status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
     jails = []
     active = "|- Number of jail:" in status
-    if "command not found" in status.lower() or "sudo:" in status:
+    if "sudo:" in status and "|- Number of jail:" not in status:
         return {"active": False, "jails": []}
     for line in status.split("\n"):
         stripped = line.strip()
