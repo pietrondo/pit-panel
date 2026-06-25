@@ -65,3 +65,5 @@ class TestSession:
             tables = await conn.run_sync(check_tables)
             assert "users" in tables
             assert "subdomains" in tables
+
+        await engine.dispose()
