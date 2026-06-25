@@ -93,7 +93,7 @@ async def _get_git_info() -> tuple[str, str]:
 
 
 @router.get("/system", response_class=HTMLResponse)
-async def system_page(
+async def system_page(  # type: ignore
     request: Request, db: AsyncSession = Depends(get_db)
 ):
     user = await get_admin(request, db)
@@ -120,7 +120,7 @@ async def system_page(
 
 
 @router.post("/system/upgrade", response_class=HTMLResponse)
-async def system_upgrade(
+async def system_upgrade(  # type: ignore
     request: Request, db: AsyncSession = Depends(get_db)
 ):
     user = await get_admin(request, db)

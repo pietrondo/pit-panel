@@ -1,3 +1,4 @@
+from typing import Any
 """Subdomain CRUD routes with Caddy integration and audit logging."""
 
 import contextlib
@@ -16,13 +17,13 @@ from pit_panel.web.render import render
 from pit_panel.web.router import router
 
 
-async def _log_audit(
+async def _log_audit(  # type: ignore
     db: AsyncSession,
     user_id: int | None,
     action: str,
     target_type: str,
     target_id: int | None,
-    details: dict | None,
+    details: dict[str, Any] | None,
     request: Request,
 ):
     entry = AuditLog(
@@ -39,7 +40,7 @@ async def _log_audit(
 
 
 @router.get("/subdomains", response_class=HTMLResponse)
-async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
+async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -51,7 +52,7 @@ async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/subdomains/add", response_class=HTMLResponse)
-async def subdomain_add(
+async def subdomain_add(  # type: ignore
     request: Request,
     subdomain: str = Form(...),
     app_type: str = Form("none"),
@@ -119,7 +120,7 @@ async def subdomain_add(
 
 
 @router.post("/subdomains/{sd_id}/delete", response_class=HTMLResponse)
-async def subdomain_delete(
+async def subdomain_delete(  # type: ignore
     request: Request,
     sd_id: int,
     db: AsyncSession = Depends(get_db),

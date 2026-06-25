@@ -145,7 +145,7 @@ def _check_port80() -> bool:
 
 
 @router.get("/ssl", response_class=HTMLResponse)
-async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)):
+async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -177,7 +177,7 @@ async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/ssl/generate", response_class=HTMLResponse)
-async def ssl_generate(
+async def ssl_generate(  # type: ignore
     request: Request,
     email: str = Form("admin@localhost"),
     acme_provider: str = Form("letsencrypt"),
@@ -275,7 +275,7 @@ async def ssl_generate(
 
 
 @router.post("/ssl/renew", response_class=HTMLResponse)
-async def ssl_renew(
+async def ssl_renew(  # type: ignore
     request: Request,
     domain: str = Form(...),
     db: AsyncSession = Depends(get_db),

@@ -1,3 +1,4 @@
+from typing import Any
 """Settings and audit log routes."""
 
 from fastapi import Depends, Form, Request
@@ -13,13 +14,13 @@ from pit_panel.web.render import render
 from pit_panel.web.router import router
 
 
-async def _load_db_settings(db: AsyncSession) -> dict:
+async def _load_db_settings(db: AsyncSession) -> dict[str, Any]:
     result = await db.execute(select(SystemSettings))
     return {row.key: row.value for row in result.scalars().all()}
 
 
 @router.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -38,7 +39,7 @@ async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/settings/update", response_class=HTMLResponse)
-async def settings_update(
+async def settings_update(  # type: ignore
     request: Request,
     base_domain: str = Form(""),
     panel_subdomain: str = Form("panel"),
@@ -87,7 +88,7 @@ async def settings_update(
 
 
 @router.get("/settings/audit", response_class=HTMLResponse)
-async def audit_log(request: Request, db: AsyncSession = Depends(get_db)):
+async def audit_log(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)

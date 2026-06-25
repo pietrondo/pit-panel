@@ -12,7 +12,7 @@ from pit_panel.web.router import router
 
 
 @router.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
+async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)

@@ -37,7 +37,7 @@ def _file_checksum(path: str) -> str:
 
 
 @router.get("/debug", response_class=HTMLResponse)
-async def debug_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def debug_page(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -85,7 +85,7 @@ async def debug_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/debug/raw", response_class=PlainTextResponse)
-async def debug_raw(request: Request, db: AsyncSession = Depends(get_db)):
+async def debug_raw(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_admin(request, db)
     if not user:
         return PlainTextResponse("Unauthorized", status_code=401)

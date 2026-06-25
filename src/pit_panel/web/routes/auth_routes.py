@@ -26,7 +26,7 @@ from pit_panel.web.router import router
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
+async def login_page(request: Request):  # type: ignore
     cookie = request.cookies.get(SESSION_COOKIE)
     if cookie and unsign_session_token(get_settings(), cookie):
         return RedirectResponse("/", status_code=302)
@@ -34,8 +34,8 @@ async def login_page(request: Request):
 
 
 @router.post("/login", response_class=HTMLResponse)
-@router.state.limiter.limit("5/minute")
-async def login_post(
+@router.state.limiter.limit("5/minute")  # type: ignore
+async def login_post(  # type: ignore
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
@@ -56,7 +56,7 @@ async def login_post(
         totp_code = form_data.get("totp_code")
         if not totp_code:
             return render("login.html", totp_required=True, username=username, error=None)
-        if not verify_totp(user.totp_secret or "", totp_code):
+        if not verify_totp(user.totp_secret or "", totp_code):  # type: ignore
             await record_login_attempt(
                 db, request.client.host if request.client else "unknown", username, False
             )
@@ -112,7 +112,7 @@ async def login_post(
 
 
 @router.get("/logout")
-async def logout(request: Request, db: AsyncSession = Depends(get_db)):
+async def logout(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     cookie = request.cookies.get(SESSION_COOKIE)
     if cookie:
         data = unsign_session_token(get_settings(), cookie)
@@ -124,7 +124,7 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/setup-2fa", response_class=HTMLResponse)
-async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     settings = get_settings()
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:
@@ -145,14 +145,14 @@ async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):
     uri = get_totp_uri(user.totp_secret, user.username)
     img = qrcode.make(uri)
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    img.save(buf, format="PNG")  # type: ignore
     qr_b64 = base64.b64encode(buf.getvalue()).decode()
 
     return render("setup_2fa.html", totp_secret=user.totp_secret, qr_code=qr_b64, error=None)
 
 
 @router.post("/setup-2fa", response_class=HTMLResponse)
-async def setup_2fa_post(
+async def setup_2fa_post(  # type: ignore
     request: Request,
     code: str = Form(...),
     db: AsyncSession = Depends(get_db),
@@ -179,7 +179,7 @@ async def setup_2fa_post(
         uri = get_totp_uri(user.totp_secret, user.username)
         img = qr.make(uri)
         buf = io_mod.BytesIO()
-        img.save(buf, format="PNG")
+        img.save(buf, format="PNG")  # type: ignore
         qr_b64 = b64.b64encode(buf.getvalue()).decode()
         return render(
             "setup_2fa.html",

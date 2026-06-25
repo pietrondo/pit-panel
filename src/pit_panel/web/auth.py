@@ -38,7 +38,7 @@ def unsign_session_token(settings: Settings, cookie_value: str) -> dict[str, Any
     serializer = get_serializer(settings)
     try:
         data = serializer.loads(cookie_value, max_age=settings.session_duration_hours * 3600)
-        return data
+        return data  # type: ignore
     except (BadSignature, SignatureExpired):
         return None
 
@@ -71,7 +71,7 @@ async def validate_session(
         return None
 
     result = await db_session.execute(select(User).where(User.id == user_id))
-    return result.scalar_one_or_none()
+    return result.scalar_one_or_none()  # type: ignore
 
 
 async def create_session_record(

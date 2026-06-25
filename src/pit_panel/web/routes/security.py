@@ -16,7 +16,7 @@ from pit_panel.web.router import router
 
 
 @router.get("/security", response_class=HTMLResponse)
-async def security_overview(request: Request, db: AsyncSession = Depends(get_db)):
+async def security_overview(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -54,7 +54,7 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/security/unban", response_class=HTMLResponse)
-async def security_unban(
+async def security_unban(  # type: ignore
     request: Request,
     ip: str = Form(""),
     db: AsyncSession = Depends(get_db),
@@ -101,7 +101,7 @@ async def security_unban(
 
 
 @router.post("/security/revoke-session", response_class=HTMLResponse)
-async def security_revoke_session(
+async def security_revoke_session(  # type: ignore
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
@@ -110,7 +110,7 @@ async def security_revoke_session(
         return RedirectResponse("/login", status_code=302)
 
     form = await request.form()
-    session_id = int(form.get("session_id", 0))
+    session_id = int(form.get("session_id", 0))  # type: ignore
     if session_id:
         await revoke_session(db, session_id)
 

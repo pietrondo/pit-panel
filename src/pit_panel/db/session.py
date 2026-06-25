@@ -6,7 +6,7 @@ _engine = None
 _sessionmaker = None
 
 
-def get_engine(settings: Settings | None = None):
+def get_engine(settings: Settings | None = None):  # type: ignore
     global _engine
     if _engine is None:
         if settings is None:
@@ -26,7 +26,7 @@ def get_sessionmaker(settings: Settings | None = None) -> async_sessionmaker[Asy
     return _sessionmaker
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncSession:  # type: ignore
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
         yield session

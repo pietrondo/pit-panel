@@ -9,7 +9,7 @@ from pit_panel.db.session import get_db
 from pit_panel.web.auth import SESSION_COOKIE, unsign_session_token, validate_session
 
 
-def get_settings():
+def get_settings():  # type: ignore
     return _get_settings()
 
 
@@ -20,7 +20,7 @@ async def get_current_user(
 ) -> User:
     cookie = request.cookies.get(SESSION_COOKIE)
     if cookie is None:
-        raise _unauthorized()
+        raise _unauthorized()  # type: ignore
 
     data = (
         __import__("itsdangerous")
@@ -30,18 +30,18 @@ async def get_current_user(
 
     user = await validate_session(db, cookie, settings, data.get("uid", 0))
     if user is None:
-        raise _unauthorized()
+        raise _unauthorized()  # type: ignore
     return user
 
 
-def _unauthorized():
+def _unauthorized():  # type: ignore
     from fastapi import HTTPException
 
     return HTTPException(status_code=401, detail="Not authenticated")
 
 
 async def get_user(request: Request, db: AsyncSession) -> User | None:
-    settings = get_settings()
+    settings = get_settings()  # type: ignore
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:
         return None

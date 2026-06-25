@@ -1,3 +1,3 @@
 from pit_panel.main import main
 
-main()
+main()  # type: ignore

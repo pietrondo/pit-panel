@@ -54,7 +54,7 @@ async def reset_password(username: str, password: str) -> None:
         print(f"Password for '{username}' reset.")
 
 
-def main():
+def main():  # type: ignore
     parser = argparse.ArgumentParser(description="pit-panel admin CLI")
     sub = parser.add_subparsers(dest="command")
 
@@ -79,4 +79,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main()  # type: ignore

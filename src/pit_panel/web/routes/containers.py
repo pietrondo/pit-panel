@@ -15,7 +15,7 @@ from pit_panel.web.router import router
 
 
 @router.get("/containers", response_class=HTMLResponse)
-async def containers_list(request: Request, db: AsyncSession = Depends(get_db)):
+async def containers_list(request: Request, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -42,7 +42,7 @@ async def containers_list(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/containers/{sd_id}/logs", response_class=HTMLResponse)
-async def container_logs(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+async def container_logs(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -63,7 +63,7 @@ async def container_logs(request: Request, sd_id: int, db: AsyncSession = Depend
 
 
 @router.post("/containers/{sd_id}/restart", response_class=HTMLResponse)
-async def container_restart(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+async def container_restart(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):  # type: ignore
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)

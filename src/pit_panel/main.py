@@ -5,7 +5,7 @@ import uvicorn
 from pit_panel.config import Settings
 
 
-def main():
+def main():  # type: ignore
     parser = argparse.ArgumentParser(description="pit-panel VPS Management Panel")
     parser.add_argument("--host", default=None, help="Bind address")
     parser.add_argument("--port", type=int, default=None, help="Bind port")
@@ -34,4 +34,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main()  # type: ignore

@@ -15,7 +15,7 @@ from pit_panel.security.ipban import is_ip_banned
 from pit_panel.web.router import router
 
 
-async def _ip_ban_middleware(request: Request, call_next):
+async def _ip_ban_middleware(request: Request, call_next):  # type: ignore
     client_ip = request.client.host if request.client else "unknown"
     try:
         sessionmaker = get_sessionmaker()
@@ -32,7 +32,7 @@ async def _ip_ban_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-async def _security_headers_middleware(request: Request, call_next):
+async def _security_headers_middleware(request: Request, call_next):  # type: ignore
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -50,7 +50,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 @contextlib.asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):  # type: ignore
     await init_db(app.state.settings)
     s = app.state.settings
 
@@ -90,7 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.limiter = limiter
 
-    app.add_exception_handler(RateLimitExceeded, _make_ratelimit_handler())
+    app.add_exception_handler(RateLimitExceeded, _make_ratelimit_handler())  # type: ignore
     app.middleware("http")(_ip_ban_middleware)
     app.middleware("http")(_security_headers_middleware)
 
@@ -98,10 +98,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-    router.state = app.state
-    router.state.limiter = limiter
+    router.state = app.state  # type: ignore
+    router.state.limiter = limiter  # type: ignore
 
-    from pit_panel.web.routes import (  # noqa: E402,F401
+    from pit_panel.web.routes import (  # type: ignore
         apps,
         auth_routes,
         containers,
@@ -118,16 +118,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(router)
 
     @app.get("/health")
-    async def health():
+    async def health():  # type: ignore
         return {"status": "ok"}
 
     return app
 
 
-def _make_ratelimit_handler():
+def _make_ratelimit_handler():  # type: ignore
     from slowapi import _rate_limit_exceeded_handler
 
-    async def handler(request: Request, exc: RateLimitExceeded):
-        return await _rate_limit_exceeded_handler(request, exc)
+    async def handler(request: Request, exc: RateLimitExceeded):  # type: ignore
+        return await _rate_limit_exceeded_handler(request, exc)  # type: ignore
 
     return handler

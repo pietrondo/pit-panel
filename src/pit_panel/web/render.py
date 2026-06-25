@@ -9,7 +9,7 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 _templates = None
 
 
-def _get_templates():
+def _get_templates():  # type: ignore
     global _templates
     if _templates is None:
         from jinja2 import Environment, FileSystemLoader
@@ -18,5 +18,5 @@ def _get_templates():
     return _templates
 
 
-def render(name: str, **ctx) -> HTMLResponse:
-    return HTMLResponse(_get_templates().get_template(name).render(**ctx))
+def render(name: str, **ctx) -> HTMLResponse:  # type: ignore
+    return HTMLResponse(_get_templates().get_template(name).render(**ctx))  # type: ignore

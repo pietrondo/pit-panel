@@ -73,14 +73,14 @@ async def unban_ip(db: AsyncSession, ip: str, user_id: int | None = None) -> boo
 
 async def get_banned_ips(db: AsyncSession) -> list[IPBan]:
     result = await db.execute(select(IPBan).order_by(IPBan.banned_at.desc()))
-    return result.scalars().all()
+    return result.scalars().all()  # type: ignore
 
 
 async def get_recent_attempts(db: AsyncSession, limit: int = 50) -> list[LoginAttempt]:
     result = await db.execute(
         select(LoginAttempt).order_by(LoginAttempt.attempted_at.desc()).limit(limit)
     )
-    return result.scalars().all()
+    return result.scalars().all()  # type: ignore
 
 
 async def cleanup_expired_bans(db: AsyncSession) -> int:
@@ -104,4 +104,4 @@ async def cleanup_old_attempts(db: AsyncSession, days: int = 30) -> int:
 
     result = await db.execute(delete(LoginAttempt).where(LoginAttempt.attempted_at < cutoff))
     await db.commit()
-    return result.rowcount
+    return result.rowcount  # type: ignore

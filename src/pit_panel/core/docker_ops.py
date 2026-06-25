@@ -1,3 +1,4 @@
+from typing import Any
 """Docker Compose operations wrapper."""
 
 import asyncio
@@ -10,7 +11,7 @@ class DockerManager:
     def __init__(self, apps_dir: str = "/opt/pit-panel/apps"):
         self.apps_dir = Path(apps_dir)
 
-    async def compose_up(self, subdomain: str) -> dict:
+    async def compose_up(self, subdomain: str) -> dict[str, Any]:
         path = self.apps_dir / subdomain
         proc = await asyncio.create_subprocess_exec(
             "docker",
@@ -30,7 +31,7 @@ class DockerManager:
             "stderr": stderr.decode(),
         }
 
-    async def compose_down(self, subdomain: str) -> dict:
+    async def compose_down(self, subdomain: str) -> dict[str, Any]:
         path = self.apps_dir / subdomain
         proc = await asyncio.create_subprocess_exec(
             "docker",
@@ -49,7 +50,7 @@ class DockerManager:
             "stderr": stderr.decode(),
         }
 
-    async def compose_ps(self, subdomain: str) -> list[dict]:
+    async def compose_ps(self, subdomain: str) -> list[dict[str, Any]]:
         path = self.apps_dir / subdomain
         proc = await asyncio.create_subprocess_exec(
             "docker",
@@ -91,7 +92,7 @@ class DockerManager:
         stdout, _ = await proc.communicate()
         return stdout.decode()
 
-    async def compose_restart(self, subdomain: str) -> dict:
+    async def compose_restart(self, subdomain: str) -> dict[str, Any]:
         path = self.apps_dir / subdomain
         proc = await asyncio.create_subprocess_exec(
             "docker",
