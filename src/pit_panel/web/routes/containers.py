@@ -83,3 +83,65 @@ async def container_restart(request: Request, sd_id: int, db: AsyncSession = Dep
         await docker_mgr.compose_restart(sd.subdomain)
 
     return RedirectResponse("/containers", status_code=302)
+
+
+@router.post("/containers/container/{container_id}/stop")
+async def container_stop(
+    request: Request, container_id: str
+) -> RedirectResponse:
+    user = await get_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+    await docker_mgr.container_stop(container_id)
+    return RedirectResponse("/containers", status_code=302)
+
+
+@router.post("/containers/container/{container_id}/start")
+async def container_start(
+    request: Request, container_id: str
+) -> RedirectResponse:
+    user = await get_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+    await docker_mgr.container_start(container_id)
+    return RedirectResponse("/containers", status_code=302)
+
+
+@router.get("/containers/container/{container_id}/logs", response_class=HTMLResponse)
+async def container_logs_live(
+    request: Request, container_id: str, db: AsyncSession = Depends(get_db)
+):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+    try:
+        logs = await docker_mgr.container_logs_live(container_id, tail=200)
+    except Exception:
+        logs = "Error fetching logs"
+    return render(
+        "container_logs.html",
+        user=user,
+        logs=logs,
+        subdomain=None,
+        container_id=container_id,
+    )
+
+
+@router.get("/containers/container/{container_id}/stats")
+async def container_stats(request: Request, container_id: str):
+    user = await get_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+    try:
+        stats = await docker_mgr.container_stats(container_id)
+    except Exception:
+        stats = {}
+    return render("container_stats.html", stats=stats, container_id=container_id)
