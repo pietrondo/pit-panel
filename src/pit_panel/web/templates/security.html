@@ -107,6 +107,16 @@
 </div>
 {% endif %}
 
+<!-- Public Blocklists -->
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Public IP Blocklists</h2>
+    </div>
+    <div class="p-4" hx-get="/security/blocklist" hx-trigger="load">
+        <p class="text-sm text-gray-500">Loading...</p>
+    </div>
+</div>
+
 <!-- Manual IP Ban -->
 <div class="card mb-6">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from pit_panel.db.models import Base, IPBan, LoginAttempt
+from pit_panel.security.ipban import ban_ip, is_ip_banned
 
 
 @pytest.fixture
@@ -165,6 +166,34 @@ class TestSecurityApp:
         assert "/security" in paths
         assert "/security/unban" in paths
         assert "/security/revoke-session" in paths
+        assert "/security/ban-ip" in paths
+
+
+@pytest.mark.asyncio
+async def test_ban_ip_adds_record(db_session):
+    result = await ban_ip(db_session, "1.2.3.4", "test ban", 60)
+    assert result is True
+
+    banned = await is_ip_banned(db_session, "1.2.3.4")
+    assert banned is True
+
+
+@pytest.mark.asyncio
+async def test_ban_ip_duplicate_rejected(db_session):
+    await ban_ip(db_session, "1.2.3.4", "first", 60)
+    result = await ban_ip(db_session, "1.2.3.4", "second", 120)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_ban_ip_no_expiry(db_session):
+    await ban_ip(db_session, "5.6.7.8", "permanent", duration_minutes=60)
+    check = await db_session.execute(
+        select(IPBan).where(IPBan.ip_address == "5.6.7.8")
+    )
+    ban = check.scalar_one_or_none()
+    assert ban is not None
+    assert ban.reason == "permanent"
 
 
 class TestSystemApp:

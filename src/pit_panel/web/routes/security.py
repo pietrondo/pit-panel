@@ -369,3 +369,96 @@ async def security_abuseipdb_blacklist(
         + "".join(rows)
         + "</table>"
     )
+
+
+async def _fetch_blocklist(url: str) -> list[str]:
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                return []
+            ips = []
+            for line in resp.text.split("\n"):
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    ips.append(line.split()[0] if " " in line else line)
+            return ips[:200]
+    except Exception:
+        return []
+
+
+BLOCKLIST_SOURCES = {
+    "firehol_level1": {
+        "name": "FireHOL Level 1",
+        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset",
+        "desc": "Known attackers, malware C&C",
+    },
+    "firehol_webserver": {
+        "name": "FireHOL Web Server Attacks",
+        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_webserver.netset",
+        "desc": "IPs that attack web servers",
+    },
+}
+
+
+@router.get("/security/blocklist")
+async def security_blocklist_page(
+    request: Request, db: AsyncSession = Depends(get_db)
+):
+    user = await get_admin(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    html = "<div class='space-y-2'>"
+    for key, info in BLOCKLIST_SOURCES.items():
+        html += (
+            f"<div class='flex items-center justify-between p-2 "
+            f"bg-gray-50 dark:bg-gray-800 rounded'>"
+            f"<div>"
+            f"<span class='font-medium text-sm'>{info['name']}</span>"
+            f"<p class='text-xs text-gray-500'>{info['desc']}</p>"
+            f"</div>"
+            f"<button class='btn-ghost text-xs' "
+            f"hx-post='/security/blocklist/import' "
+            f"hx-vals='{{\"source\":\"{key}\"}}' "
+            f"hx-target='#blocklist-result' "
+            f"hx-swap='innerHTML'>Import</button>"
+            f"</div>"
+        )
+    html += "</div><div id='blocklist-result' class='mt-2 text-xs'></div>"
+    return HTMLResponse(html)
+
+
+@router.post("/security/blocklist/import")
+async def security_blocklist_import(
+    request: Request, db: AsyncSession = Depends(get_db)
+):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
+
+    form = await request.form()
+    source = str(form.get("source", ""))
+    info = BLOCKLIST_SOURCES.get(source)
+    if not info:
+        return HTMLResponse("<p class='text-red-500'>Invalid source</p>")
+
+    ips = await _fetch_blocklist(info["url"])
+    if not ips:
+        return HTMLResponse("<p class='text-yellow-500'>No IPs found</p>")
+
+    count = 0
+    for ip in ips:
+        try:
+            ok = await ban_ip(db, ip, f"blocklist:{source}", 10080)
+            if ok:
+                count += 1
+        except Exception:
+            pass
+
+    return HTMLResponse(
+        f"<p class='text-green-500'>Imported {count}/{len(ips)} IPs "
+        f"from {info['name']}</p>"
+    )
