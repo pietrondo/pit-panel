@@ -4,7 +4,7 @@ import io
 
 import qrcode
 from fastapi import Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +26,7 @@ from pit_panel.web.router import router
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
+async def login_page(request: Request) -> Response:
     cookie = request.cookies.get(SESSION_COOKIE)
     if cookie and unsign_session_token(get_settings(), cookie):
         return RedirectResponse("/", status_code=302)
@@ -34,13 +34,14 @@ async def login_page(request: Request):
 
 
 @router.post("/login", response_class=HTMLResponse)
-@router.state.limiter.limit("5/minute")
+@router.state.limiter.limit("5/minute")  # type: ignore
 async def login_post(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    totp_code: str | None = Form(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> Response:
     settings = get_settings()
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
@@ -53,7 +54,8 @@ async def login_post(
 
     if user.totp_enabled:
         form_data = await request.form()
-        totp_code = form_data.get("totp_code")
+        totp_code_str = str(form_data.get("totp_code")) if form_data.get("totp_code") else None
+        totp_code = totp_code_str
         if not totp_code:
             return render("login.html", totp_required=True, username=username, error=None)
         if not verify_totp(user.totp_secret or "", totp_code):
@@ -112,7 +114,7 @@ async def login_post(
 
 
 @router.get("/logout")
-async def logout(request: Request, db: AsyncSession = Depends(get_db)):
+async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> RedirectResponse:
     cookie = request.cookies.get(SESSION_COOKIE)
     if cookie:
         data = unsign_session_token(get_settings(), cookie)
@@ -124,7 +126,9 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/setup-2fa", response_class=HTMLResponse)
-async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def setup_2fa_page(
+    request: Request, db: AsyncSession = Depends(get_db)
+) -> Response:
     settings = get_settings()
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:
@@ -156,7 +160,7 @@ async def setup_2fa_post(
     request: Request,
     code: str = Form(...),
     db: AsyncSession = Depends(get_db),
-):
+) -> Response:
     settings = get_settings()
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:
@@ -170,7 +174,7 @@ async def setup_2fa_post(
     if not user or not user.totp_secret:
         return RedirectResponse("/login", status_code=302)
 
-    if not verify_totp(user.totp_secret, code):
+    if not verify_totp(user.totp_secret, str(code)):
         import base64 as b64
         import io as io_mod
 
