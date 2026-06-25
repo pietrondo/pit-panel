@@ -9,10 +9,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pit_panel.config import get_settings
-from pit_panel.db.models import UpdateHistory, User
+from pit_panel.db.models import UpdateHistory
 from pit_panel.db.session import get_db
-from pit_panel.web.auth import SESSION_COOKIE, unsign_session_token
+from pit_panel.web.deps import get_admin
 from pit_panel.web.render import render
 from pit_panel.web.router import router
 
@@ -27,23 +26,10 @@ def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess:
     """
     return subprocess.run(
         ["sudo", "-n", *cmd],
-        capture_output=True, text=True, timeout=timeout,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
-
-
-async def _get_admin(request: Request, db: AsyncSession) -> User | None:
-    settings = get_settings()
-    cookie = request.cookies.get(SESSION_COOKIE)
-    if not cookie:
-        return None
-    data = unsign_session_token(settings, cookie)
-    if not data:
-        return None
-    result = await db.execute(select(User).where(User.id == data.get("uid")))
-    user = result.scalar_one_or_none()
-    if user and user.is_admin:
-        return user
-    return None
 
 
 def _get_git_info():
@@ -52,17 +38,22 @@ def _get_git_info():
     with contextlib.suppress(Exception):
         current = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=INSTALL_DIR,
         ).stdout.strip()
     with contextlib.suppress(Exception):
         result = subprocess.run(
             [
-                "git", "ls-remote",
+                "git",
+                "ls-remote",
                 "https://github.com/pietrondo/pit-panel.git",
                 "refs/heads/main",
             ],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         if result.returncode == 0 and result.stdout.strip():
             remote = result.stdout.split()[0][:7]
@@ -74,10 +65,13 @@ def _get_git_info():
 
             url = "https://api.github.com/repos/pietrondo/pit-panel/commits/main"
             ctx = ssl.create_default_context()
-            req = urllib.request.Request(url, headers={
-                "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "pit-panel",
-            })
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "Accept": "application/vnd.github.v3+json",
+                    "User-Agent": "pit-panel",
+                },
+            )
             with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                 data = json.loads(resp.read())
                 api_sha = data.get("sha", "")[:7]
@@ -88,7 +82,7 @@ def _get_git_info():
 
 @router.get("/system", response_class=HTMLResponse)
 async def system_page(request: Request, db: AsyncSession = Depends(get_db)):
-    user = await _get_admin(request, db)
+    user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
@@ -113,7 +107,7 @@ async def system_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 @router.post("/system/upgrade", response_class=HTMLResponse)
 async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
-    user = await _get_admin(request, db)
+    user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
@@ -124,8 +118,14 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
         (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60),
         (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30),
         (["uv", "--directory", INSTALL_DIR, "sync"], 180),
-        (["cp", f"{INSTALL_DIR}/packaging/pit-panel.service",
-          "/etc/systemd/system/pit-panel.service"], 10),
+        (
+            [
+                "cp",
+                f"{INSTALL_DIR}/packaging/pit-panel.service",
+                "/etc/systemd/system/pit-panel.service",
+            ],
+            10,
+        ),
         (["systemctl", "daemon-reload"], 10),
         (["systemctl", "restart", "pit-panel.service"], 30),
     ]
