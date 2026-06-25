@@ -1,9 +1,11 @@
-import pytest
 from pathlib import Path
+
+import pytest
 from fastapi.responses import HTMLResponse
 
 import pit_panel.web.render as render_module
 from pit_panel.web.render import _get_templates, render
+
 
 @pytest.fixture(autouse=True)
 def reset_templates():
