@@ -1,6 +1,7 @@
 """SSL certificate management routes via Caddy admin API."""
 
 import contextlib
+import re
 import subprocess
 from pathlib import Path
 
@@ -38,11 +39,21 @@ DNS_PROVIDERS = [
 ]
 
 
+
+
+def _sanitize(val: str) -> str:
+    if not val:
+        return ""
+    # Strip dangerous characters that could break out of a Caddyfile value
+    return re.sub(r'[\r\n"{}]', '', val)
+
 def _get_acme_config(
     acme_provider: str,
     eab_key_id: str,
     eab_hmac: str,
 ) -> str:
+    eab_key_id = _sanitize(eab_key_id)
+    eab_hmac = _sanitize(eab_hmac)
     if acme_provider == "zerossl":
         return f'issuer zerossl {{eab "{eab_key_id}" "{eab_hmac}"}}'
     if acme_provider == "buypass":
@@ -80,7 +91,14 @@ def _generate_caddyfile(
     eab_key_id: str = "",
     eab_hmac: str = "",
 ) -> str:
+    email = _sanitize(email)
+    domain = _sanitize(domain)
+    panel_sub = _sanitize(panel_sub)
+    dns_provider = _sanitize(dns_provider)
+    api_var = _sanitize(api_var)
+
     acme_cfg = _get_acme_config(acme_provider, eab_key_id, eab_hmac)
+
 
     if dns_provider:
         tls_lines = _get_tls_block(acme_cfg, dns_provider, api_var)
