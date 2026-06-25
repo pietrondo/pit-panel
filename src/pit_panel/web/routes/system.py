@@ -148,7 +148,7 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
             True,
         ),
         (["systemctl", "daemon-reload"], 10, True),
-        (["systemctl", "restart", "pit-panel.service"], 30, True),
+        (["systemctl", "restart", "--no-block", "pit-panel.service"], 10, True),
     ]
 
     log_lines: list[str] = []
