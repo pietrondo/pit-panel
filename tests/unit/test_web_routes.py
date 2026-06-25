@@ -18,6 +18,12 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setattr("pit_panel.db.session._engine", None)
     monkeypatch.setattr("pit_panel.db.session._sessionmaker", None)
     app = create_app(s)
+
+    # We must use `get_db` directly if we want a fresh app instance to use the DB,
+    # or just let `create_app` naturally use the config we mocked out.
+    # The previous error occurred because there's no global `engine` export in session.py.
+    # Let's mock out the db call in the test to avoid db initialization entirely.
+
     return TestClient(app)
 
 
@@ -93,6 +99,46 @@ class TestRunHelper:
         import tempfile
 
         from pit_panel.web.routes.debug import _run
+
         with tempfile.TemporaryDirectory() as tmpdir:
             result = _run(["git", "init"], cwd=tmpdir)
             assert result == "(empty)" or "Initialized" in result
+
+
+class TestSubdomainsRoutes:
+    def test_invalid_subdomain_is_rejected(self, client, monkeypatch):
+        # We need to simulate being authenticated.
+        # Let's mock `get_user` to return a dummy user.
+        from pit_panel.db.models import User
+
+        async def mock_get_user(request, db):
+            return User(id=1, username="test", password_hash="hash")
+
+        monkeypatch.setattr("pit_panel.web.routes.subdomains.get_user", mock_get_user)
+
+        # We must also mock the db call which queries for subdomains since we bypassed DB init
+        class MockResult:
+            def scalars(self):
+                return self
+            def all(self):
+                return []
+        async def mock_execute(*args, **kwargs):
+            return MockResult()
+
+        import pit_panel.web.routes.subdomains
+        from fastapi import Request
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_db = MagicMock()
+        mock_db.execute = AsyncMock(side_effect=mock_execute)
+
+        # Override the get_db dependency for the testclient
+        from pit_panel.db.session import get_db
+        client.app.dependency_overrides[get_db] = lambda: mock_db
+
+        # Attempt to add a subdomain with path traversal payload
+        data = {"subdomain": "../../../etc/passwd", "app_type": "none"}
+
+        resp = client.post("/subdomains/add", data=data)
+        assert resp.status_code == 200
+        assert "Invalid subdomain name" in resp.text
