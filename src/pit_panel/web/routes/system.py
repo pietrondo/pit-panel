@@ -17,7 +17,7 @@ from pit_panel.web.router import router
 INSTALL_DIR = "/opt/pit-panel"
 
 
-def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess:
+def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
     """Run a privileged command via sudo -n (non-interactive, no password prompt).
 
     Required because pit-panel runs under systemd ProtectSystem=strict
@@ -31,7 +31,7 @@ def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess:
     )
 
 
-async def _get_git_info():
+async def _get_git_info() -> tuple[str, str]:
     import asyncio
 
     import httpx
@@ -93,7 +93,7 @@ async def _get_git_info():
 
 
 @router.get("/system", response_class=HTMLResponse)
-async def system_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def system_page(request: Request, db: AsyncSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -118,7 +118,7 @@ async def system_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/system/upgrade", response_class=HTMLResponse)
-async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
+async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
