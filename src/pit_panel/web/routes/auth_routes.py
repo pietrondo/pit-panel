@@ -145,7 +145,7 @@ async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):
     uri = get_totp_uri(user.totp_secret, user.username)
     img = qrcode.make(uri)
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    img.save(buf)
     qr_b64 = base64.b64encode(buf.getvalue()).decode()
 
     return render("setup_2fa.html", totp_secret=user.totp_secret, qr_code=qr_b64, error=None)
@@ -179,7 +179,7 @@ async def setup_2fa_post(
         uri = get_totp_uri(user.totp_secret, user.username)
         img = qr.make(uri)
         buf = io_mod.BytesIO()
-        img.save(buf, format="PNG")
+        img.save(buf)
         qr_b64 = b64.b64encode(buf.getvalue()).decode()
         return render(
             "setup_2fa.html",
