@@ -1,5 +1,7 @@
 """Container management routes with live state and logs."""
 
+import asyncio
+
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -25,13 +27,18 @@ async def containers_list(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
     subdomains = result.scalars().all()
 
-    containers_data = {}
-    for sd in subdomains:
-        try:
-            containers = await docker_mgr.compose_ps(sd.subdomain)
-        except Exception:
-            containers = []
-        containers_data[sd.id] = containers
+    sem = asyncio.Semaphore(10)
+
+    async def _fetch(sd):
+        async with sem:
+            try:
+                return sd.id, await docker_mgr.compose_ps(sd.subdomain)
+            except Exception:
+                return sd.id, []
+
+    tasks = [_fetch(sd) for sd in subdomains]
+    results = await asyncio.gather(*tasks)
+    containers_data = dict(results)
 
     return render(
         "containers.html",
