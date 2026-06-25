@@ -76,3 +76,22 @@ class TestSetup2FA:
     def test_redirects_when_not_logged_in(self, client):
         resp = client.get("/setup-2fa", follow_redirects=False)
         assert resp.status_code == 302
+
+
+class TestDebugRoute:
+    def test_debug_redirects_to_login(self, client):
+        resp = client.get("/debug", follow_redirects=False)
+        assert resp.status_code == 302
+
+    def test_debug_raw_unauthorized(self, client):
+        resp = client.get("/debug/raw", follow_redirects=False)
+        assert resp.status_code == 401
+
+
+class TestRunHelper:
+    def test_run_with_cwd(self):
+        from pit_panel.web.routes.debug import _run
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = _run(["git", "init"], cwd=tmpdir)
+            assert result == "(empty)" or "Initialized" in result

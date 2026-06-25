@@ -18,9 +18,9 @@ from pit_panel.web.router import router
 INSTALL_DIR = "/opt/pit-panel"
 
 
-def _run(cmd: list[str], timeout: int = 10) -> str:
+def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str:
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd)
         return (r.stdout + r.stderr).strip() or "(empty)"
     except Exception as e:
         return f"ERROR: {e}"
