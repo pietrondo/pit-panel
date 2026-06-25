@@ -207,7 +207,10 @@ async def ssl_generate(
     try:
         adapt = subprocess.run(
             ["caddy", "adapt", "--config", "-", "--pretty"],
-            input=caddyfile, capture_output=True, text=True, timeout=10,
+            input=caddyfile,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if adapt.returncode != 0:
             result_msg = f"Caddyfile invalid: {adapt.stderr.strip()[:500]}"
