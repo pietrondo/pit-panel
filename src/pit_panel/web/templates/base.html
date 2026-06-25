@@ -153,7 +153,7 @@
             <div class="p-3 border-t border-gray-200 dark:border-gray-800">
                 <div class="flex items-center justify-between">
                     <span class="text-xs text-gray-500 dark:text-gray-400">v0.1.0</span>
-                    <button @click="dark = !dark" class="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <button @click="dark = !dark" aria-label="Toggle dark mode" class="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
                         <svg x-show="!dark" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
                         </svg>
@@ -170,7 +170,7 @@
         <main class="flex-1 overflow-y-auto">
             <!-- Top bar -->
             <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-3 flex items-center justify-between">
-                <button @click="sidebarOpen = !sidebarOpen" class="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden">
+                <button @click="sidebarOpen = !sidebarOpen" aria-label="Toggle sidebar" class="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                     </svg>
