@@ -63,7 +63,7 @@ async def _read_journal(n: int = 200) -> str:
 
 
 @router.get("/logs", response_class=HTMLResponse)
-async def logs_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def logs_page(request: Request, db: AsyncSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -80,7 +80,7 @@ async def logs_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/logs/journal", response_class=HTMLResponse)
-async def journal_partial(request: Request):
+async def journal_partial(request: Request) -> HTMLResponse:
     journal = await _read_journal()
     return HTMLResponse(
         f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{journal}</pre>'
@@ -88,7 +88,7 @@ async def journal_partial(request: Request):
 
 
 @router.get("/logs/applog", response_class=HTMLResponse)
-async def applog_partial(request: Request):
+async def applog_partial(request: Request) -> HTMLResponse:
     app_log = await _read_log(APP_LOG)
     return HTMLResponse(
         f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{app_log}</pre>'
