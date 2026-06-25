@@ -41,9 +41,7 @@ async def _log_audit(
 
 
 @router.get("/subdomains", response_class=HTMLResponse)
-async def subdomains_list(
-    request: Request, db: AsyncSession = Depends(get_db)
-) -> Response:
+async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
