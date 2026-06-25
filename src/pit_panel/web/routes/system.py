@@ -129,7 +129,7 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     steps = [
         (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60),
         (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30),
-        (["uv", "--directory", INSTALL_DIR, "sync"], 180),
+        (["/root/.local/bin/uv", "--directory", INSTALL_DIR, "sync"], 180),
         (
             [
                 "cp",
