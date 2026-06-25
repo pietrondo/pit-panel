@@ -1,8 +1,10 @@
-import pytest
 import os
 import tempfile
-import asyncio
+
+import pytest
+
 from pit_panel.web.routes.logs import _read_log
+
 
 @pytest.mark.asyncio
 async def test_read_log_valid_file():
@@ -30,6 +32,6 @@ async def test_read_log_tail():
 
     try:
         result = await _read_log(path, tail=2)
-        assert "line 8\nline 9\n" == result
+        assert result == "line 8\nline 9\n"
     finally:
         os.remove(path)
