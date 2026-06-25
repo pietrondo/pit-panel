@@ -209,11 +209,12 @@ async def ssl_generate(
             if resp.status_code == 200:
                 result_msg = "Config loaded. Caddy will provision SSL certificates now."
             else:
-                result_msg = f"Caddy API error: HTTP {resp.status_code}. Is Caddy running?"
-    except Exception:
+                err_detail = resp.text.strip()[:500] if resp.text else ""
+                result_msg = f"Caddy API error: HTTP {resp.status_code}. {err_detail}"
+    except Exception as e:
         result_msg = (
-            "Caddy admin API not reachable. Make sure Caddy is installed and running: "
-            "systemctl start caddy"
+            f"Caddy admin API not reachable ({e}). "
+            "Make sure Caddy is installed and running: systemctl start caddy"
         )
 
     # Store API token for DNS-01 providers (Caddy reads from env)
