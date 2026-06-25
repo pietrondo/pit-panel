@@ -80,11 +80,18 @@ usermod -a -G systemd-journal pit-panel 2>/dev/null || true
 
 # Allow pit-panel to run upgrade + restart without password
 cat > /etc/sudoers.d/pit-panel <<'SUDOERS'
-pit-panel ALL=(root) NOPASSWD: /usr/bin/git -C /opt/pit-panel *
-pit-panel ALL=(root) NOPASSWD: /usr/bin/uv -C /opt/pit-panel *
-pit-panel ALL=(root) NOPASSWD: /usr/bin/uv --directory /opt/pit-panel *
 pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload
-pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl restart pit-panel.service
+pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl restart --no-block pit-panel.service
+pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl reload caddy
+pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl restart caddy.service
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw status
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw status numbered
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw --force enable
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw allow *
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw disable
+pit-panel ALL=(root) NOPASSWD: /usr/bin/apt-get install -y ufw
+pit-panel ALL=(root) NOPASSWD: /usr/bin/apt-get install -y fail2ban
+pit-panel ALL=(root) NOPASSWD: /usr/bin/fail2ban-client status
 pit-panel ALL=(root) NOPASSWD: /bin/cp /opt/pit-panel/packaging/*.service /etc/systemd/system/
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/usermod -a -G systemd-journal pit-panel
 pit-panel ALL=(root) NOPASSWD: /usr/bin/journalctl -u pit-panel.service *

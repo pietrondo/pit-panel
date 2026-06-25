@@ -1,6 +1,7 @@
 """App deployment wizard routes."""
 
 import contextlib
+import datetime
 
 from fastapi import Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -25,9 +26,20 @@ async def apps_list(request: Request, db: AsyncSession = Depends(get_db)):
 
     result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
     subdomains = result.scalars().all()
-    templates = AppManager().list_templates()
+    mgr = AppManager()
+    templates = mgr.list_templates()
+    template_infos = [
+        {"name": t, "meta": mgr.get_template_info(t)} for t in templates
+    ]
 
-    return render("apps.html", user=user, subdomains=subdomains, templates=templates, error=None)
+    return render(
+        "apps.html",
+        user=user,
+        subdomains=subdomains,
+        templates=templates,
+        template_infos=template_infos,
+        error=None,
+    )
 
 
 @router.post("/apps/deploy", response_class=HTMLResponse)
@@ -35,6 +47,7 @@ async def app_deploy(
     request: Request,
     subdomain_id: int = Form(...),
     stack_type: str = Form(...),
+    port: int = Form(8000),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_user(request, db)
@@ -51,16 +64,21 @@ async def app_deploy(
     docker_mgr = DockerManager(settings.apps_dir)
 
     try:
-        mgr.deploy_template(sd.subdomain, stack_type)
+        mgr.deploy_template(sd.subdomain, stack_type, variables={"PORT": str(port)})
     except ValueError:
-        templates = AppManager().list_templates()
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
-        subdomains = result.scalars().all()
+        mgr2 = AppManager()
+        templates = mgr2.list_templates()
+        template_infos = [
+            {"name": t, "meta": mgr2.get_template_info(t)} for t in templates
+        ]
+        result2 = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+        subdomains = result2.scalars().all()
         return render(
             "apps.html",
             user=user,
             subdomains=subdomains,
             templates=templates,
+            template_infos=template_infos,
             error="Invalid stack type",
         )
 
@@ -68,7 +86,7 @@ async def app_deploy(
         await docker_mgr.compose_up(sd.subdomain)
 
     sd.app_type = stack_type
-    sd.last_deployed = __import__("datetime").datetime.now(__import__("datetime").UTC)
+    sd.last_deployed = datetime.datetime.now(datetime.UTC)
 
     deployment = AppDeployment(
         subdomain_id=sd.id,

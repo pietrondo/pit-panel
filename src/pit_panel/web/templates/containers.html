@@ -30,6 +30,7 @@
                     <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Image</th>
                     <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
                     <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ports</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -48,11 +49,28 @@
                         </span>
                     </td>
                     <td class="px-6 py-2 text-sm text-gray-500 dark:text-gray-400 text-xs font-mono">{{ c.get('Ports', '-') }}</td>
+                    <td class="px-6 py-2 text-sm">
+                        {% set cid = c.get('ID', '') %}
+                        {% if cid %}
+                        <div class="flex items-center gap-1">
+                            <a href="/containers/container/{{ cid }}/logs" class="btn-ghost text-xs" target="_blank">Logs</a>
+                            {% if 'Up' in (c.get('Status', '')) %}
+                            <form method="POST" action="/containers/container/{{ cid }}/stop" class="inline">
+                                <button type="submit" class="btn-ghost text-xs text-red-600">Stop</button>
+                            </form>
+                            {% else %}
+                            <form method="POST" action="/containers/container/{{ cid }}/start" class="inline">
+                                <button type="submit" class="btn-ghost text-xs text-green-600">Start</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                         No running containers. Deploy an app to start containers.
                     </td>
                 </tr>

@@ -20,14 +20,10 @@ class User(Base):
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(default=False)
     is_admin: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
     last_login: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
 
-    sessions: Mapped[list["Session"]] = relationship(
-        back_populates="user", cascade="all, delete"
-    )
+    sessions: Mapped[list["Session"]] = relationship(back_populates="user", cascade="all, delete")
     subdomains: Mapped[list["Subdomain"]] = relationship(
         back_populates="owner", cascade="all, delete"
     )
@@ -139,9 +135,7 @@ class IPBan(Base):
     banned_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    banned_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    banned_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
     expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
     failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
 

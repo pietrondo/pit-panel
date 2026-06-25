@@ -1,0 +1,3 @@
+## 2024-06-25 - Optimize IP ban counting and expired ban cleanup
+**Learning:** Found two common unoptimized patterns in SQLAlchemy: 1) fetching all matching row objects just to compute their count using `len()` which causes heavy N+1 object hydration latency on large tables. 2) Using a SELECT to get row objects, and then running a DELETE loop `for obj in expired: await db.delete(obj)`, which causes severe N+1 latency over the network.
+**Action:** Always prefer DB-side aggregations (`func.count()`) instead of counting records in application memory. For deletion, use single-query bulk deletion syntax (`delete(Model).where(...)`) instead of individual deletions loop.

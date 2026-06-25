@@ -18,15 +18,27 @@ class Updater:
     async def check_for_updates(self) -> str | None:
         try:
             result = subprocess.run(
-                ["sudo", "-n", "git", "-C", "/opt/pit-panel", "fetch", "origin",
-                 self.settings.git_branch],
-                capture_output=True, text=True, timeout=30,
+                [
+                    "sudo",
+                    "-n",
+                    "git",
+                    "-C",
+                    "/opt/pit-panel",
+                    "fetch",
+                    "origin",
+                    self.settings.git_branch,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode != 0:
                 return None
             result = subprocess.run(
                 ["git", "rev-parse", f"origin/{self.settings.git_branch}"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
                 cwd="/opt/pit-panel",
             )
             remote_sha = result.stdout.strip()
@@ -35,7 +47,9 @@ class Updater:
 
             result = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
                 cwd="/opt/pit-panel",
             )
             local_sha = result.stdout.strip()
@@ -51,7 +65,9 @@ class Updater:
         async with sessionmaker() as db:
             current_result = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
                 cwd="/opt/pit-panel",
             )
             current = current_result.stdout.strip()
@@ -71,7 +87,10 @@ class Updater:
             ]
             for cmd, timeout in steps:
                 result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=timeout,
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
                     cwd="/opt/pit-panel",
                 )
                 if result.returncode != 0:
@@ -88,13 +107,17 @@ class Updater:
     async def rollback(self) -> bool:
         result = subprocess.run(
             ["sudo", "-n", "git", "-C", "/opt/pit-panel", "reset", "--hard", "HEAD~1"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode != 0:
             return False
         result = subprocess.run(
             ["sudo", "-n", "uv", "--directory", "/opt/pit-panel", "sync"],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         return result.returncode == 0
 

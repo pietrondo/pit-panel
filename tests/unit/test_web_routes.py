@@ -90,8 +90,10 @@ class TestDebugRoute:
 
 class TestRunHelper:
     def test_run_with_cwd(self):
-        from pit_panel.web.routes.debug import _run
         import tempfile
+
+        from pit_panel.web.routes.debug import _run
+
         with tempfile.TemporaryDirectory() as tmpdir:
             result = _run(["git", "init"], cwd=tmpdir)
             assert result == "(empty)" or "Initialized" in result

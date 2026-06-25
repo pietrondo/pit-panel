@@ -1,12 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
+{% if subdomain %}
 {% set title = "Container Logs - " + subdomain.subdomain %}
+{% elif container_id %}
+{% set title = "Container Logs - " + container_id[:12] %}
+{% else %}
+{% set title = "Container Logs" %}
+{% endif %}
 
 <div class="mb-8">
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Container Logs</h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 font-mono">{{ subdomain.subdomain }}.{{ subdomain.base_domain }}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 font-mono">
+                {% if subdomain %}{{ subdomain.subdomain }}.{{ subdomain.base_domain }}
+                {% elif container_id %}{{ container_id[:12] }}
+                {% endif %}
+            </p>
         </div>
         <a href="/containers" class="btn-ghost">&larr; Back to containers</a>
     </div>

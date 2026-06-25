@@ -48,10 +48,12 @@ async def validate_session(
     cookie_value: str,
     settings: Settings,
     user_id: int,
+    data: dict[str, Any] | None = None,
 ) -> User | None:
     from sqlalchemy import select
 
-    data = unsign_session_token(settings, cookie_value)
+    if data is None:
+        data = unsign_session_token(settings, cookie_value)
     if data is None:
         return None
 

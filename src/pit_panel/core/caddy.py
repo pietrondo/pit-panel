@@ -1,6 +1,7 @@
 """Caddy reverse proxy integration via admin API."""
 
 import datetime as dt
+from typing import Any
 
 import httpx
 
@@ -9,7 +10,9 @@ class CaddyManager:
     def __init__(self, admin_url: str = "http://127.0.0.1:2019"):
         self.admin_url = admin_url.rstrip("/")
 
-    async def add_subdomain(self, subdomain: str, base_domain: str, port: int = 80) -> dict:
+    async def add_subdomain(
+        self, subdomain: str, base_domain: str, port: int = 80
+    ) -> dict[str, Any]:
         fqdn = f"{subdomain}.{base_domain}"
         route = {
             "@id": fqdn,
@@ -18,7 +21,7 @@ class CaddyManager:
         }
         return await self._patch_routes(route)
 
-    async def remove_subdomain(self, subdomain: str, base_domain: str) -> dict:
+    async def remove_subdomain(self, subdomain: str, base_domain: str) -> dict[str, Any]:
         fqdn = f"{subdomain}.{base_domain}"
         return await self._delete_route(fqdn)
 
@@ -28,7 +31,7 @@ class CaddyManager:
             routes = resp.json() or []
             return [r.get("@id", "") for r in routes if r.get("@id")]
 
-    async def _patch_routes(self, route: dict) -> dict:
+    async def _patch_routes(self, route: dict) -> dict[str, Any]:
         route_id = route["@id"]
         async with httpx.AsyncClient() as client:
             resp = await client.patch(
@@ -41,7 +44,7 @@ class CaddyManager:
 
     async def setup_panel_route(
         self, panel_subdomain: str, base_domain: str, backend_port: int = 8080
-    ) -> dict:
+    ) -> dict[str, Any]:
         fqdn = f"{panel_subdomain}.{base_domain}"
         route = {
             "@id": f"panel-{fqdn}",
@@ -55,22 +58,18 @@ class CaddyManager:
         }
         return await self._patch_routes(route)
 
-    async def get_certificates(self) -> list[dict]:
+    async def get_certificates(self) -> list[dict[str, Any]]:
         certs = []
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.get(
-                    f"{self.admin_url}/pki/ca/local/certificates", timeout=5
-                )
+                resp = await client.get(f"{self.admin_url}/pki/ca/local/certificates", timeout=5)
                 if resp.status_code == 200:
                     for c in resp.json() or []:
                         not_after = c.get("not_after", "")
                         expires_in = None
                         if not_after:
                             try:
-                                expiry = dt.datetime.fromisoformat(
-                                    not_after.replace("Z", "+00:00")
-                                )
+                                expiry = dt.datetime.fromisoformat(not_after.replace("Z", "+00:00"))
                                 expires_in = (expiry - dt.datetime.now(dt.UTC)).days
                             except (ValueError, TypeError):
                                 pass
@@ -81,16 +80,14 @@ class CaddyManager:
                                 "not_before": c.get("not_before", ""),
                                 "not_after": not_after,
                                 "expires_in_days": expires_in,
-                                "issuer": c.get("issuer", {}).get(
-                                    "common_name", "?"
-                                ),
+                                "issuer": c.get("issuer", {}).get("common_name", "?"),
                             }
                         )
             except Exception:
                 pass
         return certs
 
-    async def renew_certificate(self, domain: str) -> dict:
+    async def renew_certificate(self, domain: str) -> dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:
                 resp = await client.post(
@@ -103,7 +100,7 @@ class CaddyManager:
             except Exception as e:
                 return {"success": False, "domain": domain, "error": str(e)}
 
-    async def _delete_route(self, route_id: str) -> dict:
+    async def _delete_route(self, route_id: str) -> dict[str, Any]:
         async with httpx.AsyncClient() as client:
             resp = await client.delete(f"{self.admin_url}/id/{route_id}")
             resp.raise_for_status()

@@ -147,9 +147,7 @@ class TestIPBanLogic:
         from pit_panel.security.ipban import cleanup_old_attempts
 
         old = dt.datetime.now(dt.UTC) - dt.timedelta(days=60)
-        attempt = LoginAttempt(
-            ip_address="1.1.1.1", username="x", success=False
-        )
+        attempt = LoginAttempt(ip_address="1.1.1.1", username="x", success=False)
         attempt.attempted_at = old
         db_session.add(attempt)
         await db_session.commit()
