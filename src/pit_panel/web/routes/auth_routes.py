@@ -21,8 +21,8 @@ from pit_panel.web.auth import (
     revoke_session,
     unsign_session_token,
 )
-from pit_panel.web.render import render
 from pit_panel.web.deps import get_user
+from pit_panel.web.render import render
 from pit_panel.web.router import router
 
 

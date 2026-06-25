@@ -1,8 +1,0 @@
-🎯 **What:** The vulnerability fixed
-Helper functions like `get_user` and `setup_2fa_page` were unsigning session cookies but not verifying their presence and expiration in the database. I updated them to securely use `validate_session`.
-
-⚠️ **Risk:** The potential impact if left unfixed
-A user could retain access to the dashboard and administration actions using an expired or revoked session token, bypassing the proper revocation checks.
-
-🛡️ **Solution:** How the fix addresses the vulnerability
-Updated `get_user` in `deps.py` to route through `validate_session`. Refactored `auth_routes.py` to clean up redundant session unsigning and correctly use `get_user` for verifying access.
