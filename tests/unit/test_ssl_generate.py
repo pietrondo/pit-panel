@@ -1,5 +1,6 @@
 from pit_panel.web.routes.ssl import _generate_caddyfile, _sanitize
 
+
 def test_caddyfile_injection():
     # Attempting to inject newlines
     malicious_email = "admin@localhost\n}\nmalicious_host {\nreverse_proxy 1.2.3.4\n}"
