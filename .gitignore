@@ -21,3 +21,6 @@ node_modules/
 # Beads / Dolt files (added by bd init)
 .dolt/
 .beads-credential-key
+
+# Prevent Jules bot from committing PR description files
+pr_body.txt
