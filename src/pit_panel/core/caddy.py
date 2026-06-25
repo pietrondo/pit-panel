@@ -176,13 +176,23 @@ class CaddyManager:
     async def renew_certificate(self, domain: str) -> dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.post(
-                    f"{self.admin_url}/pki/ca/local/certificates?renew=true",
-                    json={"sans": [domain]},
-                    timeout=30,
+                resp = await client.get(
+                    f"{self.admin_url}/config/",
+                    timeout=5,
                 )
-                resp.raise_for_status()
-                return {"success": True, "domain": domain}
+                if resp.status_code == 200:
+                    resp2 = await client.post(
+                        f"{self.admin_url}/load",
+                        json=resp.json(),
+                        timeout=30,
+                    )
+                    resp2.raise_for_status()
+                    return {
+                        "success": True,
+                        "domain": domain,
+                        "note": "Config reloaded — Caddy will auto-renew",
+                    }
+                return {"success": False, "domain": domain, "error": "Cannot read config"}
             except Exception as e:
                 return {"success": False, "domain": domain, "error": str(e)}
 
