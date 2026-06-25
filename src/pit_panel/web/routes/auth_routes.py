@@ -126,9 +126,7 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> Redire
 
 
 @router.get("/setup-2fa", response_class=HTMLResponse)
-async def setup_2fa_page(
-    request: Request, db: AsyncSession = Depends(get_db)
-) -> Response:
+async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
     settings = get_settings()
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:

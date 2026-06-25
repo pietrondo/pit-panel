@@ -39,13 +39,12 @@ DNS_PROVIDERS = [
 ]
 
 
-
-
 def _sanitize(val: str) -> str:
     if not val:
         return ""
     # Strip dangerous characters that could break out of a Caddyfile value
-    return re.sub(r'[\r\n"{}]', '', val)
+    return re.sub(r'[\r\n"{}]', "", val)
+
 
 def _get_acme_config(
     acme_provider: str,
@@ -98,7 +97,6 @@ def _generate_caddyfile(
     api_var = _sanitize(api_var)
 
     acme_cfg = _get_acme_config(acme_provider, eab_key_id, eab_hmac)
-
 
     if dns_provider:
         tls_lines = _get_tls_block(acme_cfg, dns_provider, api_var)
@@ -226,7 +224,9 @@ async def ssl_generate(
         Path(CADDYFILE_PATH).write_text(caddyfile)
         reload_result = subprocess.run(
             ["sudo", "-n", "systemctl", "reload", "caddy"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if reload_result.returncode == 0:
             result_msg = "Config loaded. Caddy will provision SSL certificates now."
