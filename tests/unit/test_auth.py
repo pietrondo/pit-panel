@@ -18,7 +18,6 @@ class TestSessionAuth:
 
     def test_token_hash_consistency(self, settings):
         from pit_panel.security.crypto import hash_token
-
         from pit_panel.web.auth import create_session_token, unsign_session_token
 
         raw, signed = create_session_token(settings, user_id=1, session_id=1)
@@ -35,6 +34,7 @@ class TestAppFactory:
 
     def test_app_health_endpoint(self, settings, monkeypatch):
         import tempfile
+
         from fastapi.testclient import TestClient
 
         from pit_panel.config import Settings, init_settings
