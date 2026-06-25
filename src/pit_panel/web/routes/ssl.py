@@ -193,6 +193,18 @@ async def ssl_generate(
     caddyfile = _generate_caddyfile(
         email, domain, panel_sub, dns_provider, api_var, acme_provider, eab_key_id, eab_hmac
     )
+
+    # Format via caddy fmt (required by Caddy's /load endpoint)
+    try:
+        fmt = subprocess.run(
+            ["caddy", "fmt", "-"],
+            input=caddyfile, capture_output=True, text=True, timeout=5,
+        )
+        if fmt.returncode == 0 and fmt.stdout.strip():
+            caddyfile = fmt.stdout
+    except Exception:
+        pass
+
     result_msg = ""
 
     # Load via Caddy admin API (no file write needed for Caddyfile)
