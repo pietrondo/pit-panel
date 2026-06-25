@@ -1,6 +1,9 @@
-import pytest
 from pathlib import Path
+
+import pytest
+
 from pit_panel.core.app_manager import AppManager
+
 
 def test_deploy_template_directory_traversal(tmp_path: Path) -> None:
     manager = AppManager(apps_dir=str(tmp_path / "apps"))

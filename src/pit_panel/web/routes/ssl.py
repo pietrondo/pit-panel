@@ -38,6 +38,38 @@ DNS_PROVIDERS = [
 ]
 
 
+def _get_acme_config(
+    acme_provider: str,
+    eab_key_id: str,
+    eab_hmac: str,
+) -> str:
+    if acme_provider == "zerossl":
+        return f'issuer zerossl {{eab "{eab_key_id}" "{eab_hmac}"}}'
+    if acme_provider == "buypass":
+        return "issuer buypass"
+    if acme_provider == "google":
+        return f'issuer google {{eab "{eab_key_id}" "{eab_hmac}"}}'
+    if acme_provider == "letsencrypt":
+        return "issuer acme"
+    return ""
+
+
+def _get_tls_block(acme_cfg: str, dns_provider: str, api_var: str) -> str:
+    parts = []
+    if acme_cfg:
+        parts.append(acme_cfg)
+    if dns_provider:
+        parts.append(f"dns {dns_provider} {{env.{api_var}}}")
+
+    if not parts:
+        return ""
+
+    inner = "\n        ".join(parts)
+    return f"""    tls {{
+        {inner}
+    }}"""
+
+
 def _generate_caddyfile(
     email: str,
     domain: str,
@@ -48,28 +80,10 @@ def _generate_caddyfile(
     eab_key_id: str = "",
     eab_hmac: str = "",
 ) -> str:
-    tls_block = ""
-    if dns_provider:
-        tls_block = f"dns {dns_provider} {{env.{api_var}}}"
-
-    acme_cfg = ""
-    if acme_provider == "zerossl":
-        acme_cfg = f'issuer zerossl {{eab "{eab_key_id}" "{eab_hmac}"}}'
-    elif acme_provider == "buypass":
-        acme_cfg = "issuer buypass"
-    elif acme_provider == "google":
-        acme_cfg = f'issuer google {{eab "{eab_key_id}" "{eab_hmac}"}}'
-    elif acme_provider == "letsencrypt":
-        acme_cfg = "issuer acme"
-
-    tls_lines = ""
-    if tls_block or acme_cfg:
-        inner = "\n        ".join(filter(None, [acme_cfg, tls_block]))
-        tls_lines = f"""    tls {{
-        {inner}
-    }}"""
+    acme_cfg = _get_acme_config(acme_provider, eab_key_id, eab_hmac)
 
     if dns_provider:
+        tls_lines = _get_tls_block(acme_cfg, dns_provider, api_var)
         return f"""{{
     email {email}
 }}
@@ -88,10 +102,7 @@ def _generate_caddyfile(
     else:
         acme_clause = ""
         if acme_cfg and acme_cfg != "issuer acme":
-            acme_clause = f"""
-    tls {{
-        {acme_cfg}
-    }}"""
+            acme_clause = "\n" + _get_tls_block(acme_cfg, "", "")
 
         return f"""{{
     email {email}
