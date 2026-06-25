@@ -38,6 +38,10 @@ async def _firewall_status() -> dict:
             _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
             ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
     active = "Status: active" in ufw
+    if not active and "Status: inactive" in ufw:
+        _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
+        ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
+        active = "Status: active" in ufw
     rules = []
     for line in ufw.split("\n"):
         stripped = line.strip()
@@ -48,6 +52,12 @@ async def _firewall_status() -> dict:
 
 async def _fail2ban_status() -> dict:
     status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
+    if "not found" in status.lower():
+        install = _run_cmd(
+            ["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=30
+        )
+        if "Setting up fail2ban" in install:
+            status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
     jails = []
     active = "|- Number of jail:" in status
     if "command not found" in status.lower() or "sudo:" in status:
@@ -79,6 +89,36 @@ async def _abuseipdb_check(ip: str, api_key: str) -> dict:
         return {"ip": ip, "error": f"HTTP {resp.status}"}
     except Exception as e:
         return {"ip": ip, "error": str(e)}
+
+
+async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict]:
+    import http.client
+    import json
+
+    try:
+        conn = http.client.HTTPSConnection("api.abuseipdb.com", timeout=15)
+        headers = {"Key": api_key, "Accept": "application/json"}
+        conn.request(
+            "GET",
+            f"/api/v2/blacklist?confidenceMinimum=90&limit={limit}",
+            headers=headers,
+        )
+        resp = conn.getresponse()
+        if resp.status == 200:
+            data = json.loads(resp.read().decode())
+            entries = data.get("data", [])
+            return [
+                {
+                    "ip": e.get("ipAddress", ""),
+                    "score": e.get("abuseConfidenceScore", 0),
+                    "reports": e.get("totalReports", 0),
+                    "last": e.get("lastReportedAt", ""),
+                }
+                for e in entries
+            ]
+        return []
+    except Exception:
+        return []
 
 
 @router.get("/security", response_class=HTMLResponse)
@@ -277,4 +317,51 @@ async def security_abuseipdb_check(
         f"Score {result['score']}/100</span> "
         f"({result['reports']} reports)"
         f"</div>"
+    )
+
+
+@router.get("/security/abuseipdb-blacklist")
+async def security_abuseipdb_blacklist(
+    request: Request, db: AsyncSession = Depends(get_db)
+):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
+
+    settings = get_settings()
+    api_key = settings.abuseipdb_api_key
+    if not api_key:
+        return HTMLResponse(
+            "<p class='text-yellow-500'>Set abuseipdb_api_key in config.toml</p>"
+        )
+
+    entries = await _abuseipdb_blacklist(api_key)
+    if not entries:
+        return HTMLResponse(
+            "<p class='text-gray-500'>No entries or API error</p>"
+        )
+
+    rows = []
+    for e in entries:
+        rows.append(
+            f"<tr>"
+            f"<td class='px-3 py-1 font-mono text-xs'>{e['ip']}</td>"
+            f"<td class='px-3 py-1'><span class='text-xs font-bold "
+            f"{'text-red-500' if e['score'] > 70 else 'text-yellow-500'}'>"
+            f"{e['score']}/100</span></td>"
+            f"<td class='px-3 py-1 text-xs text-gray-500'>{e['reports']}</td>"
+            f"<td class='px-3 py-1'>"
+            f"<form method='POST' action='/security/ban-ip' class='inline'>"
+            f"<input type='hidden' name='ip' value='{e['ip']}'>"
+            f"<input type='hidden' name='reason' value='abuseipdb'>"
+            f"<input type='hidden' name='duration' value='1440'>"
+            f"<button type='submit' class='btn-ghost text-xs text-red-600'>Ban</button>"
+            f"</form>"
+            f"</td>"
+            f"</tr>"
+        )
+    return HTMLResponse(
+        "<table class='w-full'>"
+        + "".join(rows)
+        + "</table>"
     )
