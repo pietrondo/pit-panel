@@ -1,3 +1,5 @@
+import typing
+
 """SSL certificate management routes via Caddy admin API."""
 
 import contextlib
@@ -139,7 +141,7 @@ def _check_port80() -> bool:
 
 
 @router.get("/ssl", response_class=HTMLResponse)
-async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)):
+async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -181,7 +183,7 @@ async def ssl_generate(
     eab_key_id: str = Form(""),
     eab_hmac: str = Form(""),
     db: AsyncSession = Depends(get_db),
-):
+) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -201,7 +203,10 @@ async def ssl_generate(
     try:
         adapt = subprocess.run(
             ["caddy", "adapt", "--config", "-", "--pretty"],
-            input=caddyfile, capture_output=True, text=True, timeout=10,
+            input=caddyfile,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if adapt.returncode != 0:
             result_msg = f"Caddyfile invalid: {adapt.stderr.strip()[:500]}"
@@ -273,7 +278,7 @@ async def ssl_renew(
     request: Request,
     domain: str = Form(...),
     db: AsyncSession = Depends(get_db),
-):
+) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)

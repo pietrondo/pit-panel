@@ -1,3 +1,5 @@
+import typing
+
 """Application log viewer."""
 
 import asyncio
@@ -63,7 +65,7 @@ async def _read_journal(n: int = 200) -> str:
 
 
 @router.get("/logs", response_class=HTMLResponse)
-async def logs_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def logs_page(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)

@@ -1,3 +1,5 @@
+import typing
+
 """Render utility for Jinja2 templates."""
 
 from pathlib import Path
@@ -9,7 +11,7 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 _templates = None
 
 
-def _get_templates():
+def _get_templates() -> typing.Any:
     global _templates
     if _templates is None:
         from jinja2 import Environment, FileSystemLoader

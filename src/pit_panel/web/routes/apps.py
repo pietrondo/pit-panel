@@ -1,3 +1,5 @@
+import typing
+
 """App deployment wizard routes."""
 
 import contextlib
@@ -19,7 +21,7 @@ from pit_panel.web.router import router
 
 
 @router.get("/apps", response_class=HTMLResponse)
-async def apps_list(request: Request, db: AsyncSession = Depends(get_db)):
+async def apps_list(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -37,7 +39,7 @@ async def app_deploy(
     subdomain_id: int = Form(...),
     stack_type: str = Form(...),
     db: AsyncSession = Depends(get_db),
-):
+) -> typing.Any:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -95,7 +97,7 @@ async def app_deploy(
 
 
 @router.post("/apps/{sd_id}/stop", response_class=HTMLResponse)
-async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)) -> typing.Any:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)

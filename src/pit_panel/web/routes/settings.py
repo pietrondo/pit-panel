@@ -1,3 +1,5 @@
+import typing
+
 """Settings and audit log routes."""
 
 from fastapi import Depends, Form, Request
@@ -19,7 +21,7 @@ async def _load_db_settings(db: AsyncSession) -> dict:
 
 
 @router.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def settings_page(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -43,7 +45,7 @@ async def settings_update(
     base_domain: str = Form(""),
     panel_subdomain: str = Form("panel"),
     db: AsyncSession = Depends(get_db),
-):
+) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -87,7 +89,7 @@ async def settings_update(
 
 
 @router.get("/settings/audit", response_class=HTMLResponse)
-async def audit_log(request: Request, db: AsyncSession = Depends(get_db)):
+async def audit_log(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)

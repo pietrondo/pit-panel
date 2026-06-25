@@ -1,3 +1,5 @@
+import typing
+
 """CLI admin tool for pit-panel."""
 
 import argparse
@@ -54,7 +56,7 @@ async def reset_password(username: str, password: str) -> None:
         print(f"Password for '{username}' reset.")
 
 
-def main():
+def main() -> typing.Any:
     parser = argparse.ArgumentParser(description="pit-panel admin CLI")
     sub = parser.add_subparsers(dest="command")
 

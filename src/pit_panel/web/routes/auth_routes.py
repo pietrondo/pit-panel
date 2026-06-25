@@ -1,6 +1,7 @@
 import base64
 import datetime
 import io
+import typing
 
 import qrcode
 from fastapi import Depends, Form, Request
@@ -26,7 +27,7 @@ from pit_panel.web.router import router
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
+async def login_page(request: Request) -> typing.Any:
     cookie = request.cookies.get(SESSION_COOKIE)
     if cookie and unsign_session_token(get_settings(), cookie):
         return RedirectResponse("/", status_code=302)
@@ -40,7 +41,7 @@ async def login_post(
     username: str = Form(...),
     password: str = Form(...),
     db: AsyncSession = Depends(get_db),
-):
+) -> typing.Any:
     settings = get_settings()
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
@@ -112,7 +113,7 @@ async def login_post(
 
 
 @router.get("/logout")
-async def logout(request: Request, db: AsyncSession = Depends(get_db)):
+async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     cookie = request.cookies.get(SESSION_COOKIE)
     if cookie:
         data = unsign_session_token(get_settings(), cookie)
@@ -124,7 +125,7 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/setup-2fa", response_class=HTMLResponse)
-async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     settings = get_settings()
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:
@@ -156,7 +157,7 @@ async def setup_2fa_post(
     request: Request,
     code: str = Form(...),
     db: AsyncSession = Depends(get_db),
-):
+) -> typing.Any:
     settings = get_settings()
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:

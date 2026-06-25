@@ -1,3 +1,5 @@
+import typing
+
 """Subdomain CRUD routes with Caddy integration and audit logging."""
 
 import contextlib
@@ -24,7 +26,7 @@ async def _log_audit(
     target_id: int | None,
     details: dict | None,
     request: Request,
-):
+) -> typing.Any:
     entry = AuditLog(
         user_id=user_id,
         action=action,
@@ -39,7 +41,7 @@ async def _log_audit(
 
 
 @router.get("/subdomains", response_class=HTMLResponse)
-async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
+async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -56,7 +58,7 @@ async def subdomain_add(
     subdomain: str = Form(...),
     app_type: str = Form("none"),
     db: AsyncSession = Depends(get_db),
-):
+) -> typing.Any:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -123,7 +125,7 @@ async def subdomain_delete(
     request: Request,
     sd_id: int,
     db: AsyncSession = Depends(get_db),
-):
+) -> typing.Any:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)

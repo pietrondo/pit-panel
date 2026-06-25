@@ -1,3 +1,5 @@
+import typing
+
 """System: upgrade check and trigger via sudo."""
 
 import datetime as dt
@@ -93,9 +95,7 @@ async def _get_git_info() -> tuple[str, str]:
 
 
 @router.get("/system", response_class=HTMLResponse)
-async def system_page(
-    request: Request, db: AsyncSession = Depends(get_db)
-):
+async def system_page(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -120,9 +120,7 @@ async def system_page(
 
 
 @router.post("/system/upgrade", response_class=HTMLResponse)
-async def system_upgrade(
-    request: Request, db: AsyncSession = Depends(get_db)
-):
+async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)

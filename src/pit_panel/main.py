@@ -1,11 +1,12 @@
 import argparse
+import typing
 
 import uvicorn
 
 from pit_panel.config import Settings
 
 
-def main():
+def main() -> typing.Any:
     parser = argparse.ArgumentParser(description="pit-panel VPS Management Panel")
     parser.add_argument("--host", default=None, help="Bind address")
     parser.add_argument("--port", type=int, default=None, help="Bind port")

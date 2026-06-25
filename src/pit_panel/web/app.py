@@ -1,3 +1,5 @@
+import typing
+
 """FastAPI application factory with security middleware."""
 
 import contextlib
@@ -15,7 +17,7 @@ from pit_panel.security.ipban import is_ip_banned
 from pit_panel.web.router import router
 
 
-async def _ip_ban_middleware(request: Request, call_next):
+async def _ip_ban_middleware(request: Request, call_next) -> typing.Any:
     client_ip = request.client.host if request.client else "unknown"
     try:
         sessionmaker = get_sessionmaker()
@@ -32,7 +34,7 @@ async def _ip_ban_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-async def _security_headers_middleware(request: Request, call_next):
+async def _security_headers_middleware(request: Request, call_next) -> typing.Any:
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -50,7 +52,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 @contextlib.asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> typing.Any:
     await init_db(app.state.settings)
     s = app.state.settings
 
@@ -118,16 +120,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(router)
 
     @app.get("/health")
-    async def health():
+    async def health() -> typing.Any:
         return {"status": "ok"}
 
     return app
 
 
-def _make_ratelimit_handler():
+def _make_ratelimit_handler() -> typing.Any:
     from slowapi import _rate_limit_exceeded_handler
 
-    async def handler(request: Request, exc: RateLimitExceeded):
+    async def handler(request: Request, exc: RateLimitExceeded) -> typing.Any:
         return await _rate_limit_exceeded_handler(request, exc)
 
     return handler

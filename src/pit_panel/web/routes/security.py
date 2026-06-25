@@ -1,3 +1,5 @@
+import typing
+
 """Security overview: IP bans, login attempts, active sessions."""
 
 from fastapi import Depends, Form, Request
@@ -16,7 +18,7 @@ from pit_panel.web.router import router
 
 
 @router.get("/security", response_class=HTMLResponse)
-async def security_overview(request: Request, db: AsyncSession = Depends(get_db)):
+async def security_overview(request: Request, db: AsyncSession = Depends(get_db)) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -58,7 +60,7 @@ async def security_unban(
     request: Request,
     ip: str = Form(""),
     db: AsyncSession = Depends(get_db),
-):
+) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -104,7 +106,7 @@ async def security_unban(
 async def security_revoke_session(
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> typing.Any:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
