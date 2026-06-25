@@ -1,6 +1,7 @@
 """Application log viewer."""
 
 import asyncio
+import html
 import os
 import subprocess
 
@@ -105,7 +106,7 @@ async def logs_page(
 async def journal_partial(request: Request) -> HTMLResponse:
     journal = await _read_journal()
     return HTMLResponse(
-        f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{journal}</pre>'
+        f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{html.escape(journal)}</pre>'
     )
 
 
@@ -113,5 +114,5 @@ async def journal_partial(request: Request) -> HTMLResponse:
 async def applog_partial(request: Request) -> HTMLResponse:
     app_log = await _read_log(APP_LOG)
     return HTMLResponse(
-        f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{app_log}</pre>'
+        f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{html.escape(app_log)}</pre>'
     )
