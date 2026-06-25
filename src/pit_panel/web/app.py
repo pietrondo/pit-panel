@@ -121,6 +121,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def health():
         return {"status": "ok"}
 
+    @app.on_event("startup")
+    async def _startup_blocklist_import():
+        import asyncio
+
+        from pit_panel.core.blocklist import daily_blocklist_import
+
+        asyncio.create_task(daily_blocklist_import())
+
     return app
 
 

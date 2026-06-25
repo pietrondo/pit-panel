@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
+from pit_panel.core.blocklist import BLOCKLIST_SOURCES, fetch_blocklist
 from pit_panel.db.models import LoginAttempt, User
 from pit_panel.db.models import Session as DBSession
 from pit_panel.db.session import get_db
@@ -61,6 +62,7 @@ async def _fail2ban_status() -> dict:
             ["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=60
         )
         if "Setting up fail2ban" in install or "fail2ban is already" in install:
+            _ensure_fail2ban_jails()
             status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
     jails = []
     active = "|- Number of jail:" in status
@@ -70,7 +72,41 @@ async def _fail2ban_status() -> dict:
         stripped = line.strip()
         if stripped.startswith("- ") and "Jail list:" not in stripped:
             jails.append(stripped.lstrip("- "))
+    if active and not jails:
+        _ensure_fail2ban_jails()
+        status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
+        for line in status.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("- ") and "Jail list:" not in stripped:
+                jails.append(stripped.lstrip("- "))
     return {"active": active, "jails": jails}
+
+
+JAIL_DEFAULTS = {
+    "sshd": {
+        "port": "ssh",
+        "filter": "sshd",
+        "logpath": "/var/log/auth.log",
+        "maxretry": "5",
+        "bantime": "3600",
+    },
+}
+
+
+def _ensure_fail2ban_jails():
+    lines = []
+    for jail, cfg in JAIL_DEFAULTS.items():
+        lines.append(f"[{jail}]")
+        for k, v in cfg.items():
+            lines.append(f"{k} = {v}")
+        lines.append("")
+    content = "\n".join(lines)
+    _run_cmd(
+        ["sudo", "-n", "tee", "/etc/fail2ban/jail.local"],
+        timeout=10,
+        input=content,
+    )
+    _run_cmd(["sudo", "-n", "systemctl", "restart", "fail2ban"])
 
 
 async def _abuseipdb_check(ip: str, api_key: str) -> dict:
@@ -371,38 +407,6 @@ async def security_abuseipdb_blacklist(
     )
 
 
-async def _fetch_blocklist(url: str) -> list[str]:
-    import httpx
-
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(url)
-            if resp.status_code != 200:
-                return []
-            ips = []
-            for line in resp.text.split("\n"):
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    ips.append(line.split()[0] if " " in line else line)
-            return ips[:200]
-    except Exception:
-        return []
-
-
-BLOCKLIST_SOURCES = {
-    "firehol_level1": {
-        "name": "FireHOL Level 1",
-        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset",
-        "desc": "Known attackers, malware C&C",
-    },
-    "firehol_webserver": {
-        "name": "FireHOL Web Server Attacks",
-        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_webserver.netset",
-        "desc": "IPs that attack web servers",
-    },
-}
-
-
 @router.get("/security/blocklist")
 async def security_blocklist_page(
     request: Request, db: AsyncSession = Depends(get_db)
@@ -445,7 +449,7 @@ async def security_blocklist_import(
     if not info:
         return HTMLResponse("<p class='text-red-500'>Invalid source</p>")
 
-    ips = await _fetch_blocklist(info["url"])
+    ips = await fetch_blocklist(info["url"])
     if not ips:
         return HTMLResponse("<p class='text-yellow-500'>No IPs found</p>")
 
