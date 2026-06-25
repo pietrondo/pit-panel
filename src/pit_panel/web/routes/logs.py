@@ -1,6 +1,8 @@
 """Application log viewer."""
 
+import asyncio
 import subprocess
+from collections import deque
 
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -16,16 +18,19 @@ DOCKER_LOG_DIR = "/var/log/pit-panel/docker"
 SYSLOG_CMD = ["journalctl", "-u", "pit-panel.service", "-n", "200", "--no-pager"]
 
 
-def _read_log(path: str, tail: int = 500) -> str:
+def _read_log_sync(path: str, tail: int) -> str:
     try:
         with open(path) as f:
-            lines = f.readlines()
-            return "".join(lines[-tail:])
+            return "".join(deque(f, maxlen=tail))
     except (FileNotFoundError, PermissionError):
         return "[log file not found or inaccessible]"
 
 
-def _read_journal(n: int = 200) -> str:
+async def _read_log(path: str, tail: int = 500) -> str:
+    return await asyncio.to_thread(_read_log_sync, path, tail)
+
+
+def _read_journal_sync(n: int) -> str:
     # Try direct access first (pit-panel in systemd-journal group)
     try:
         result = subprocess.run(
@@ -53,14 +58,18 @@ def _read_journal(n: int = 200) -> str:
     return "[journal unavailable — pit-panel user needs systemd-journal group]"
 
 
+async def _read_journal(n: int = 200) -> str:
+    return await asyncio.to_thread(_read_journal_sync, n)
+
+
 @router.get("/logs", response_class=HTMLResponse)
-async def logs_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def logs_page(request: Request, db: AsyncSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    app_log = _read_log(APP_LOG)
-    journal = _read_journal()
+    app_log = await _read_log(APP_LOG)
+    journal = await _read_journal()
 
     return render(
         "logs.html",
@@ -71,16 +80,16 @@ async def logs_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/logs/journal", response_class=HTMLResponse)
-async def journal_partial(request: Request):
-    journal = _read_journal()
+async def journal_partial(request: Request) -> HTMLResponse:
+    journal = await _read_journal()
     return HTMLResponse(
         f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{journal}</pre>'
     )
 
 
 @router.get("/logs/applog", response_class=HTMLResponse)
-async def applog_partial(request: Request):
-    app_log = _read_log(APP_LOG)
+async def applog_partial(request: Request) -> HTMLResponse:
+    app_log = await _read_log(APP_LOG)
     return HTMLResponse(
         f'<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">{app_log}</pre>'
     )
