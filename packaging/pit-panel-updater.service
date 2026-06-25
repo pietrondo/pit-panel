@@ -25,11 +25,11 @@ async def run():
     applied = await updater.apply_update(sha)
     if not applied:
         sys.exit(1)
-    subprocess.run(['systemctl', 'restart', 'pit-panel.service'])
+    subprocess.run(['sudo', '-n', 'systemctl', 'restart', 'pit-panel.service'])
     ok = await check_post_update()
     if not ok:
         await updater.rollback()
-        subprocess.run(['systemctl', 'restart', 'pit-panel.service'])
+        subprocess.run(['sudo', '-n', 'systemctl', 'restart', 'pit-panel.service'])
         sys.exit(1)
     print(f'Updated to {sha[:8]}')
 

@@ -18,16 +18,20 @@ class Updater:
     async def check_for_updates(self) -> str | None:
         try:
             result = subprocess.run(
-                ["git", "fetch", "origin", self.settings.git_branch],
+                ["sudo", "-n", "git", "-C", "/opt/pit-panel", "fetch", "origin",
+                 self.settings.git_branch],
                 capture_output=True, text=True, timeout=30,
-                cwd="/opt/pit-panel",
             )
+            if result.returncode != 0:
+                return None
             result = subprocess.run(
                 ["git", "rev-parse", f"origin/{self.settings.git_branch}"],
                 capture_output=True, text=True, timeout=10,
                 cwd="/opt/pit-panel",
             )
             remote_sha = result.stdout.strip()
+            if not remote_sha:
+                return None
 
             result = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
@@ -45,35 +49,36 @@ class Updater:
     async def apply_update(self, target_sha: str) -> bool:
         sessionmaker = get_sessionmaker()
         async with sessionmaker() as db:
-            current = subprocess.run(
+            current_result = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
                 capture_output=True, text=True, timeout=10,
                 cwd="/opt/pit-panel",
-            ).stdout.strip()
+            )
+            current = current_result.stdout.strip()
 
             entry = UpdateHistory(
-                version_from=current[:8],
+                version_from=current[:8] if current else "?",
                 version_to=target_sha[:8],
                 status="started",
             )
             db.add(entry)
             await db.commit()
 
-            subprocess.run(
-                ["git", "reset", "--hard", target_sha],
-                capture_output=True, timeout=30,
-                cwd="/opt/pit-panel",
-            )
-            subprocess.run(
-                ["uv", "sync"],
-                capture_output=True, timeout=120,
-                cwd="/opt/pit-panel",
-            )
-            subprocess.run(
-                ["uv", "run", "alembic", "upgrade", "head"],
-                capture_output=True, timeout=60,
-                cwd="/opt/pit-panel",
-            )
+            steps = [
+                (["sudo", "-n", "git", "-C", "/opt/pit-panel", "reset", "--hard", target_sha], 30),
+                (["sudo", "-n", "uv", "--directory", "/opt/pit-panel", "sync"], 120),
+                (["uv", "run", "alembic", "upgrade", "head"], 60),
+            ]
+            for cmd, timeout in steps:
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=timeout,
+                    cwd="/opt/pit-panel",
+                )
+                if result.returncode != 0:
+                    entry.status = "failed"
+                    entry.completed_at = datetime.datetime.now(datetime.UTC)
+                    await db.commit()
+                    return False
 
             entry.status = "completed"
             entry.completed_at = datetime.datetime.now(datetime.UTC)
@@ -81,17 +86,17 @@ class Updater:
             return True
 
     async def rollback(self) -> bool:
-        subprocess.run(
-            ["git", "reset", "--hard", "HEAD~1"],
-            capture_output=True, timeout=10,
-            cwd="/opt/pit-panel",
+        result = subprocess.run(
+            ["sudo", "-n", "git", "-C", "/opt/pit-panel", "reset", "--hard", "HEAD~1"],
+            capture_output=True, text=True, timeout=10,
         )
-        subprocess.run(
-            ["uv", "sync"],
-            capture_output=True, timeout=120,
-            cwd="/opt/pit-panel",
+        if result.returncode != 0:
+            return False
+        result = subprocess.run(
+            ["sudo", "-n", "uv", "--directory", "/opt/pit-panel", "sync"],
+            capture_output=True, text=True, timeout=120,
         )
-        return True
+        return result.returncode == 0
 
     async def healthcheck(
         self,
