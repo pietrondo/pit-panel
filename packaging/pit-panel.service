@@ -17,8 +17,9 @@ ExecStart=/opt/pit-panel/.venv/bin/python -c "from pit_panel.main import main; m
 Restart=on-failure
 RestartSec=10
 
-# Sandboxing (compatible with Python)
-NoNewPrivileges=true
+# Sandboxing (compatible with Python + sudo for upgrades)
+# Note: NoNewPrivileges is NOT set because pit-panel uses sudo -n
+# for the upgrade flow (git fetch/reset, cp service file, systemctl restart).
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
