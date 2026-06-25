@@ -2,8 +2,9 @@
 
 import contextlib
 import re
+from typing import Any
 
-from fastapi import Depends, Form, Request
+from fastapi import Depends, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,9 +24,9 @@ async def _log_audit(
     action: str,
     target_type: str,
     target_id: int | None,
-    details: dict | None,
+    details: dict[str, Any] | None,
     request: Request,
-):
+) -> None:
     entry = AuditLog(
         user_id=user_id,
         action=action,
@@ -40,7 +41,9 @@ async def _log_audit(
 
 
 @router.get("/subdomains", response_class=HTMLResponse)
-async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
+async def subdomains_list(
+    request: Request, db: AsyncSession = Depends(get_db)
+) -> Response:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -57,7 +60,7 @@ async def subdomain_add(
     subdomain: str = Form(...),
     app_type: str = Form("none"),
     db: AsyncSession = Depends(get_db),
-):
+) -> Response:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -124,7 +127,7 @@ async def subdomain_delete(
     request: Request,
     sd_id: int,
     db: AsyncSession = Depends(get_db),
-):
+) -> Response:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
