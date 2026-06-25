@@ -8,13 +8,13 @@ from jinja2 import Environment
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-_templates = None
+_templates: Environment | None = None
 
 
 def _get_templates() -> Environment:
     global _templates
     if _templates is None:
-        from jinja2 import Environment, FileSystemLoader
+        from jinja2 import FileSystemLoader
 
         _templates = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=True)
     return _templates
