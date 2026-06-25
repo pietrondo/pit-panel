@@ -209,7 +209,10 @@ async def test_container_start(mock_proc):
 @pytest.mark.asyncio
 async def test_container_stats(mock_proc):
     manager = DockerManager()
-    stats_json = '{"CPUPerc":"0.50%","MemUsage":"50MiB / 1GiB","NetIO":"1kB / 2kB","BlockIO":"10MB / 20MB"}'
+    stats_json = (
+        '{"CPUPerc":"0.50%","MemUsage":"50MiB / 1GiB",'
+        '"NetIO":"1kB / 2kB","BlockIO":"10MB / 20MB"}'
+    )
     mock_proc.communicate.return_value = (stats_json.encode(), b"")
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
         result = await manager.container_stats("abc123")
@@ -224,7 +227,10 @@ async def test_container_stats(mock_proc):
 @pytest.mark.asyncio
 async def test_container_logs_live(mock_proc):
     manager = DockerManager()
-    mock_proc.communicate.return_value = (b"[2025-06-25T10:00:00Z] Started\n[2025-06-25T10:00:01Z] Ready\n", b"warning: deprecated")
+    mock_proc.communicate.return_value = (
+        b"[2025-06-25T10:00:00Z] Started\n[2025-06-25T10:00:01Z] Ready\n",
+        b"warning: deprecated",
+    )
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
         result = await manager.container_logs_live("abc123")
         mock_exec.assert_called_once_with(
