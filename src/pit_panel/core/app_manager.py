@@ -17,16 +17,10 @@ class AppManager:
         stack_type: str,
         variables: dict[str, str] | None = None,
     ) -> Path:
-        try:
-            template_dir = (TEMPLATES_DIR / stack_type).resolve()
-            base_dir = TEMPLATES_DIR.resolve()
-            if template_dir.parent != base_dir:
-                raise ValueError(f"Invalid stack type: {stack_type}")
-        except Exception as e:
-            raise ValueError(f"Invalid stack type: {stack_type}") from e
+        if stack_type not in self.list_templates():
+            raise ValueError(f"Invalid stack type: {stack_type}")
 
-        if not template_dir.exists():
-            raise ValueError(f"Unknown stack type: {stack_type}")
+        template_dir = TEMPLATES_DIR / stack_type
 
         target_dir = self.apps_dir / subdomain
         target_dir.mkdir(parents=True, exist_ok=True)
