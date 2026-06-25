@@ -93,6 +93,7 @@ pit-panel ALL=(root) NOPASSWD: /usr/bin/apt-get install -y ufw
 pit-panel ALL=(root) NOPASSWD: /usr/bin/apt-get install -y fail2ban
 pit-panel ALL=(root) NOPASSWD: /usr/bin/fail2ban-client status
 pit-panel ALL=(root) NOPASSWD: /bin/cp /opt/pit-panel/packaging/*.service /etc/systemd/system/
+pit-panel ALL=(root) NOPASSWD: /bin/chown -R pit-panel:pit-panel /opt/pit-panel
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/usermod -a -G systemd-journal pit-panel
 pit-panel ALL=(root) NOPASSWD: /usr/bin/journalctl -u pit-panel.service *
 SUDOERS
