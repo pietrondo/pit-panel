@@ -2,16 +2,21 @@ from fastapi import Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pit_panel.config import Settings, get_settings
+from pit_panel.config import Settings
+from pit_panel.config import get_settings as _get_settings
 from pit_panel.db.models import User
 from pit_panel.db.session import get_db
 from pit_panel.web.auth import SESSION_COOKIE, unsign_session_token, validate_session
 
 
+def get_settings():
+    return _get_settings()
+
+
 async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(_get_settings),
 ) -> User:
     cookie = request.cookies.get(SESSION_COOKIE)
     if cookie is None:
@@ -33,10 +38,6 @@ def _unauthorized():
     from fastapi import HTTPException
 
     return HTTPException(status_code=401, detail="Not authenticated")
-
-
-def get_settings():
-    return Settings()
 
 
 async def get_user(request: Request, db: AsyncSession) -> User | None:
