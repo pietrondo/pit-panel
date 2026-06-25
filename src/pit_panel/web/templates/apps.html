@@ -91,7 +91,9 @@
                 {% for sd in subdomains %}
                 {% if sd.app_type %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white">{{ sd.subdomain }}.{{ sd.base_domain }}</td>
+                    <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white">
+                        <a href="/apps/{{ sd.id }}" class="hover:text-purple-600">{{ sd.subdomain }}.{{ sd.base_domain }}</a>
+                    </td>
                     <td class="px-6 py-3">
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
                             {{ sd.app_type }}

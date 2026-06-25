@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+{% set title = sd.subdomain + "." + sd.base_domain %}
+
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <div class="flex items-center gap-3">
+            <a href="/apps" class="btn-ghost text-sm">&larr; Apps</a>
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white font-mono">
+                {{ sd.subdomain }}.{{ sd.base_domain }}
+            </h1>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-20">
+            {{ sd.app_type or 'No stack' }}
+            {% if app_info.get('version') %}<span class="text-xs">v{{ app_info.version }}</span>{% endif %}
+        </p>
+    </div>
+    <div class="flex gap-2">
+        <a href="/containers#sd-{{ sd.id }}" class="btn-ghost text-sm">Containers</a>
+        <button class="btn-ghost text-sm text-orange-600"
+                hx-post="/apps/{{ sd.id }}/restart"
+                hx-target="body">Restart</button>
+        <form method="POST" action="/apps/{{ sd.id }}/stop" class="inline">
+            <button class="btn-ghost text-sm text-red-600">Stop</button>
+        </form>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <div class="stat-card">
+        <span class="stat-label">Stack</span>
+        <p class="stat-value text-sm">{{ sd.app_type or '-' }}</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Deployed</span>
+        <p class="stat-value text-sm">{{ sd.last_deployed.strftime('%Y-%m-%d %H:%M') if sd.last_deployed else 'Never' }}</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Containers</span>
+        <p class="stat-value text-sm">{{ containers|length }}</p>
+    </div>
+</div>
+
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Containers</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Name</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Image</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Ports</th>
+                    <th class="text-right px-6 py-2 text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for c in containers %}
+                <tr>
+                    <td class="px-6 py-2 text-sm font-mono text-xs">{{ c.get('Name', '?') }}</td>
+                    <td class="px-6 py-2 text-sm text-gray-500 text-xs">{{ c.get('Image', '?') }}</td>
+                    <td class="px-6 py-2">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if 'Up' in c.get('Status', '')|string %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                            {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                            {{ c.get('Status', '?') }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-2 text-sm text-gray-500 text-xs font-mono">{{ c.get('Ports', '-') }}</td>
+                    <td class="px-6 py-2 text-right">
+                        {% set cid = c.get('ID', '') %}
+                        {% if cid %}
+                        <a href="/containers/container/{{ cid }}/logs" class="btn-ghost text-xs">Logs</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">No containers running.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Logs</h2>
+    </div>
+    <div class="p-6">
+        <pre class="bg-gray-950 text-green-400 p-4 rounded-lg text-xs font-mono overflow-x-auto max-h-[400px] overflow-y-auto leading-relaxed">{{ logs or 'No logs available' }}</pre>
+    </div>
+</div>
+{% endblock %}

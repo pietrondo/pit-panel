@@ -111,6 +111,59 @@ async def app_deploy(
     return RedirectResponse("/apps", status_code=302)
 
 
+@router.get("/apps/{sd_id}", response_class=HTMLResponse)
+async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return RedirectResponse("/apps", status_code=302)
+
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    containers = []
+    with contextlib.suppress(Exception):
+        containers = await docker_mgr.compose_ps(sd.subdomain)
+
+    logs = ""
+    try:
+        logs = await docker_mgr.compose_logs(sd.subdomain, tail=50)
+    except Exception:
+        logs = "Error fetching logs"
+
+    mgr = AppManager()
+    app_info = mgr.get_template_info(sd.app_type) if sd.app_type else {}
+
+    return render(
+        "app_detail.html",
+        user=user,
+        sd=sd,
+        containers=containers,
+        logs=logs,
+        app_info=app_info,
+    )
+
+
+@router.post("/apps/{sd_id}/restart", response_class=HTMLResponse)
+async def app_restart(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if sd:
+        settings = get_settings()
+        docker_mgr = DockerManager(settings.apps_dir)
+        await docker_mgr.compose_restart(sd.subdomain)
+
+    return RedirectResponse(f"/apps/{sd_id}", status_code=302)
+
+
 @router.post("/apps/{sd_id}/stop", response_class=HTMLResponse)
 async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)

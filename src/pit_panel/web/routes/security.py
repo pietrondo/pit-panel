@@ -90,6 +90,34 @@ JAIL_DEFAULTS = {
         "maxretry": "5",
         "bantime": "3600",
     },
+    "sshd-ddos": {
+        "port": "ssh",
+        "filter": "sshd-ddos",
+        "logpath": "/var/log/auth.log",
+        "maxretry": "3",
+        "bantime": "7200",
+    },
+    "nginx-http-auth": {
+        "port": "http,https",
+        "filter": "nginx-http-auth",
+        "logpath": "/var/log/nginx/error.log",
+        "maxretry": "5",
+        "bantime": "3600",
+    },
+    "apache-auth": {
+        "port": "http,https",
+        "filter": "apache-auth",
+        "logpath": "/var/log/apache2/error.log",
+        "maxretry": "5",
+        "bantime": "3600",
+    },
+    "postfix": {
+        "port": "smtp,ssmtp",
+        "filter": "postfix",
+        "logpath": "/var/log/mail.log",
+        "maxretry": "5",
+        "bantime": "3600",
+    },
 }
 
 
@@ -465,4 +493,60 @@ async def security_blocklist_import(
     return HTMLResponse(
         f"<p class='text-green-500'>Imported {count}/{len(ips)} IPs "
         f"from {info['name']}</p>"
+    )
+
+
+@router.post("/security/fail2ban/enable")
+async def security_fail2ban_enable(
+    request: Request, db: AsyncSession = Depends(get_db)
+):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
+
+    form = await request.form()
+    jail = str(form.get("jail", ""))
+    if jail not in JAIL_DEFAULTS:
+        return HTMLResponse(f"<p class='text-red-500'>Invalid jail: {jail}</p>")
+
+    cfg = JAIL_DEFAULTS[jail]
+    lines = [f"[{jail}]", "enabled = true"]
+    for k, v in cfg.items():
+        lines.append(f"{k} = {v}")
+
+    _run_cmd(
+        ["sudo", "-n", "tee", "/etc/fail2ban/jail.local"],
+        timeout=10,
+        input="\n".join(lines) + "\n",
+    )
+    _run_cmd(["sudo", "-n", "systemctl", "restart", "fail2ban"])
+    return HTMLResponse(
+        f"<p class='text-green-500'>Jail {jail} enabled</p>"
+    )
+
+
+@router.get("/security/fail2ban/jails")
+async def security_fail2ban_jails_html(
+    request: Request, db: AsyncSession = Depends(get_db)
+):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
+
+    f2b = await _fail2ban_status()
+    rows = []
+    for jail in f2b.get("jails", []):
+        rows.append(
+            f"<span class='px-2 py-1 text-xs font-mono "
+            f"bg-green-100 dark:bg-green-900/30 text-green-700 "
+            f"dark:text-green-400 rounded'>{jail}</span>"
+        )
+
+    if not rows:
+        return HTMLResponse(
+            "<p class='text-sm text-gray-500'>No active jails</p>"
+        )
+
+    return HTMLResponse(
+        "<div class='flex flex-wrap gap-2'>" + "".join(rows) + "</div>"
     )

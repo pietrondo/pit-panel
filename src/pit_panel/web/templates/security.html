@@ -75,12 +75,21 @@
             {% if fail2ban.jails %}
             <div class="flex flex-wrap gap-2">
                 {% for jail in fail2ban.jails %}
-                <span class="px-2 py-1 text-xs font-mono bg-gray-100 dark:bg-gray-800 rounded">{{ jail }}</span>
+                <span class="px-2 py-1 text-xs font-mono bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">{{ jail }}</span>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-sm text-gray-500 dark:text-gray-400">No jails active or fail2ban not installed.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">No jails active</p>
             {% endif %}
+        </div>
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Enable Jail</h3>
+            <div class="flex gap-2 flex-wrap">
+                {% set jail_opts = {"sshd": "SSH", "sshd-ddos": "SSH DDoS", "nginx-http-auth": "Nginx", "apache-auth": "Apache", "postfix": "Postfix"} %}
+                {% for jail, label in jail_opts.items() %}
+                <button class="btn-ghost text-xs" hx-post="/security/fail2ban/enable" hx-vals='{"jail":"{{ jail }}"}' hx-swap="none">{{ label }}</button>
+                {% endfor %}
+            </div>
         </div>
     </div>
     {% endif %}
