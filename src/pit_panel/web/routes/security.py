@@ -30,11 +30,19 @@ def _run_cmd(cmd: list[str], timeout: int = 10) -> str:
 
 async def _firewall_status() -> dict:
     ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
+    if "not found" in ufw.lower():
+        install = _run_cmd(
+            ["sudo", "-n", "apt-get", "install", "-y", "ufw"], timeout=30
+        )
+        if "Setting up ufw" in install:
+            _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
+            ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
     active = "Status: active" in ufw
     rules = []
     for line in ufw.split("\n"):
-        if line.strip() and line.strip() != "Status: active":
-            rules.append(line.strip())
+        stripped = line.strip()
+        if stripped and stripped != "Status: active" and "sudo:" not in stripped:
+            rules.append(stripped)
     return {"active": active, "rules": rules[:20]}
 
 
@@ -42,10 +50,12 @@ async def _fail2ban_status() -> dict:
     status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
     jails = []
     active = "|- Number of jail:" in status
+    if "command not found" in status.lower() or "sudo:" in status:
+        return {"active": False, "jails": []}
     for line in status.split("\n"):
-        line = line.strip()
-        if line.startswith("- ") and "Jail list:" not in line:
-            jails.append(line.lstrip("- "))
+        stripped = line.strip()
+        if stripped.startswith("- ") and "Jail list:" not in stripped:
+            jails.append(stripped.lstrip("- "))
     return {"active": active, "jails": jails}
 
 
