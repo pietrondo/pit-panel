@@ -65,12 +65,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.mypy]
-strict = false
-ignore_missing_imports = true
-check_untyped_defs = false
-warn_return_any = false
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
+strict = true
 python_version = "3.11"
 
 [tool.pytest.ini_options]

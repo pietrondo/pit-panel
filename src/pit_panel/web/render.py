@@ -1,7 +1,7 @@
 """Render utility for Jinja2 templates."""
 
-from typing import Any, cast
 from pathlib import Path
+from typing import Any
 
 from fastapi.responses import HTMLResponse
 
@@ -11,7 +11,6 @@ _templates = None
 
 
 def _get_templates() -> Any:
-    from jinja2 import Environment
     global _templates
     if _templates is None:
         from jinja2 import Environment, FileSystemLoader
