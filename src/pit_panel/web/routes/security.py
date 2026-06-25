@@ -36,10 +36,14 @@ async def _firewall_status() -> dict:
         )
         if "Setting up ufw" in install or "ufw is already" in install:
             _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
+            for port in ["22/tcp", "80/tcp", "443/tcp", "8080/tcp"]:
+                _run_cmd(["sudo", "-n", "ufw", "allow", port])
             ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
     active = "Status: active" in ufw
     if not active and "Status: inactive" in ufw:
         _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
+        for port in ["22/tcp", "80/tcp", "443/tcp", "8080/tcp"]:
+            _run_cmd(["sudo", "-n", "ufw", "allow", port])
         ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
         active = "Status: active" in ufw
     rules = []
