@@ -79,8 +79,11 @@ class TestSessionRecords:
     @pytest.mark.asyncio
     async def test_create_session_record(self, settings):
         import datetime
+
         from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-        from pit_panel.db.models import Base, User, Session as DBSession
+
+        from pit_panel.db.models import Base, User
+        from pit_panel.db.models import Session as DBSession
         from pit_panel.web.auth import create_session_record
 
         engine = create_async_engine("sqlite+aiosqlite://")
