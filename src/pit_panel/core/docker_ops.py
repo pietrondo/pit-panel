@@ -41,8 +41,11 @@ class DockerManager:
     async def compose_up(self, subdomain: str) -> dict[str, Any]:
         return await self._run_compose(["up", "-d"], subdomain)
 
-    async def compose_down(self, subdomain: str) -> dict[str, Any]:
-        return await self._run_compose(["down"], subdomain)
+    async def compose_down(self, subdomain: str, remove_volumes: bool = False) -> dict[str, Any]:
+        args = ["down"]
+        if remove_volumes:
+            args.append("-v")
+        return await self._run_compose(args, subdomain)
 
     async def compose_ps(self, subdomain: str) -> list[dict[str, Any]]:
         path = self.apps_dir / subdomain

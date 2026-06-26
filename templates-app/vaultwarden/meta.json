@@ -1,0 +1,9 @@
+{
+  "name": "vaultwarden",
+  "display_name": "Vaultwarden",
+  "description": "Alternative implementation of the Bitwarden server API.",
+  "icon": "🛡️",
+  "version": "latest",
+  "default_port": 80,
+  "requires_db": false
+}

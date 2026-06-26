@@ -1,0 +1,9 @@
+{
+  "name": "uptime-kuma",
+  "display_name": "Uptime Kuma",
+  "description": "A self-hosted monitoring tool.",
+  "icon": "📈",
+  "version": "1.0",
+  "default_port": 3001,
+  "requires_db": false
+}
