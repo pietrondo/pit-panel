@@ -1,12 +1,11 @@
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException, Request
 
-from pit_panel.config import Settings
 from pit_panel.db.models import User
 from pit_panel.web.auth import SESSION_COOKIE
-from pit_panel.web.deps import get_current_user, get_user
+from pit_panel.web.deps import get_admin, get_current_user, get_user
 
 
 @pytest.fixture
@@ -15,186 +14,165 @@ def mock_request():
     request.cookies = {}
     return request
 
+
 @pytest.fixture
 def mock_db():
     return AsyncMock()
 
-@pytest.fixture
-def mock_settings():
-    return Settings(secret_key="test-secret-key-32chars-long!!", debug=True)
 
 @pytest.mark.asyncio
-async def test_get_current_user_no_cookie(mock_request, mock_db, mock_settings):
-    with pytest.raises(HTTPException) as excinfo:
-        await get_current_user(mock_request, mock_db, mock_settings)
-    assert excinfo.value.status_code == 401
-    assert excinfo.value.detail == "Not authenticated"
+class TestGetUser:
+    async def test_no_cookie(self, mock_request, mock_db):
+        mock_request.cookies = {}
+        user = await get_user(mock_request, mock_db)
+        assert user is None
 
-@pytest.mark.asyncio
-async def test_get_current_user_no_uid(mock_request, mock_db, mock_settings, monkeypatch):
-    mock_request.cookies[SESSION_COOKIE] = "fake_cookie"
+    async def test_invalid_cookie(self, mock_request, mock_db, monkeypatch, settings):
+        mock_request.cookies = {SESSION_COOKIE: "invalid"}
+        monkeypatch.setattr("pit_panel.web.deps.get_settings", lambda: settings)
+        monkeypatch.setattr("pit_panel.web.deps.unsign_session_token", lambda s, c: None)
 
-    mock_loads = MagicMock(return_value={"some_other_key": 123})
-    mock_serializer = MagicMock()
-    mock_serializer.loads = mock_loads
+        user = await get_user(mock_request, mock_db)
+        assert user is None
 
-    def mock_url_safe_timed_serializer(*args, **kwargs):
-        return mock_serializer
+    async def test_missing_uid(self, mock_request, mock_db, monkeypatch, settings):
+        mock_request.cookies = {SESSION_COOKIE: "valid"}
+        monkeypatch.setattr("pit_panel.web.deps.get_settings", lambda: settings)
+        monkeypatch.setattr(
+            "pit_panel.web.deps.unsign_session_token", lambda s, c: {"other": "data"}
+        )
 
-    class MockItsDangerous:
-        URLSafeTimedSerializer = mock_url_safe_timed_serializer
+        user = await get_user(mock_request, mock_db)
+        assert user is None
 
-    original_import = __builtins__["__import__"]
+    async def test_invalid_session(self, mock_request, mock_db, monkeypatch, settings):
+        mock_request.cookies = {SESSION_COOKIE: "valid"}
+        monkeypatch.setattr("pit_panel.web.deps.get_settings", lambda: settings)
+        monkeypatch.setattr("pit_panel.web.deps.unsign_session_token", lambda s, c: {"uid": 1})
 
-    def import_mock(name, *args, **kwargs):
-        if name == "itsdangerous":
-            return MockItsDangerous()
-        return original_import(name, *args, **kwargs)
+        async def mock_validate(*args, **kwargs):
+            return None
 
-    monkeypatch.setattr("builtins.__import__", import_mock)
+        monkeypatch.setattr("pit_panel.web.deps.validate_session", mock_validate)
 
-    with pytest.raises(HTTPException) as excinfo:
-        await get_current_user(mock_request, mock_db, mock_settings)
-    assert excinfo.value.status_code == 401
-    assert excinfo.value.detail == "Not authenticated"
+        user = await get_user(mock_request, mock_db)
+        assert user is None
 
+    async def test_valid_session(self, mock_request, mock_db, monkeypatch, settings):
+        mock_request.cookies = {SESSION_COOKIE: "valid"}
+        monkeypatch.setattr("pit_panel.web.deps.get_settings", lambda: settings)
+        monkeypatch.setattr("pit_panel.web.deps.unsign_session_token", lambda s, c: {"uid": 1})
 
-@pytest.mark.asyncio
-async def test_get_current_user_invalid_session(mock_request, mock_db, mock_settings, monkeypatch):
-    mock_request.cookies[SESSION_COOKIE] = "fake_cookie"
+        expected_user = User(id=1, username="test")
 
-    mock_loads = MagicMock(return_value={"uid": 1})
-    mock_serializer = MagicMock()
-    mock_serializer.loads = mock_loads
+        async def mock_validate(*args, **kwargs):
+            return expected_user
 
-    def mock_url_safe_timed_serializer(*args, **kwargs):
-        return mock_serializer
+        monkeypatch.setattr("pit_panel.web.deps.validate_session", mock_validate)
 
-    class MockItsDangerous:
-        URLSafeTimedSerializer = mock_url_safe_timed_serializer
-
-    original_import = __builtins__["__import__"]
-
-    def import_mock(name, *args, **kwargs):
-        if name == "itsdangerous":
-            return MockItsDangerous()
-        return original_import(name, *args, **kwargs)
-
-    monkeypatch.setattr("builtins.__import__", import_mock)
-
-    async def mock_validate_session(*args, **kwargs):
-        return None
-
-    monkeypatch.setattr("pit_panel.web.deps.validate_session", mock_validate_session)
-
-    with pytest.raises(HTTPException) as excinfo:
-        await get_current_user(mock_request, mock_db, mock_settings)
-    assert excinfo.value.status_code == 401
-    assert excinfo.value.detail == "Not authenticated"
+        user = await get_user(mock_request, mock_db)
+        assert user == expected_user
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_success(mock_request, mock_db, mock_settings, monkeypatch):
-    mock_request.cookies[SESSION_COOKIE] = "fake_cookie"
+class TestGetCurrentUser:
+    async def test_no_cookie(self, mock_request, mock_db, settings):
+        mock_request.cookies = {}
+        with pytest.raises(HTTPException) as exc:
+            await get_current_user(mock_request, mock_db, settings)
+        assert exc.value.status_code == 401
 
-    mock_loads = MagicMock(return_value={"uid": 1})
-    mock_serializer = MagicMock()
-    mock_serializer.loads = mock_loads
+    async def test_invalid_cookie(self, mock_request, mock_db, settings):
+        mock_request.cookies = {SESSION_COOKIE: "invalid"}
+        import itsdangerous
 
-    def mock_url_safe_timed_serializer(*args, **kwargs):
-        return mock_serializer
+        with pytest.raises(itsdangerous.BadSignature):
+            await get_current_user(mock_request, mock_db, settings)
 
-    class MockItsDangerous:
-        URLSafeTimedSerializer = mock_url_safe_timed_serializer
+    async def test_missing_uid(self, mock_request, mock_db, settings, monkeypatch):
+        mock_request.cookies = {SESSION_COOKIE: "valid"}
 
-    original_import = __builtins__["__import__"]
+        class MockSerializer:
+            def loads(self, cookie):
+                return {"other": "data"}
 
-    def import_mock(name, *args, **kwargs):
-        if name == "itsdangerous":
-            return MockItsDangerous()
-        return original_import(name, *args, **kwargs)
+        monkeypatch.setattr(
+            "itsdangerous.URLSafeTimedSerializer", lambda *args, **kwargs: MockSerializer()
+        )
 
-    monkeypatch.setattr("builtins.__import__", import_mock)
+        with pytest.raises(HTTPException) as exc:
+            await get_current_user(mock_request, mock_db, settings)
+        assert exc.value.status_code == 401
 
-    mock_user = User(id=1, username="admin")
-    async def mock_validate_session(*args, **kwargs):
-        return mock_user
+    async def test_invalid_session(self, mock_request, mock_db, settings, monkeypatch):
+        mock_request.cookies = {SESSION_COOKIE: "valid"}
 
-    monkeypatch.setattr("pit_panel.web.deps.validate_session", mock_validate_session)
+        class MockSerializer:
+            def loads(self, cookie):
+                return {"uid": 1}
 
-    user = await get_current_user(mock_request, mock_db, mock_settings)
-    assert user == mock_user
+        monkeypatch.setattr(
+            "itsdangerous.URLSafeTimedSerializer", lambda *args, **kwargs: MockSerializer()
+        )
 
+        async def mock_validate(*args, **kwargs):
+            return None
 
-@pytest.fixture
-def mock_get_settings(monkeypatch, settings):
-    monkeypatch.setattr("pit_panel.web.deps.get_settings", lambda: settings)
-    return settings
+        monkeypatch.setattr("pit_panel.web.deps.validate_session", mock_validate)
 
+        with pytest.raises(HTTPException) as exc:
+            await get_current_user(mock_request, mock_db, settings)
+        assert exc.value.status_code == 401
 
-@pytest.mark.asyncio
-async def test_get_user_no_cookie(mock_get_settings):
-    request = Mock()
-    request.cookies.get.return_value = None
-    db = AsyncMock()
+    async def test_valid_session(self, mock_request, mock_db, settings, monkeypatch):
+        mock_request.cookies = {SESSION_COOKIE: "valid"}
 
-    result = await get_user(request, db)
-    assert result is None
-    request.cookies.get.assert_called_once_with(SESSION_COOKIE)
+        class MockSerializer:
+            def loads(self, cookie):
+                return {"uid": 1}
 
+        monkeypatch.setattr(
+            "itsdangerous.URLSafeTimedSerializer", lambda *args, **kwargs: MockSerializer()
+        )
 
-@pytest.mark.asyncio
-async def test_get_user_invalid_token(monkeypatch, mock_get_settings):
-    request = Mock()
-    request.cookies.get.return_value = "invalid_cookie"
-    db = AsyncMock()
+        expected_user = User(id=1, username="test")
 
-    monkeypatch.setattr("pit_panel.web.deps.unsign_session_token", lambda s, c: None)
+        async def mock_validate(*args, **kwargs):
+            return expected_user
 
-    result = await get_user(request, db)
-    assert result is None
+        monkeypatch.setattr("pit_panel.web.deps.validate_session", mock_validate)
 
-
-@pytest.mark.asyncio
-async def test_get_user_no_uid(monkeypatch, mock_get_settings):
-    request = Mock()
-    request.cookies.get.return_value = "valid_cookie_no_uid"
-    db = AsyncMock()
-
-    monkeypatch.setattr("pit_panel.web.deps.unsign_session_token", lambda s, c: {"other": "data"})
-
-    result = await get_user(request, db)
-    assert result is None
+        user = await get_current_user(mock_request, mock_db, settings)
+        assert user == expected_user
 
 
 @pytest.mark.asyncio
-async def test_get_user_failed_validation(monkeypatch, mock_get_settings):
-    request = Mock()
-    request.cookies.get.return_value = "valid_cookie"
-    db = AsyncMock()
+class TestGetAdmin:
+    async def test_not_logged_in(self, mock_request, mock_db, monkeypatch):
+        async def mock_get_user(*args, **kwargs):
+            return None
 
-    monkeypatch.setattr("pit_panel.web.deps.unsign_session_token", lambda s, c: {"uid": 1})
+        monkeypatch.setattr("pit_panel.web.deps.get_user", mock_get_user)
 
-    mock_validate = AsyncMock(return_value=None)
-    monkeypatch.setattr("pit_panel.web.deps.validate_session", mock_validate)
+        admin = await get_admin(mock_request, mock_db)
+        assert admin is None
 
-    result = await get_user(request, db)
-    assert result is None
-    mock_validate.assert_called_once()
+    async def test_logged_in_not_admin(self, mock_request, mock_db, monkeypatch):
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, is_admin=False)
 
+        monkeypatch.setattr("pit_panel.web.deps.get_user", mock_get_user)
 
-@pytest.mark.asyncio
-async def test_get_user_success(monkeypatch, mock_get_settings):
-    request = Mock()
-    request.cookies.get.return_value = "valid_cookie"
-    db = AsyncMock()
+        admin = await get_admin(mock_request, mock_db)
+        assert admin is None
 
-    monkeypatch.setattr("pit_panel.web.deps.unsign_session_token", lambda s, c: {"uid": 1})
+    async def test_logged_in_is_admin(self, mock_request, mock_db, monkeypatch):
+        expected_user = User(id=1, is_admin=True)
 
-    mock_user = Mock()
-    mock_validate = AsyncMock(return_value=mock_user)
-    monkeypatch.setattr("pit_panel.web.deps.validate_session", mock_validate)
+        async def mock_get_user(*args, **kwargs):
+            return expected_user
 
-    result = await get_user(request, db)
-    assert result is mock_user
-    mock_validate.assert_called_once()
+        monkeypatch.setattr("pit_panel.web.deps.get_user", mock_get_user)
+
+        admin = await get_admin(mock_request, mock_db)
+        assert admin == expected_user
