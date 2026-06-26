@@ -155,8 +155,12 @@ async def subdomain_edit(
             "subdomain_edit",
             "subdomain",
             sd.id,
-            {"old_subdomain": old_name, "new_subdomain": sd.subdomain,
-             "old_app_type": old_type, "new_app_type": sd.app_type},
+            {
+                "old_subdomain": old_name,
+                "new_subdomain": sd.subdomain,
+                "old_app_type": old_type,
+                "new_app_type": sd.app_type,
+            },
             request,
         )
         await db.commit()

@@ -11,7 +11,14 @@
 </div>
 
 <!-- Tabs -->
-<div class="flex gap-2 mb-4 items-center" x-data="{ tab: 'journal' }">
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('logTabs', () => ({
+            tab: 'journal'
+        }));
+    });
+</script>
+<div class="flex gap-2 mb-4 items-center" x-data="logTabs">
     <button @click="tab = 'journal'" :class="tab === 'journal' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'"
             class="btn text-xs">Systemd Journal</button>
     <button @click="tab = 'app'" :class="tab === 'app' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'"
