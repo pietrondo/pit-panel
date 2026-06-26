@@ -133,53 +133,53 @@ def _ensure_fail2ban_jails():
 
 
 async def _abuseipdb_check(ip: str, api_key: str) -> dict:
-    import http.client
-    import json
+    import httpx
 
     try:
-        conn = http.client.HTTPSConnection("api.abuseipdb.com", timeout=10)
-        headers = {"Key": api_key, "Accept": "application/json"}
-        conn.request("GET", f"/api/v2/check?ipAddress={ip}&maxAgeInDays=90", headers=headers)
-        resp = conn.getresponse()
-        if resp.status == 200:
-            data = json.loads(resp.read().decode())
-            score = data.get("data", {}).get("abuseConfidenceScore", 0)
-            return {
-                "ip": ip,
-                "score": score,
-                "reports": data.get("data", {}).get("totalReports", 0),
-            }
-        return {"ip": ip, "error": f"HTTP {resp.status}"}
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {"Key": api_key, "Accept": "application/json"}
+            params = {"ipAddress": ip, "maxAgeInDays": "90"}
+            resp = await client.get(
+                "https://api.abuseipdb.com/api/v2/check", params=params, headers=headers
+            )
+
+            if resp.status_code == 200:
+                data = resp.json()
+                score = data.get("data", {}).get("abuseConfidenceScore", 0)
+                return {
+                    "ip": ip,
+                    "score": score,
+                    "reports": data.get("data", {}).get("totalReports", 0),
+                }
+            return {"ip": ip, "error": f"HTTP {resp.status_code}"}
     except Exception as e:
         return {"ip": ip, "error": str(e)}
 
 
 async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict]:
-    import http.client
-    import json
+    import httpx
 
     try:
-        conn = http.client.HTTPSConnection("api.abuseipdb.com", timeout=15)
-        headers = {"Key": api_key, "Accept": "application/json"}
-        conn.request(
-            "GET",
-            f"/api/v2/blacklist?confidenceMinimum=90&limit={limit}",
-            headers=headers,
-        )
-        resp = conn.getresponse()
-        if resp.status == 200:
-            data = json.loads(resp.read().decode())
-            entries = data.get("data", [])
-            return [
-                {
-                    "ip": e.get("ipAddress", ""),
-                    "score": e.get("abuseConfidenceScore", 0),
-                    "reports": e.get("totalReports", 0),
-                    "last": e.get("lastReportedAt", ""),
-                }
-                for e in entries
-            ]
-        return []
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            headers = {"Key": api_key, "Accept": "application/json"}
+            params = {"confidenceMinimum": "90", "limit": str(limit)}
+            resp = await client.get(
+                "https://api.abuseipdb.com/api/v2/blacklist", params=params, headers=headers
+            )
+
+            if resp.status_code == 200:
+                data = resp.json()
+                entries = data.get("data", [])
+                return [
+                    {
+                        "ip": e.get("ipAddress", ""),
+                        "score": e.get("abuseConfidenceScore", 0),
+                        "reports": e.get("totalReports", 0),
+                        "last": e.get("lastReportedAt", ""),
+                    }
+                    for e in entries
+                ]
+            return []
     except Exception:
         return []
 
@@ -532,28 +532,6 @@ async def security_fail2ban_jails_html(request: Request, db: AsyncSession = Depe
     return HTMLResponse("<div class='flex flex-wrap gap-2'>" + "".join(rows) + "</div>")
 
 
-@router.get("/security/malware", response_class=HTMLResponse)
-async def security_malware_page(request: Request, db: AsyncSession = Depends(get_db)):
-    user = await get_admin(request, db)
-    if not user:
-        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
-
-    result = await db.execute(
-        select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(20)
-    )
-    history = result.scalars().all()
-
-    scanner = MalwareScanner(get_settings().apps_dir)
-    clamav_ok = await scanner.check_docker_clamav()
-
-    return render(
-        "tabs/_malware.html",
-        user=user,
-        scan_history=history,
-        clamav_available=clamav_ok,
-    )
-
-
 @router.post("/security/malware/scan", response_class=HTMLResponse)
 async def security_malware_scan(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
@@ -596,4 +574,4 @@ async def security_malware_scan(request: Request, db: AsyncSession = Depends(get
     scan.completed_at = datetime.utcnow()
     await db.commit()
 
-    return await security_malware_page(request, db)
+    return await security_overview(request, db)

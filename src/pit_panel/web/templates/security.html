@@ -132,7 +132,7 @@
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Malware Scan</h2>
         <button class="btn-primary text-xs" id="scan-btn"
                 hx-post="/security/malware/scan"
-                hx-target="#malware-results"
+                hx-target="body"
                 hx-swap="innerHTML"
                 hx-on::before-request="document.getElementById('scan-btn').disabled=true; document.getElementById('scan-btn').innerText='Scanning...'">
             Scan All Apps
