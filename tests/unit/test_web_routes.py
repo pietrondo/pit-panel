@@ -161,6 +161,7 @@ class TestSecurityRoutes:
         assert result["ip"] == malicious_ip
         assert result["score"] == 0
 
+
 class TestContainerRestart:
     def test_container_restart_authenticated_not_found(self, client, monkeypatch):
         class MockResult:
@@ -170,11 +171,15 @@ class TestContainerRestart:
         class MockSession:
             async def execute(self, *args, **kwargs):
                 return MockResult()
-            async def commit(self): pass
-            async def close(self): pass
 
-        from pit_panel.db.session import get_db
+            async def commit(self):
+                pass
+
+            async def close(self):
+                pass
+
         from pit_panel.db.models import User
+        from pit_panel.db.session import get_db
 
         async def override_get_db():
             yield MockSession()
@@ -187,8 +192,11 @@ class TestContainerRestart:
         monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
         from unittest.mock import AsyncMock
+
         mock_compose_restart = AsyncMock()
-        monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.compose_restart", mock_compose_restart)
+        monkeypatch.setattr(
+            "pit_panel.core.docker_ops.DockerManager.compose_restart", mock_compose_restart
+        )  # noqa: E501
 
         try:
             resp = client.post("/containers/1/restart", follow_redirects=False)
@@ -197,7 +205,6 @@ class TestContainerRestart:
             mock_compose_restart.assert_not_called()
         finally:
             client.app.dependency_overrides.clear()
-
 
     def test_container_restart_authenticated_success(self, client, monkeypatch):
         class MockSubdomain:
@@ -211,11 +218,15 @@ class TestContainerRestart:
         class MockSession:
             async def execute(self, *args, **kwargs):
                 return MockResult()
-            async def commit(self): pass
-            async def close(self): pass
 
-        from pit_panel.db.session import get_db
+            async def commit(self):
+                pass
+
+            async def close(self):
+                pass
+
         from pit_panel.db.models import User
+        from pit_panel.db.session import get_db
 
         async def override_get_db():
             yield MockSession()
@@ -228,8 +239,11 @@ class TestContainerRestart:
         monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
         from unittest.mock import AsyncMock
+
         mock_compose_restart = AsyncMock()
-        monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.compose_restart", mock_compose_restart)
+        monkeypatch.setattr(
+            "pit_panel.core.docker_ops.DockerManager.compose_restart", mock_compose_restart
+        )  # noqa: E501
 
         try:
             resp = client.post("/containers/1/restart", follow_redirects=False)
