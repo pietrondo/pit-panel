@@ -72,6 +72,7 @@ async def app_deploy(
     new_subdomain: str = Form(""),
     stack_type: str = Form(...),
     port: int = Form(8000),
+    is_main_domain: bool = Form(False),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_user(request, db)
@@ -86,7 +87,30 @@ async def app_deploy(
     error = None
 
     # Resolve subdomain: use existing by ID or create new
-    if subdomain_id > 0:
+    if is_main_domain:
+        if not settings.base_domain:
+            error = "Base domain not configured. Set it in Settings."
+        else:
+            existing = await db.execute(
+                select(Subdomain).where(
+                    Subdomain.is_main_domain == True,
+                    Subdomain.base_domain == settings.base_domain,
+                )
+            )
+            sd = existing.scalar_one_or_none()
+            if sd:
+                if sd.app_type:
+                    error = "Main domain app already deployed"
+            else:
+                sd = Subdomain(
+                    subdomain="_main_",
+                    base_domain=settings.base_domain,
+                    owner_user_id=user.id,
+                    is_main_domain=True,
+                )
+                db.add(sd)
+                await db.flush()
+    elif subdomain_id > 0:
         result = await db.execute(select(Subdomain).where(Subdomain.id == subdomain_id))
         sd = result.scalar_one_or_none()
         if not sd:
@@ -161,10 +185,13 @@ async def app_deploy(
         error = f"Docker compose error: {e}"
 
     # Caddy route
-    if settings.base_domain and sd.app_type != stack_type:
+    if settings.base_domain:
         try:
             caddy = CaddyManager(settings.caddy_admin_url)
-            await caddy.add_subdomain(sd.subdomain, settings.base_domain)
+            if sd.is_main_domain:
+                await caddy.add_main_domain(settings.base_domain, port=port)
+            elif sd.app_type != stack_type:
+                await caddy.add_subdomain(sd.subdomain, settings.base_domain)
         except Exception as e:
             error = (error or "") + f" | Caddy route error: {e}"
 
