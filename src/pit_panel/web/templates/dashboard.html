@@ -89,7 +89,7 @@
                     </td>
                     <td class="px-6 py-3 text-sm text-gray-500 dark:text-gray-400">{{ sd.created_at.strftime('%Y-%m-%d') if sd.created_at else '-' }}</td>
                     <td class="px-6 py-3 text-right">
-                        <button class="btn-ghost text-xs">Manage</button>
+                        <a href="/apps/{{ sd.id }}" class="btn-ghost text-xs">Manage</a>
                     </td>
                 </tr>
                 {% else %}

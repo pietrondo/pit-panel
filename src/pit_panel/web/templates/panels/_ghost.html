@@ -11,12 +11,19 @@
         </div>
     </div>
 
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('ghostSecrets', () => ({
+                show: false
+            }));
+        });
+    </script>
     {% if db_container %}
     <div class="card">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Database</h3>
         </div>
-        <div class="p-6 space-y-3 text-sm" x-data="{ show: false }">
+        <div class="p-6 space-y-3 text-sm" x-data="ghostSecrets">
             <div class="flex justify-between">
                 <span class="text-gray-500">Host</span>
                 <span class="font-mono text-gray-900 dark:text-white">db</span>

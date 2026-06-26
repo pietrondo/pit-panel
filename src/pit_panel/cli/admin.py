@@ -2,11 +2,14 @@
 
 import argparse
 import asyncio
+import logging
 import sys
 
 from pit_panel.config import Settings
 from pit_panel.db.session import get_sessionmaker, init_db
 from pit_panel.security.crypto import hash_password
+
+logger = logging.getLogger(__name__)
 
 
 async def create_admin(username: str, password: str, email: str) -> None:
@@ -21,6 +24,7 @@ async def create_admin(username: str, password: str, email: str) -> None:
     async with sessionmaker() as db:
         result = await db.execute(select(User).where(User.username == username))
         if result.scalar_one_or_none():
+            logger.warning(f"User '{username}' already exists.")
             print(f"User '{username}' already exists.")
             return
 
@@ -32,6 +36,7 @@ async def create_admin(username: str, password: str, email: str) -> None:
         )
         db.add(user)
         await db.commit()
+        logger.info(f"Admin user '{username}' created.")
         print(f"Admin user '{username}' created.")
 
 
@@ -46,11 +51,13 @@ async def reset_password(username: str, password: str) -> None:
         result = await db.execute(select(User).where(User.username == username))
         user = result.scalar_one_or_none()
         if not user:
+            logger.warning(f"User '{username}' not found.")
             print(f"User '{username}' not found.")
             return
 
         user.password_hash = hash_password(password, settings)
         await db.commit()
+        logger.info(f"Password for '{username}' reset.")
         print(f"Password for '{username}' reset.")
 
 
@@ -68,6 +75,10 @@ def main() -> None:
     reset.add_argument("--password", required=True)
 
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
     if args.command == "create-admin":
         asyncio.run(create_admin(args.username, args.password, args.email))

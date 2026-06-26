@@ -38,6 +38,42 @@
 - `bd create "title" -d "desc" -t type -p priority --json`
 - `bd close <id> --reason "done" --json`
 
+## Jules (Google AI Agent) Integration
+
+Delega task autonomi a Jules tramite CLI. Ricaricare questa skill con `skill pit-panel-jules`.
+
+### Setup
+```bash
+npm install -g @google/jules
+jules login
+```
+
+### Comandi
+| Comando | Descrizione |
+|---------|-------------|
+| `jules remote new --repo pietrondo/pit-panel --session "task"` | Crea sessione |
+| `jules remote list --session` | Elenca sessioni |
+| `jules remote pull --session <id>` | Recupera risultati |
+
+### Task delegabili
+- **Test**: `jules remote new --repo pietrondo/pit-panel --session "Add unit tests for src/..."`
+- **Security**: `jules remote new --repo pietrondo/pit-panel --session "Security audit of src/... fix vulnerabilities"`
+- **Refactoring**: `jules remote new --repo pietrondo/pit-panel --session "Extract X from file.py into new module"`
+- **Bug fix**: `jules remote new --repo pietrondo/pit-panel --session "Write a test reproducing the bug, then fix it"`
+- **Templates**: `jules remote new --repo pietrondo/pit-panel --session "Create Docker template for X in templates-app/"`
+
+### Dopo il pull
+```bash
+jules remote pull --session <id>
+uv run ruff check src/ tests/
+uv run pytest -q
+git add -A && git commit -m "jules: <desc>"
+git push
+```
+
+### NON delegare a Jules
+Decisioni architetturali (usa brainstorming), UI/UX redesign (usa impeccable), template Jinja2/HTML, migrazioni DB.
+
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
 

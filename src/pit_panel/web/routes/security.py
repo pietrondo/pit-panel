@@ -9,11 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
 from pit_panel.core.blocklist import BLOCKLIST_SOURCES, fetch_blocklist
-from pit_panel.db.models import LoginAttempt, MalwareScan, User
+from pit_panel.db.models import LoginAttempt, MalwareScan, SystemSettings, User
 from pit_panel.db.models import Session as DBSession
 from pit_panel.db.session import get_db
 from pit_panel.security.ipban import ban_ip, get_banned_ips, unban_ip
-from pit_panel.security.malware_scanner import MalwareScanner
+from pit_panel.security.malware_scanner import (
+    SCAN_DEFAULT_INTERVAL_HOURS,
+    THREAT_CATEGORIES,
+    MalwareScanner,
+)
 from pit_panel.web.auth import revoke_session
 from pit_panel.web.deps import get_admin
 from pit_panel.web.render import render
@@ -223,6 +227,7 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
     except Exception:
         from pit_panel.db.models import Base
         from pit_panel.db.session import get_engine
+
         engine = get_engine()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -230,6 +235,17 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
 
     settings = get_settings()
     abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
+
+    scan_interval_hours = SCAN_DEFAULT_INTERVAL_HOURS
+    try:
+        sr = await db.execute(
+            select(SystemSettings).where(SystemSettings.key == "scan_interval_hours")
+        )
+        row = sr.scalar_one_or_none()
+        if row:
+            scan_interval_hours = int(row.value.get("hours", SCAN_DEFAULT_INTERVAL_HOURS))
+    except Exception:
+        pass
 
     return render(
         "security.html",
@@ -243,6 +259,8 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
         abuseipdb_key=abuseipdb_key != "",
         ban_result=None,
         scan_history=scan_history,
+        scan_interval_hours=scan_interval_hours,
+        threat_categories=THREAT_CATEGORIES,
     )
 
 
@@ -290,6 +308,13 @@ async def security_unban(
         attempts=attempts,
         sessions=active_sessions,
         unban_result=result,
+        firewall=None,
+        fail2ban=None,
+        abuseipdb_key=False,
+        ban_result=None,
+        scan_history=[],
+        scan_interval_hours=SCAN_DEFAULT_INTERVAL_HOURS,
+        threat_categories=THREAT_CATEGORIES,
     )
 
 
@@ -365,6 +390,9 @@ async def security_ban_ip(
         fail2ban=f2b,
         abuseipdb_key=False,
         ban_result=result,
+        scan_history=[],
+        scan_interval_hours=SCAN_DEFAULT_INTERVAL_HOURS,
+        threat_categories=THREAT_CATEGORIES,
     )
 
 
@@ -538,9 +566,7 @@ async def security_malware_page(request: Request, db: AsyncSession = Depends(get
     if not user:
         return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
 
-    result = await db.execute(
-        select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(20)
-    )
+    result = await db.execute(select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(20))
     history = result.scalars().all()
 
     scanner = MalwareScanner(get_settings().apps_dir)
@@ -596,4 +622,65 @@ async def security_malware_scan(request: Request, db: AsyncSession = Depends(get
     scan.completed_at = datetime.utcnow()
     await db.commit()
 
-    return await security_malware_page(request, db)
+    return await security_overview(request, db)
+
+
+@router.post("/security/malware/scan-full", response_class=HTMLResponse)
+async def security_malware_scan_full(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized")
+    from datetime import datetime
+
+    scanner = MalwareScanner(get_settings().apps_dir)
+    scan = MalwareScan(target="system (full)", scan_type="full", status="running")
+    db.add(scan)
+    await db.commit()
+    try:
+        result = await scanner.scan_path("/")
+        scan.status = "completed"
+        scan.infected_count = result["infected_total"]
+        scan.scanned_count = result["scanned_total"]
+        scan.details = {"apps": [result]}
+    except Exception as e:
+        scan.status = "failed"
+        scan.details = {"error": str(e)}
+    scan.completed_at = datetime.utcnow()
+    await db.commit()
+    return await security_overview(request, db)
+
+
+@router.post("/security/malware/set-interval", response_class=HTMLResponse)
+async def security_malware_set_interval(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized")
+    form = await request.form()
+    hours = int(form.get("hours", SCAN_DEFAULT_INTERVAL_HOURS))
+    hours = max(1, min(168, hours))
+    sr = await db.execute(select(SystemSettings).where(SystemSettings.key == "scan_interval_hours"))
+    row = sr.scalar_one_or_none()
+    if row:
+        row.value = {"hours": hours}
+    else:
+        db.add(SystemSettings(key="scan_interval_hours", value={"hours": hours}))
+    await db.commit()
+    return HTMLResponse(f'<span class="text-green-600">Scan interval set to {hours}h</span>')
+
+
+@router.post("/security/malware/update-defs", response_class=HTMLResponse)
+async def security_malware_update_defs(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized")
+
+    scanner = MalwareScanner(get_settings().apps_dir)
+    result = await scanner.update_definitions()
+    if result.get("ok"):
+        return HTMLResponse(
+            f'<span class="text-green-600">Definitions updated: '
+            f"{result.get('output', '')[:200]}</span>"
+        )
+    return HTMLResponse(
+        f'<span class="text-red-600">Update failed: {result.get("error", "unknown")[:200]}</span>'
+    )
