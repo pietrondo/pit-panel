@@ -254,11 +254,19 @@ async def ssl_generate(
     # Store API token for DNS-01 providers (Caddy reads from env)
     if api_token and dns_provider:
         try:
+            # Sanitize api_var and api_token to prevent escaping
+            safe_api_var = (
+                api_var.replace("\n", "").replace("\r", "").replace('"', "").replace("'", "")
+            )
+            safe_api_token = (
+                api_token.replace("\n", "").replace("\r", "").replace('"', "").replace("'", "")
+            )
+
             env_path = Path("/etc/caddy/.env")
-            env_line = f"{api_var}={api_token}\n"
+            env_line = f"{safe_api_var}={safe_api_token}\n"
             if env_path.exists():
                 content = env_path.read_text()
-                if api_var not in content:
+                if safe_api_var not in content:
                     env_path.write_text(content + env_line)
             else:
                 env_path.write_text(env_line)
