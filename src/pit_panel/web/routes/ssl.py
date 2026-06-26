@@ -3,6 +3,7 @@
 import contextlib
 import re
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import Depends, Form, Request
@@ -80,23 +81,26 @@ def _get_tls_block(acme_cfg: str, dns_provider: str, api_var: str) -> str:
     }}"""
 
 
-def _generate_caddyfile(
-    email: str,
-    domain: str,
-    panel_sub: str,
-    dns_provider: str = "",
-    api_var: str = "CF_API_TOKEN",
-    acme_provider: str = "letsencrypt",
-    eab_key_id: str = "",
-    eab_hmac: str = "",
-) -> str:
-    email = _sanitize(email)
-    domain = _sanitize(domain)
-    panel_sub = _sanitize(panel_sub)
-    dns_provider = _sanitize(dns_provider)
-    api_var = _sanitize(api_var)
+@dataclass
+class CaddyfileConfig:
+    email: str
+    domain: str
+    panel_sub: str
+    dns_provider: str = ""
+    api_var: str = "CF_API_TOKEN"
+    acme_provider: str = "letsencrypt"
+    eab_key_id: str = ""
+    eab_hmac: str = ""
 
-    acme_cfg = _get_acme_config(acme_provider, eab_key_id, eab_hmac)
+
+def _generate_caddyfile(config: CaddyfileConfig) -> str:
+    email = _sanitize(config.email)
+    domain = _sanitize(config.domain)
+    panel_sub = _sanitize(config.panel_sub)
+    dns_provider = _sanitize(config.dns_provider)
+    api_var = _sanitize(config.api_var)
+
+    acme_cfg = _get_acme_config(config.acme_provider, config.eab_key_id, config.eab_hmac)
 
     if dns_provider:
         tls_lines = _get_tls_block(acme_cfg, dns_provider, api_var)
@@ -212,9 +216,17 @@ async def ssl_generate(
     domain = settings.effective_domain
     panel_sub = settings.panel_subdomain
 
-    caddyfile = _generate_caddyfile(
-        email, domain, panel_sub, dns_provider, api_var, acme_provider, eab_key_id, eab_hmac
+    caddy_config = CaddyfileConfig(
+        email=email,
+        domain=domain,
+        panel_sub=panel_sub,
+        dns_provider=dns_provider,
+        api_var=api_var,
+        acme_provider=acme_provider,
+        eab_key_id=eab_key_id,
+        eab_hmac=eab_hmac,
     )
+    caddyfile = _generate_caddyfile(caddy_config)
 
     result_msg = ""
 
