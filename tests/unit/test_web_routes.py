@@ -44,6 +44,10 @@ class TestUnauthenticated:
         resp = client.get("/containers", follow_redirects=False)
         assert resp.status_code == 302
 
+    def test_container_restart_redirects_to_login(self, client):
+        resp = client.post("/containers/1/restart", follow_redirects=False)
+        assert resp.status_code == 302
+
     def test_ssl_redirects_to_login(self, client):
         resp = client.get("/ssl", follow_redirects=False)
         assert resp.status_code == 302
@@ -156,3 +160,81 @@ class TestSecurityRoutes:
 
         assert result["ip"] == malicious_ip
         assert result["score"] == 0
+
+class TestContainerRestart:
+    def test_container_restart_authenticated_not_found(self, client, monkeypatch):
+        class MockResult:
+            def scalar_one_or_none(self):
+                return None
+
+        class MockSession:
+            async def execute(self, *args, **kwargs):
+                return MockResult()
+            async def commit(self): pass
+            async def close(self): pass
+
+        from pit_panel.db.session import get_db
+        from pit_panel.db.models import User
+
+        async def override_get_db():
+            yield MockSession()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
+
+        from unittest.mock import AsyncMock
+        mock_compose_restart = AsyncMock()
+        monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.compose_restart", mock_compose_restart)
+
+        try:
+            resp = client.post("/containers/1/restart", follow_redirects=False)
+            assert resp.status_code == 302
+            assert resp.headers.get("location") == "/containers"
+            mock_compose_restart.assert_not_called()
+        finally:
+            client.app.dependency_overrides.clear()
+
+
+    def test_container_restart_authenticated_success(self, client, monkeypatch):
+        class MockSubdomain:
+            id = 1
+            subdomain = "testapp"
+
+        class MockResult:
+            def scalar_one_or_none(self):
+                return MockSubdomain()
+
+        class MockSession:
+            async def execute(self, *args, **kwargs):
+                return MockResult()
+            async def commit(self): pass
+            async def close(self): pass
+
+        from pit_panel.db.session import get_db
+        from pit_panel.db.models import User
+
+        async def override_get_db():
+            yield MockSession()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
+
+        from unittest.mock import AsyncMock
+        mock_compose_restart = AsyncMock()
+        monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.compose_restart", mock_compose_restart)
+
+        try:
+            resp = client.post("/containers/1/restart", follow_redirects=False)
+            assert resp.status_code == 302
+            assert resp.headers.get("location") == "/containers"
+            mock_compose_restart.assert_called_once_with("testapp")
+        finally:
+            client.app.dependency_overrides.clear()
