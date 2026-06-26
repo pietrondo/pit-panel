@@ -204,3 +204,21 @@ class TestSystemApp:
         paths = list(app.openapi()["paths"].keys())
         assert "/system" in paths
         assert "/system/upgrade" in paths
+
+@pytest.mark.asyncio
+async def test_ban_ips_bulk(db_session):
+    from pit_panel.security.ipban import ban_ips_bulk, is_ip_banned
+
+    ips = ["1.1.1.1", "1.1.1.2", "1.1.1.3"]
+    count = await ban_ips_bulk(db_session, ips, "bulk test")
+
+    assert count == 3
+    for ip in ips:
+        assert await is_ip_banned(db_session, ip)
+
+    # Test duplicates
+    ips2 = ["1.1.1.2", "1.1.1.4"]
+    count2 = await ban_ips_bulk(db_session, ips2, "bulk test 2")
+
+    assert count2 == 1
+    assert await is_ip_banned(db_session, "1.1.1.4")

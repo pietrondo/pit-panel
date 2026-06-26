@@ -72,12 +72,8 @@ async def unban_ip(db: AsyncSession, ip: str, user_id: int | None = None) -> boo
     return False
 
 
-async def ban_ip(
-    db: AsyncSession, ip: str, reason: str, duration_minutes: int = 60
-) -> bool:
-    existing = await db.execute(
-        select(IPBan).where(IPBan.ip_address == ip)
-    )
+async def ban_ip(db: AsyncSession, ip: str, reason: str, duration_minutes: int = 60) -> bool:
+    existing = await db.execute(select(IPBan).where(IPBan.ip_address == ip))
     if existing.scalar_one_or_none():
         return False
     ban_entry = IPBan(
@@ -121,3 +117,26 @@ async def cleanup_old_attempts(db: AsyncSession, days: int = 30) -> int:
     result = await db.execute(delete(LoginAttempt).where(LoginAttempt.attempted_at < cutoff))
     await db.commit()
     return result.rowcount
+
+
+async def ban_ips_bulk(
+    db: AsyncSession, ips: list[str], reason: str, duration_minutes: int = 60
+) -> int:
+    if not ips:
+        return 0
+
+    # Find existing IPs to avoid duplicates
+    # For very large lists, consider chunking
+    result = await db.execute(select(IPBan.ip_address).where(IPBan.ip_address.in_(ips)))
+    existing_ips = set(result.scalars().all())
+
+    new_ips = [ip for ip in set(ips) if ip not in existing_ips]
+
+    if not new_ips:
+        return 0
+
+    expires = dt.datetime.now(dt.UTC) + dt.timedelta(minutes=duration_minutes)
+
+    db.add_all([IPBan(ip_address=ip, reason=reason, expires_at=expires) for ip in new_ips])
+    await db.commit()
+    return len(new_ips)
