@@ -595,4 +595,22 @@ async def security_malware_scan(request: Request, db: AsyncSession = Depends(get
     scan.completed_at = datetime.utcnow()
     await db.commit()
 
-    return await security_malware_page(request, db)
+    return await security_overview(request, db)
+
+
+@router.post("/security/malware/update-defs", response_class=HTMLResponse)
+async def security_malware_update_defs(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized")
+
+    scanner = MalwareScanner(get_settings().apps_dir)
+    result = await scanner.update_definitions()
+    if result.get("ok"):
+        return HTMLResponse(
+            f'<span class="text-green-600">Definitions updated: '
+            f'{result.get("output", "")[:200]}</span>'
+        )
+    return HTMLResponse(
+        f'<span class="text-red-600">Update failed: {result.get("error", "unknown")[:200]}</span>'
+    )
