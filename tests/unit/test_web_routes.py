@@ -88,7 +88,7 @@ class TestDebugRoute:
         resp = client.get("/debug/raw", follow_redirects=False)
         assert resp.status_code == 401
 
-    def test_debug_page_authenticated(self, client, monkeypatch): # type: ignore
+    def test_debug_page_authenticated(self, client, monkeypatch):  # type: ignore
         async def mock_get_admin(*args, **kwargs):
             return User(id=1, username="admin", is_admin=True)
 
@@ -102,7 +102,7 @@ class TestDebugRoute:
         assert resp.status_code == 200
         assert "Debug & Diagnostics" in resp.text
 
-    def test_debug_raw_authenticated(self, client, monkeypatch): # type: ignore
+    def test_debug_raw_authenticated(self, client, monkeypatch):  # type: ignore
         async def mock_get_admin(*args, **kwargs):
             return User(id=1, username="admin", is_admin=True)
 

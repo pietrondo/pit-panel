@@ -30,3 +30,4 @@ skills-lock.json
 # Jules bot artifacts
 pr_body.txt
 .jules/
+.coverage

@@ -124,8 +124,12 @@ async def app_deploy(
         templates = mgr2.list_templates()
         template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
         return render(
-            "apps.html", user=user, subdomains=subdomains,
-            templates=templates, template_infos=template_infos, error=error,
+            "apps.html",
+            user=user,
+            subdomains=subdomains,
+            templates=templates,
+            template_infos=template_infos,
+            error=error,
         )
 
     # Deploy template
@@ -137,8 +141,14 @@ async def app_deploy(
         mgr2 = AppManager()
         tpls = mgr2.list_templates()
         infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in tpls]
-        return render("apps.html", user=user, subdomains=subdomains,
-                      templates=tpls, template_infos=infos, error=str(e))
+        return render(
+            "apps.html",
+            user=user,
+            subdomains=subdomains,
+            templates=tpls,
+            template_infos=infos,
+            error=str(e),
+        )
 
     # Docker compose up
     compose_ok = False
@@ -162,18 +172,24 @@ async def app_deploy(
     sd.last_deployed = datetime.datetime.now(datetime.UTC)
 
     deployment = AppDeployment(
-        subdomain_id=sd.id, stack_type=stack_type,
+        subdomain_id=sd.id,
+        stack_type=stack_type,
         compose_path=f"{settings.apps_dir}/{sd.subdomain}/docker-compose.yml",
         status="running" if compose_ok else "failed",
     )
     db.add(deployment)
 
-    db.add(AuditLog(
-        user_id=user.id, action="app_deploy", target_type="subdomain", target_id=sd.id,
-        details={"stack": stack_type, "subdomain": sd.subdomain, "success": compose_ok},
-        ip=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    ))
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action="app_deploy",
+            target_type="subdomain",
+            target_id=sd.id,
+            details={"stack": stack_type, "subdomain": sd.subdomain, "success": compose_ok},
+            ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    )
     await db.commit()
 
     if error:
@@ -183,8 +199,12 @@ async def app_deploy(
         templates = mgr2.list_templates()
         template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
         return render(
-            "apps.html", user=user, subdomains=subdomains,
-            templates=templates, template_infos=template_infos, error=error,
+            "apps.html",
+            user=user,
+            subdomains=subdomains,
+            templates=templates,
+            template_infos=template_infos,
+            error=error,
         )
 
     return RedirectResponse(f"/apps/{sd.id}", status_code=302)
@@ -222,9 +242,16 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     has_db = _has_db_container(settings, sd.subdomain)
 
     return render(
-        "app_detail.html", user=user, sd=sd, containers=containers, logs=logs,
-        app_info=app_info, db_password=db_password, db_container=has_db,
-        app_version=app_info.get("version", ""), app_port=app_info.get("default_port", ""),
+        "app_detail.html",
+        user=user,
+        sd=sd,
+        containers=containers,
+        logs=logs,
+        app_info=app_info,
+        db_password=db_password,
+        db_container=has_db,
+        app_version=app_info.get("version", ""),
+        app_port=app_info.get("default_port", ""),
     )
 
 
@@ -253,11 +280,16 @@ async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_
         settings = get_settings()
         docker_mgr = DockerManager(settings.apps_dir)
         await docker_mgr.compose_down(sd.subdomain)
-        db.add(AuditLog(
-            user_id=user.id, action="app_stop", target_type="subdomain", target_id=sd.id,
-            details={"subdomain": sd.subdomain},
-            ip=request.client.host if request.client else None,
-            user_agent=request.headers.get("user-agent"),
-        ))
+        db.add(
+            AuditLog(
+                user_id=user.id,
+                action="app_stop",
+                target_type="subdomain",
+                target_id=sd.id,
+                details={"subdomain": sd.subdomain},
+                ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
+        )
         await db.commit()
     return RedirectResponse("/apps", status_code=302)
