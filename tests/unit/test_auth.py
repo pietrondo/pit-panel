@@ -1,4 +1,5 @@
 from typing import Any
+
 import pytest
 
 
@@ -54,7 +55,7 @@ class TestSessionAuth:
         import datetime
         import secrets
 
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
         from pit_panel.db.models import Base, User
         from pit_panel.db.models import Session as DBSession
