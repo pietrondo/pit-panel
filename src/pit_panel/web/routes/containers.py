@@ -86,9 +86,7 @@ async def container_restart(request: Request, sd_id: int, db: AsyncSession = Dep
 
 
 @router.post("/containers/container/{container_id}/stop")
-async def container_stop(
-    request: Request, container_id: str
-) -> RedirectResponse:
+async def container_stop(request: Request, container_id: str) -> RedirectResponse:
     user = await get_user(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -99,9 +97,7 @@ async def container_stop(
 
 
 @router.post("/containers/container/{container_id}/start")
-async def container_start(
-    request: Request, container_id: str
-) -> RedirectResponse:
+async def container_start(request: Request, container_id: str) -> RedirectResponse:
     user = await get_user(request)
     if not user:
         return RedirectResponse("/login", status_code=302)

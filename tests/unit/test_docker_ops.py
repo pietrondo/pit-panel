@@ -166,7 +166,11 @@ async def test_ps_all(mock_proc):
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
         result = await manager.ps_all()
         mock_exec.assert_called_once_with(
-            "docker", "ps", "-a", "--format", "json",
+            "docker",
+            "ps",
+            "-a",
+            "--format",
+            "json",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -183,7 +187,9 @@ async def test_container_stop(mock_proc):
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
         result = await manager.container_stop("abc123")
         mock_exec.assert_called_once_with(
-            "docker", "stop", "abc123",
+            "docker",
+            "stop",
+            "abc123",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -199,7 +205,9 @@ async def test_container_start(mock_proc):
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
         result = await manager.container_start("abc123")
         mock_exec.assert_called_once_with(
-            "docker", "start", "abc123",
+            "docker",
+            "start",
+            "abc123",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -210,14 +218,18 @@ async def test_container_start(mock_proc):
 async def test_container_stats(mock_proc):
     manager = DockerManager()
     stats_json = (
-        '{"CPUPerc":"0.50%","MemUsage":"50MiB / 1GiB",'
-        '"NetIO":"1kB / 2kB","BlockIO":"10MB / 20MB"}'
+        '{"CPUPerc":"0.50%","MemUsage":"50MiB / 1GiB","NetIO":"1kB / 2kB","BlockIO":"10MB / 20MB"}'
     )
     mock_proc.communicate.return_value = (stats_json.encode(), b"")
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
         result = await manager.container_stats("abc123")
         mock_exec.assert_called_once_with(
-            "docker", "stats", "abc123", "--no-stream", "--format", "json",
+            "docker",
+            "stats",
+            "abc123",
+            "--no-stream",
+            "--format",
+            "json",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -234,7 +246,12 @@ async def test_container_logs_live(mock_proc):
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
         result = await manager.container_logs_live("abc123")
         mock_exec.assert_called_once_with(
-            "docker", "logs", "abc123", "--tail", "100", "--timestamps",
+            "docker",
+            "logs",
+            "abc123",
+            "--tail",
+            "100",
+            "--timestamps",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
