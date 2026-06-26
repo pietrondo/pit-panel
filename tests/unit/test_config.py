@@ -47,3 +47,41 @@ class TestSettings:
         s1 = init_settings()
         s2 = get_settings()
         assert s1 is s2
+
+    def test_effective_domain_and_panel_url_with_base_domain(self):
+        from pit_panel.config import Settings
+
+        s = Settings(base_domain="example.com", panel_subdomain="admin")
+        assert s.effective_domain == "example.com"
+        assert s.panel_url == "https://admin.example.com"
+
+    def test_effective_domain_and_panel_url_without_base_domain(self, monkeypatch):
+        from pit_panel.config import Settings
+
+        # Mock _detect_ip to return a fixed IP
+        monkeypatch.setattr(Settings, "_detect_ip", staticmethod(lambda: "192.168.1.100"))
+
+        s = Settings(base_domain="", panel_subdomain="panel")
+        assert s.effective_domain == "192-168-1-100.nip.io"
+        assert s.panel_url == "https://panel.192-168-1-100.nip.io"
+
+    def test_detect_ip_success(self, monkeypatch):
+        from pit_panel.config import Settings
+
+        class MockResponse:
+            text = "203.0.113.50\n"
+
+        def mock_get(*args, **kwargs):
+            return MockResponse()
+
+        monkeypatch.setattr("httpx.get", mock_get)
+        assert Settings._detect_ip() == "203.0.113.50"
+
+    def test_detect_ip_exception(self, monkeypatch):
+        from pit_panel.config import Settings
+
+        def mock_get(*args, **kwargs):
+            raise Exception("Connection failed")
+
+        monkeypatch.setattr("httpx.get", mock_get)
+        assert Settings._detect_ip() == "127.0.0.1"
