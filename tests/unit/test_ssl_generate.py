@@ -1,16 +1,17 @@
-from pit_panel.web.routes.ssl import _generate_caddyfile, _sanitize
+from pit_panel.web.routes.ssl import CaddyfileConfig, _generate_caddyfile, _sanitize
 
 
 def test_caddyfile_injection():
     # Attempting to inject newlines
     malicious_email = "admin@localhost\n}\nmalicious_host {\nreverse_proxy 1.2.3.4\n}"
 
-    result = _generate_caddyfile(
+    config = CaddyfileConfig(
         email=malicious_email,
         domain="example.com",
         panel_sub="panel",
         dns_provider="cloudflare",  # force generating the block with email
     )
+    result = _generate_caddyfile(config)
 
     # We should not find the unescaped malicious configuration
     assert "malicious_host {" not in result
@@ -21,7 +22,7 @@ def test_caddyfile_injection():
 def test_caddyfile_injection_eab():
     malicious_key = 'key"\n}\nmalicious_host {\n"'
 
-    result = _generate_caddyfile(
+    config = CaddyfileConfig(
         email="admin@example.com",
         domain="example.com",
         panel_sub="panel",
@@ -29,6 +30,7 @@ def test_caddyfile_injection_eab():
         eab_key_id=malicious_key,
         eab_hmac="hmac",
     )
+    result = _generate_caddyfile(config)
 
     assert "malicious_host {" not in result
     assert "malicious_host" in result

@@ -1,4 +1,25 @@
 class TestSessionAuth:
+    def test_get_serializer(self, settings):
+        from itsdangerous import URLSafeTimedSerializer
+
+        from pit_panel.web.auth import get_serializer
+
+        serializer = get_serializer(settings)
+        assert isinstance(serializer, URLSafeTimedSerializer)
+
+        # itsdangerous stores secret_key as a byte string if passed as string
+        expected_secret = (
+            settings.secret_key.encode()
+            if isinstance(settings.secret_key, str)
+            else settings.secret_key
+        )
+        assert serializer.secret_key == expected_secret
+
+        expected_salt = (
+            b"pitpanel-session" if isinstance(serializer.salt, bytes) else "pitpanel-session"
+        )
+        assert serializer.salt == expected_salt
+
     def test_create_and_verify_token(self, settings):
         from pit_panel.web.auth import create_session_token, unsign_session_token
 

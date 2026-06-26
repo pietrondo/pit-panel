@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 {% set title = sd.subdomain + "." + sd.base_domain %}
+{% set stack_id = sd.app_type|replace('-', '_') if sd.app_type else 'custom_compose' %}
 
 <div class="mb-6 flex items-center justify-between">
     <div>
@@ -11,8 +12,10 @@
             </h1>
         </div>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-20">
-            {{ sd.app_type or 'No stack' }}
-            {% if app_info.get('version') %}<span class="text-xs">v{{ app_info.version }}</span>{% endif %}
+            <span class="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                {{ app_info.get('name', sd.app_type or 'No stack') }}
+            </span>
+            {% if app_info.get('version') %}<span class="text-xs ml-1">v{{ app_info.version }}</span>{% endif %}
         </p>
     </div>
     <div class="flex gap-2">
@@ -26,14 +29,22 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="stat-card">
         <span class="stat-label">Stack</span>
-        <p class="stat-value text-sm">{{ sd.app_type or '-' }}</p>
+        <p class="stat-value text-sm">{{ app_info.get('name', sd.app_type or '-') }}</p>
     </div>
     <div class="stat-card">
         <span class="stat-label">Deployed</span>
         <p class="stat-value text-sm">{{ sd.last_deployed.strftime('%Y-%m-%d %H:%M') if sd.last_deployed else 'Never' }}</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Status</span>
+        {% set any_up = containers|selectattr('Status', 'contains', 'Up')|list|length > 0 %}
+        <p class="stat-value text-sm flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full {{ 'bg-green-500' if any_up else 'bg-red-500' }}"></span>
+            {{ 'Running' if any_up else 'Stopped' }}
+        </p>
     </div>
     <div class="stat-card">
         <span class="stat-label">Containers</span>
@@ -41,55 +52,54 @@
     </div>
 </div>
 
-<div class="card mb-6">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Containers</h2>
+<div x-data="{ active: 'stack' }">
+    <div class="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-6">
+        <button class="px-4 py-2 text-sm font-medium transition-colors"
+                x-bind:class="active === 'stack' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'"
+                @click="active = 'stack'">
+            <span class="mr-1">📦</span> Stack
+        </button>
+        <button class="px-4 py-2 text-sm font-medium transition-colors"
+                x-bind:class="active === 'containers' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'"
+                @click="active = 'containers'">
+            <span class="mr-1">🐳</span> Containers
+        </button>
+        <button class="px-4 py-2 text-sm font-medium transition-colors"
+                x-bind:class="active === 'backup' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'"
+                @click="active = 'backup'">
+            <span class="mr-1">💾</span> Backup
+        </button>
+        <button class="px-4 py-2 text-sm font-medium transition-colors"
+                x-bind:class="active === 'logs' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'"
+                @click="active = 'logs'">
+            <span class="mr-1">📋</span> Logs
+        </button>
     </div>
-    <div class="overflow-x-auto">
-        <table class="w-full">
-            <thead>
-                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Image</th>
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Ports</th>
-                    <th class="text-right px-6 py-2 text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                {% for c in containers %}
-                <tr>
-                    <td class="px-6 py-2 text-sm font-mono text-xs">{{ c.get('Name', '?') }}</td>
-                    <td class="px-6 py-2 text-sm text-gray-500 text-xs">{{ c.get('Image', '?') }}</td>
-                    <td class="px-6 py-2">
-                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                            {% if 'Up' in c.get('Status', '')|string %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
-                            {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
-                            {{ c.get('Status', '?') }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-2 text-sm text-gray-500 text-xs font-mono">{{ c.get('Ports', '-') }}</td>
-                    <td class="px-6 py-2 text-right">
-                        {% set cid = c.get('ID', '') %}
-                        {% if cid %}
-                        <a href="/containers/container/{{ cid }}/logs" class="btn-ghost text-xs">Logs</a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">No containers running.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
 
-<div class="card">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Logs</h2>
+    <div x-show="active === 'stack'" x-transition:enter.duration.200ms>
+        {% set panel_name = 'panels/_' + stack_id + '.html' %}
+        {% include panel_name ignore missing %}
     </div>
-    <div class="p-6">
-        <pre class="bg-gray-950 text-green-400 p-4 rounded-lg text-xs font-mono overflow-x-auto max-h-[400px] overflow-y-auto leading-relaxed">{{ logs or 'No logs available' }}</pre>
+
+    <div x-show="active === 'containers'" x-transition:enter.duration.200ms
+         hx-get="/apps/{{ sd.id }}/containers"
+         hx-trigger="intersect once"
+         hx-swap="innerHTML">
+        <div class="card p-8 text-center text-sm text-gray-500">Loading containers...</div>
+    </div>
+
+    <div x-show="active === 'backup'" x-transition:enter.duration.200ms
+         hx-get="/apps/{{ sd.id }}/backup"
+         hx-trigger="intersect once"
+         hx-swap="innerHTML">
+        <div class="card p-8 text-center text-sm text-gray-500">Loading backup info...</div>
+    </div>
+
+    <div x-show="active === 'logs'" x-transition:enter.duration.200ms
+         hx-get="/apps/{{ sd.id }}/logs"
+         hx-trigger="intersect once"
+         hx-swap="innerHTML">
+        <div class="card p-8 text-center text-sm text-gray-500">Loading logs...</div>
     </div>
 </div>
 {% endblock %}

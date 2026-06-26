@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from pit_panel.config import Settings, init_settings
+from pit_panel.db.models import User
 from pit_panel.web.app import create_app
 
 
@@ -87,6 +88,34 @@ class TestDebugRoute:
         resp = client.get("/debug/raw", follow_redirects=False)
         assert resp.status_code == 401
 
+    def test_debug_page_authenticated(self, client, monkeypatch): # type: ignore
+        async def mock_get_admin(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        def mock_run(*args, **kwargs):
+            return "mocked_output"
+
+        monkeypatch.setattr("pit_panel.web.routes.debug.get_admin", mock_get_admin)
+        monkeypatch.setattr("pit_panel.web.routes.debug._run", mock_run)
+
+        resp = client.get("/debug")
+        assert resp.status_code == 200
+        assert "Debug & Diagnostics" in resp.text
+
+    def test_debug_raw_authenticated(self, client, monkeypatch): # type: ignore
+        async def mock_get_admin(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        def mock_run(*args, **kwargs):
+            return "mocked_output"
+
+        monkeypatch.setattr("pit_panel.web.routes.debug.get_admin", mock_get_admin)
+        monkeypatch.setattr("pit_panel.web.routes.debug._run", mock_run)
+
+        resp = client.get("/debug/raw")
+        assert resp.status_code == 200
+        assert "=== pit-panel debug report ===" in resp.text
+
 
 class TestRunHelper:
     def test_run_with_cwd(self):
@@ -97,3 +126,44 @@ class TestRunHelper:
         with tempfile.TemporaryDirectory() as tmpdir:
             result = _run(["git", "init"], cwd=tmpdir)
             assert result == "(empty)" or "Initialized" in result
+
+
+class TestSecurityRoutes:
+    @pytest.mark.asyncio
+    async def test_abuseipdb_check_crlf_mitigation(self, monkeypatch):
+        # Ensure the httpx client encodes CRLF characters, avoiding injection.
+        import httpx
+
+        from pit_panel.web.routes.security import _abuseipdb_check
+
+        # We'll intercept the httpx.AsyncClient.get call
+        class MockResponse:
+            status_code = 200
+
+            def json(self):
+                return {"data": {"abuseConfidenceScore": 0, "totalReports": 0}}
+
+        called_url = None
+        called_params = None
+        called_headers = None
+
+        async def mock_get(self, url, params=None, headers=None, **kwargs):
+            nonlocal called_url, called_params, called_headers
+            called_url = url
+            called_params = params
+            called_headers = headers
+            return MockResponse()
+
+        monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+        malicious_ip = "127.0.0.1\r\nInjected-Header: true"
+        result = await _abuseipdb_check(malicious_ip, "fake_key")
+
+        # Result should still process gracefully
+        assert result["ip"] == malicious_ip
+        assert result["score"] == 0
+
+        # Verify that params are passed cleanly and will be url-encoded by httpx natively
+        assert called_params["ipAddress"] == malicious_ip
+        # The key assertion is that we are using `params` dict, which httpx handles securely.
+        assert "Injected-Header" not in called_headers

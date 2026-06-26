@@ -3,5 +3,6 @@
     "version": "1.0",
     "description": "WordPress with MySQL database",
     "requires_db": true,
-    "default_port": 8081
+    "default_port": 8081,
+    "admin_path": "/wp-admin"
 }

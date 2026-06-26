@@ -188,9 +188,7 @@ async def test_ban_ip_duplicate_rejected(db_session):
 @pytest.mark.asyncio
 async def test_ban_ip_no_expiry(db_session):
     await ban_ip(db_session, "5.6.7.8", "permanent", duration_minutes=60)
-    check = await db_session.execute(
-        select(IPBan).where(IPBan.ip_address == "5.6.7.8")
-    )
+    check = await db_session.execute(select(IPBan).where(IPBan.ip_address == "5.6.7.8"))
     ban = check.scalar_one_or_none()
     assert ban is not None
     assert ban.reason == "permanent"
@@ -204,3 +202,21 @@ class TestSystemApp:
         paths = list(app.openapi()["paths"].keys())
         assert "/system" in paths
         assert "/system/upgrade" in paths
+
+@pytest.mark.asyncio
+async def test_ban_ips_bulk(db_session):
+    from pit_panel.security.ipban import ban_ips_bulk, is_ip_banned
+
+    ips = ["1.1.1.1", "1.1.1.2", "1.1.1.3"]
+    count = await ban_ips_bulk(db_session, ips, "bulk test")
+
+    assert count == 3
+    for ip in ips:
+        assert await is_ip_banned(db_session, ip)
+
+    # Test duplicates
+    ips2 = ["1.1.1.2", "1.1.1.4"]
+    count2 = await ban_ips_bulk(db_session, ips2, "bulk test 2")
+
+    assert count2 == 1
+    assert await is_ip_banned(db_session, "1.1.1.4")

@@ -1,7 +1,5 @@
 """Container management routes with live state and logs."""
 
-import asyncio
-
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -24,27 +22,39 @@ async def containers_list(request: Request, db: AsyncSession = Depends(get_db)):
 
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
+
+    all_containers = await docker_mgr.ps_all()
+
     result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
-    subdomains = result.scalars().all()
+    subdomains = {sd.subdomain: sd for sd in result.scalars().all()}
 
-    sem = asyncio.Semaphore(10)
+    containers_data: dict[int, list[dict]] = {}
+    orphan_containers: list[dict] = []
 
-    async def _fetch(sd):
-        async with sem:
-            try:
-                return sd.id, await docker_mgr.compose_ps(sd.subdomain)
-            except Exception:
-                return sd.id, []
+    for c in all_containers:
+        if "Name" not in c and "Names" in c:
+            c["Name"] = c["Names"]
 
-    tasks = [_fetch(sd) for sd in subdomains]
-    results = await asyncio.gather(*tasks)
-    containers_data = dict(results)
+        labels = c.get("Labels", "") or ""
+        project = ""
+        for part in labels.split(","):
+            part = part.strip()
+            if part.startswith("com.docker.compose.project="):
+                project = part.split("=", 1)[1]
+                break
+
+        if project and project in subdomains:
+            sd = subdomains[project]
+            containers_data.setdefault(sd.id, []).append(c)
+        else:
+            orphan_containers.append(c)
 
     return render(
         "containers.html",
         user=user,
-        subdomains=subdomains,
+        subdomains=list(subdomains.values()),
         containers_data=containers_data,
+        orphan_containers=orphan_containers,
     )
 
 
@@ -86,9 +96,7 @@ async def container_restart(request: Request, sd_id: int, db: AsyncSession = Dep
 
 
 @router.post("/containers/container/{container_id}/stop")
-async def container_stop(
-    request: Request, container_id: str
-) -> RedirectResponse:
+async def container_stop(request: Request, container_id: str) -> RedirectResponse:
     user = await get_user(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -99,9 +107,7 @@ async def container_stop(
 
 
 @router.post("/containers/container/{container_id}/start")
-async def container_start(
-    request: Request, container_id: str
-) -> RedirectResponse:
+async def container_start(request: Request, container_id: str) -> RedirectResponse:
     user = await get_user(request)
     if not user:
         return RedirectResponse("/login", status_code=302)

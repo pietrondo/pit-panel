@@ -41,8 +41,9 @@ class TestParseStorageCerts:
         (certs_dir / "example.com.json").write_text(json.dumps(meta))
 
         mgr = CaddyManager()
-        with patch.object(CaddyManager, "_parse_caddy_storage_certs",
-                          lambda self, client: _parse_certs(tmp_path)):
+        with patch.object(
+            CaddyManager, "_parse_caddy_storage_certs", lambda self, client: _parse_certs(tmp_path)
+        ):
             certs = mgr._parse_caddy_storage_certs(None)
             assert len(certs) == 1
             assert certs[0]["domains"] == "example.com, www.example.com"
@@ -90,14 +91,16 @@ def _parse_certs(root):
         meta = json.loads(f.read_text())
         domains = meta.get("sans", meta.get("domains", [])) or []
         if domains:
-            certs.append({
-                "serial": "test",
-                "domains": ", ".join(domains),
-                "not_before": "",
-                "not_after": "",
-                "expires_in_days": None,
-                "issuer": "Test CA",
-            })
+            certs.append(
+                {
+                    "serial": "test",
+                    "domains": ", ".join(domains),
+                    "not_before": "",
+                    "not_after": "",
+                    "expires_in_days": None,
+                    "issuer": "Test CA",
+                }
+            )
     return certs
 
 
@@ -119,8 +122,10 @@ async def test_get_certificates_api_success():
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value.get = AsyncMock(return_value=mock_resp)
 
-    with patch("httpx.AsyncClient", return_value=mock_client), \
-         patch.object(CaddyManager, "_parse_caddy_storage_certs", return_value=[]):
+    with (
+        patch("httpx.AsyncClient", return_value=mock_client),
+        patch.object(CaddyManager, "_parse_caddy_storage_certs", return_value=[]),
+    ):
         mgr = CaddyManager()
         certs = await mgr.get_certificates()
         assert len(certs) == 1
@@ -132,8 +137,10 @@ async def test_get_certificates_handles_api_error():
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value.get.side_effect = Exception("timeout")
 
-    with patch("httpx.AsyncClient", return_value=mock_client), \
-         patch.object(CaddyManager, "_parse_caddy_storage_certs", return_value=[]):
+    with (
+        patch("httpx.AsyncClient", return_value=mock_client),
+        patch.object(CaddyManager, "_parse_caddy_storage_certs", return_value=[]),
+    ):
         mgr = CaddyManager()
         certs = await mgr.get_certificates()
         assert certs == []

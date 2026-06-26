@@ -126,6 +126,20 @@ class SystemSettings(Base):
     )
 
 
+class MalwareScan(Base):
+    __tablename__ = "malware_scans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    target: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    scan_type: Mapped[str] = mapped_column(String(16), default="full")
+    status: Mapped[str] = mapped_column(String(16), default="running")
+    infected_count: Mapped[int] = mapped_column(Integer, default=0)
+    scanned_count: Mapped[int] = mapped_column(Integer, default=0)
+    details: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    started_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
+    completed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class IPBan(Base):
     __tablename__ = "ip_bans"
 

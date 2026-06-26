@@ -1,0 +1,71 @@
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="card">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Admin</h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <a href="https://{{ sd.subdomain }}.{{ sd.base_domain }}/wp-admin" target="_blank"
+               class="btn-primary w-full flex items-center justify-center gap-2">
+                <span>🔐</span> WP Admin
+            </a>
+            {% if db_container %}
+            <a href="/apps/{{ sd.id }}/proxy/phpmyadmin" target="_blank"
+               class="btn-ghost w-full flex items-center justify-center gap-2">
+                <span>🗄️</span> phpMyAdmin
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if db_container %}
+    <div class="card">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Database</h3>
+        </div>
+        <div class="p-6 space-y-3 text-sm" x-data="{ show: false }">
+            <div class="flex justify-between">
+                <span class="text-gray-500">Host</span>
+                <span class="font-mono text-gray-900 dark:text-white">db</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">Database</span>
+                <span class="font-mono text-gray-900 dark:text-white">wordpress</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">User</span>
+                <span class="font-mono text-gray-900 dark:text-white">wordpress</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">Password</span>
+                <span class="font-mono text-gray-900 dark:text-white">
+                    <span x-show="!show">••••••••</span>
+                    <span x-show="show">{{ db_password or '—' }}</span>
+                </span>
+            </div>
+            <button @click="show = !show" class="text-xs text-purple-600 hover:text-purple-700"
+                    x-text="show ? 'Hide' : 'Show password'"></button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card mt-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Quick Actions</h3>
+    </div>
+    <div class="p-6 flex flex-wrap gap-3">
+        <button class="btn-ghost text-sm"
+                hx-post="/apps/{{ sd.id }}/wp/flush-cache"
+                hx-target="#result-{{ sd.id }}"
+                hx-swap="innerHTML">Flush Cache</button>
+        <button class="btn-ghost text-sm"
+                hx-post="/apps/{{ sd.id }}/wp/update-plugins"
+                hx-target="#result-{{ sd.id }}"
+                hx-swap="innerHTML">Update Plugins</button>
+        <button class="btn-ghost text-sm"
+                hx-post="/apps/{{ sd.id }}/wp/update-core"
+                hx-target="#result-{{ sd.id }}"
+                hx-swap="innerHTML">Update WP Core</button>
+    </div>
+    <div id="result-{{ sd.id }}" class="px-6 pb-4"></div>
+</div>
