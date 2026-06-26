@@ -15,6 +15,15 @@
 </div>
 {% endif %}
 
+{% set stack_options = [
+    ('none', 'None yet'),
+    ('wordpress', 'WordPress'),
+    ('nodejs', 'Node.js'),
+    ('python-fastapi', 'Python/FastAPI'),
+    ('ghost', 'Ghost'),
+    ('static-nginx', 'Static Site'),
+] %}
+
 <!-- Add form -->
 <div class="card mb-8">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -31,12 +40,9 @@
             <div class="w-48">
                 <label class="label">App type (optional)</label>
                 <select name="app_type" class="input">
-                    <option value="none">None yet</option>
-                    <option value="wordpress">WordPress</option>
-                    <option value="nodejs">Node.js</option>
-                    <option value="python-fastapi">Python/FastAPI</option>
-                    <option value="ghost">Ghost</option>
-                    <option value="static-nginx">Static Site</option>
+                    {% for val, label in stack_options %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
                 </select>
             </div>
             <button type="submit" class="btn-primary">Add</button>
@@ -59,14 +65,28 @@
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for sd in subdomains %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    x-data="{ editing: false, appType: '{{ sd.app_type or 'none' }}' }">
                     <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white">
                         {{ sd.subdomain }}.{{ sd.base_domain }}
                     </td>
-                    <td class="px-6 py-3 text-sm text-gray-500 dark:text-gray-400">
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                            {{ sd.app_type or 'none' }}
-                        </span>
+                    <td class="px-6 py-3 text-sm">
+                        <template x-if="!editing">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                  x-text="appType">{{ sd.app_type or 'none' }}</span>
+                        </template>
+                        <template x-if="editing">
+                            <form method="POST" action="/subdomains/{{ sd.id }}/edit" class="inline-flex items-center gap-2"
+                                  @submit="setTimeout(() => editing = false, 100)">
+                                <select name="app_type" class="input text-xs py-1" x-model="appType">
+                                    {% for val, label in stack_options %}
+                                    <option value="{{ val }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn-primary text-xs py-1">Save</button>
+                                <button type="button" class="btn-ghost text-xs py-1" @click="editing = false">Cancel</button>
+                            </form>
+                        </template>
                     </td>
                     <td class="px-6 py-3">
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
@@ -79,7 +99,8 @@
                     <td class="px-6 py-3 text-sm text-gray-500 dark:text-gray-400">
                         {{ sd.created_at.strftime('%Y-%m-%d %H:%M') if sd.created_at else '-' }}
                     </td>
-                    <td class="px-6 py-3 text-right">
+                    <td class="px-6 py-3 text-right space-x-1">
+                        <button class="btn-ghost text-xs" @click="editing = !editing" x-show="!editing">Edit</button>
                         <form method="POST" action="/subdomains/{{ sd.id }}/delete" class="inline"
                               onsubmit="return confirm('Delete {{ sd.subdomain }}?')">
                             <button type="submit" class="btn-ghost text-red-600 hover:text-red-700 text-xs">Delete</button>

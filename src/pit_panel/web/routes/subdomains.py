@@ -119,6 +119,36 @@ async def subdomain_add(
     return RedirectResponse("/subdomains", status_code=302)
 
 
+@router.post("/subdomains/{sd_id}/edit", response_class=HTMLResponse)
+async def subdomain_edit(
+    request: Request,
+    sd_id: int,
+    app_type: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if sd:
+        old_type = sd.app_type
+        sd.app_type = app_type if app_type != "none" else None
+        await _log_audit(
+            db,
+            user.id,
+            "subdomain_edit",
+            "subdomain",
+            sd.id,
+            {"subdomain": sd.subdomain, "old_app_type": old_type, "new_app_type": sd.app_type},
+            request,
+        )
+        await db.commit()
+
+    return RedirectResponse("/subdomains", status_code=302)
+
+
 @router.post("/subdomains/{sd_id}/delete", response_class=HTMLResponse)
 async def subdomain_delete(
     request: Request,
