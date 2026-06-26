@@ -4,35 +4,24 @@
 
 <div class="mb-8">
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">App Deployments</h1>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Deploy and manage applications on your subdomains</p>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Deploy and manage applications</p>
 </div>
 
 {% if error %}
-<div class="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
-    {{ error }}
+<div class="mb-4 p-4 rounded-lg border text-sm bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">
+    <p class="font-medium">Error</p>
+    <p class="mt-1 font-mono text-xs whitespace-pre-wrap">{{ error }}</p>
 </div>
 {% endif %}
 
 <!-- Template Cards -->
-<script>
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('appStackSelector', () => ({
-            selected: '',
-            selectStack(name, defaultPort) {
-                this.selected = name;
-                document.getElementById('stack-select').value = name;
-                document.getElementById('port-input').value = defaultPort;
-            }
-        }));
-    });
-</script>
 <div class="mb-8">
     <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" x-data="appStackSelector">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" x-data="{ selected: '' }">
         {% for tpl in template_infos %}
         <div class="card p-5 cursor-pointer transition-all"
-             x-bind:class="selected === '{{ tpl.name }}' ? 'ring-2 ring-purple-500 dark:ring-purple-400' : 'hover:ring-2 hover:ring-purple-500 dark:hover:ring-purple-400'"
-             x-on:click="selectStack('{{ tpl.name }}', '{{ tpl.meta.get('default_port', 8000) }}')">
+             x-bind:class="selected === '{{ tpl.name }}' ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : 'hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400'"
+             x-on:click="selected = '{{ tpl.name }}'; $refs.stackType.value='{{ tpl.name }}'; $refs.port.value='{{ tpl.meta.get('default_port', 8000) }}'">
             <div class="flex items-center gap-3 mb-2">
                 <span class="text-2xl">{{ tpl.meta.get('icon', '📦') }}</span>
                 <div>
@@ -43,49 +32,67 @@
             <p class="text-sm text-gray-600 dark:text-gray-400">{{ tpl.meta.get('description', '') }}</p>
             <div class="flex gap-2 mt-3">
                 {% if tpl.meta.get('requires_db') %}
-                <span class="px-2 py-0.5 text-xs rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">DB</span>
+                <span class="badge badge-blue">DB</span>
                 {% endif %}
-                <span class="px-2 py-0.5 text-xs rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">Port {{ tpl.meta.get('default_port', '—') }}</span>
+                <span class="badge badge-gray">Port {{ tpl.meta.get('default_port', '—') }}</span>
             </div>
         </div>
         {% endfor %}
     </div>
 </div>
 
-{% if subdomains %}
+<!-- Deploy Form -->
 <div class="card mb-8">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
     </div>
     <div class="p-6">
-        <form method="POST" action="/apps/deploy" class="flex items-end gap-4 flex-wrap">
-            <div class="w-64">
-                <label class="label">Subdomain</label>
-                <select name="subdomain_id" class="input">
-                    {% for sd in subdomains %}
-                    <option value="{{ sd.id }}">{{ sd.subdomain }}.{{ sd.base_domain }}</option>
-                    {% endfor %}
-                </select>
+        <form method="POST" action="/apps/deploy" class="space-y-4" x-data>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="label">Subdomain</label>
+                    <select name="subdomain_id" class="input" x-ref="sdSelect"
+                            @change="$refs.newSd.disabled = $event.target.value > 0; if($event.target.value > 0) $refs.newSd.value = ''">
+                        <option value="-1" selected>Create new...</option>
+                        {% for sd in subdomains %}
+                        <option value="{{ sd.id }}">{{ sd.subdomain }}.{{ sd.base_domain }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="label">New subdomain name</label>
+                    <input type="text" name="new_subdomain" x-ref="newSd" class="input"
+                           placeholder="myapp" pattern="[a-z0-9-]+"
+                           @input="$refs.sdSelect.value = '-1'">
+                </div>
             </div>
-            <div class="w-48">
-                <label class="label">Stack</label>
-                <select name="stack_type" class="input" id="stack-select">
-                    {% for tpl in template_infos %}
-                    <option value="{{ tpl.name }}">{{ tpl.meta.get('display_name', tpl.name) }}</option>
-                    {% endfor %}
-                </select>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="label">Stack</label>
+                    <select class="input" x-ref="stackType" name="stack_type" required>
+                        <option value="">Select a stack...</option>
+                        {% for tpl in template_infos %}
+                        <option value="{{ tpl.name }}">{{ tpl.meta.get('display_name', tpl.name) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="label">Port</label>
+                    <input type="number" name="port" x-ref="port" value="8000" class="input w-32">
+                </div>
             </div>
-            <div class="w-24">
-                <label class="label">Port</label>
-                <input name="port" type="number" value="8000" class="input" id="port-input">
+
+            <div class="flex items-center gap-3 pt-2">
+                <button type="submit" class="btn-primary">Deploy</button>
+                <p class="text-xs text-gray-500">Creates subdomain, Caddy route, and starts containers</p>
             </div>
-            <button type="submit" class="btn-primary">Deploy</button>
         </form>
     </div>
 </div>
-{% endif %}
 
-<!-- Deployed apps list -->
+<!-- Deployed apps -->
 <div class="card">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deployed Apps</h2>
@@ -93,11 +100,11 @@
     <div class="overflow-x-auto">
         <table class="w-full">
             <thead>
-                <tr class="border-b border-gray-200 dark:border-gray-700">
-                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Subdomain</th>
-                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Stack</th>
-                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Deployed</th>
-                    <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subdomain</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stack</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Deployed</th>
+                    <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -105,29 +112,28 @@
                 {% if sd.app_type %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                     <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white">
-                        <a href="/apps/{{ sd.id }}" class="hover:text-purple-600">{{ sd.subdomain }}.{{ sd.base_domain }}</a>
+                        <a href="/apps/{{ sd.id }}" class="hover:text-indigo-600">{{ sd.subdomain }}.{{ sd.base_domain or '?' }}</a>
                     </td>
                     <td class="px-6 py-3">
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                            {{ sd.app_type }}
-                        </span>
+                        <span class="badge badge-blue">{{ sd.app_type }}</span>
                     </td>
                     <td class="px-6 py-3 text-sm text-gray-500 dark:text-gray-400">
                         {{ sd.last_deployed.strftime('%Y-%m-%d %H:%M') if sd.last_deployed else 'just now' }}
                     </td>
-                    <td class="px-6 py-3 text-right space-x-2">
-                        <a href="/containers#sd-{{ sd.id }}" class="btn-ghost text-xs">View</a>
+                    <td class="px-6 py-3 text-right space-x-1">
+                        <a href="/apps/{{ sd.id }}" class="btn-ghost text-xs">Manage</a>
                         <form method="POST" action="/apps/{{ sd.id }}/stop" class="inline">
-                            <button type="submit" class="btn-ghost text-red-600 hover:text-red-700 text-xs">Stop</button>
+                            <button type="submit" class="btn-ghost text-xs text-red-600">Stop</button>
                         </form>
                     </td>
                 </tr>
                 {% endif %}
                 {% endfor %}
-                {% if subdomains|selectattr('app_type')|list|length == 0 %}
+                {% set deployed = subdomains|selectattr('app_type')|list|length %}
+                {% if deployed == 0 %}
                 <tr>
                     <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                        No apps deployed yet. Pick a stack above and deploy to a subdomain.
+                        No apps deployed yet. Select a stack and deploy above.
                     </td>
                 </tr>
                 {% endif %}
