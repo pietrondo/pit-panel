@@ -126,3 +126,33 @@ class TestRunHelper:
         with tempfile.TemporaryDirectory() as tmpdir:
             result = _run(["git", "init"], cwd=tmpdir)
             assert result == "(empty)" or "Initialized" in result
+
+
+class TestSecurityRoutes:
+    @pytest.mark.asyncio
+    async def test_abuseipdb_check_crlf_mitigation(self, monkeypatch):
+        from pit_panel.web.routes.security import _abuseipdb_check
+
+        class MockResponse:
+            status = 200
+
+            def read(self):
+                return b'{"data": {"abuseConfidenceScore": 0, "totalReports": 0}}'
+
+        class MockConnection:
+            def __init__(self, *a, **kw):
+                pass
+
+            def request(self, method, url, *a, **kw):
+                self.url = url
+
+            def getresponse(self):
+                return MockResponse()
+
+        monkeypatch.setattr("http.client.HTTPSConnection", MockConnection)
+
+        malicious_ip = "127.0.0.1\r\nInjected-Header: true"
+        result = await _abuseipdb_check(malicious_ip, "fake_key")
+
+        assert result["ip"] == malicious_ip
+        assert result["score"] == 0
