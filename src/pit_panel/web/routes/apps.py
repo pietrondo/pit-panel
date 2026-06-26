@@ -28,9 +28,7 @@ async def apps_list(request: Request, db: AsyncSession = Depends(get_db)):
     subdomains = result.scalars().all()
     mgr = AppManager()
     templates = mgr.list_templates()
-    template_infos = [
-        {"name": t, "meta": mgr.get_template_info(t)} for t in templates
-    ]
+    template_infos = [{"name": t, "meta": mgr.get_template_info(t)} for t in templates]
 
     return render(
         "apps.html",
@@ -68,9 +66,7 @@ async def app_deploy(
     except ValueError:
         mgr2 = AppManager()
         templates = mgr2.list_templates()
-        template_infos = [
-            {"name": t, "meta": mgr2.get_template_info(t)} for t in templates
-        ]
+        template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
         result2 = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
         subdomains = result2.scalars().all()
         return render(
