@@ -5,7 +5,7 @@ import shutil
 
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
@@ -51,7 +51,18 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     subdomains_result = await db.execute(select(Subdomain).limit(20))
     subdomains = subdomains_result.scalars().all()
 
-    apps_count = sum(1 for sd in subdomains if sd.app_type)
+    # Use a single query with conditional aggregation to get both counts efficiently
+    row = (
+        await db.execute(
+            select(
+                func.count(Subdomain.id).label("total"),
+                func.count(Subdomain.id).filter(Subdomain.app_type.isnot(None)).label("running"),
+            )
+        )
+    ).first()
+
+    total_subdomains = row.total if row else 0
+    apps_running = row.running if row else 0
 
     return render(
         "dashboard.html",
@@ -59,8 +70,8 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
         subdomains=subdomains,
         settings=settings,
         stats={
-            "subdomain_count": len(subdomains),
-            "apps_running": apps_count,
+            "subdomain_count": total_subdomains,
+            "apps_running": apps_running,
             "disk_usage": _disk_usage(),
             "cpu": _cpu_usage(),
         },
