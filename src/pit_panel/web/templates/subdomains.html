@@ -45,7 +45,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <button type="submit" class="btn-primary">Add</button>
+            <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400">Add</button>
         </form>
     </div>
 </div>
@@ -129,7 +129,7 @@
                                       @submit="setTimeout(() => editing = false, 100)">
                                     <input type="hidden" name="subdomain" x-bind:value="name">
                                     <input type="hidden" name="app_type" x-bind:value="appType">
-                                    <button type="submit" class="btn-primary text-xs py-1">Save</button>
+                                    <button type="submit" class="btn-ghost text-xs py-1 text-indigo-700 dark:text-indigo-400">Save</button>
                                 </form>
                                 <button class="btn-ghost text-xs py-1" @click="editing = false">Cancel</button>
                             </span>

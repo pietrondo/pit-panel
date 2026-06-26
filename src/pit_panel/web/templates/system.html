@@ -49,7 +49,7 @@
         <div class="text-center">
             <p class="text-sm font-medium text-yellow-700 dark:text-yellow-300 mb-4">Update available: {{ remote_version }}</p>
             <form method="POST" action="/system/upgrade" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').innerText='Upgrading...'">
-                <button class="btn-primary px-8">Upgrade Now</button>
+                <button class="btn-ghost px-8 text-indigo-700 dark:text-indigo-400">Upgrade Now</button>
             </form>
         </div>
         {% else %}

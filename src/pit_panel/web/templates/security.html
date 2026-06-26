@@ -108,7 +108,7 @@
         <form hx-post="/security/abuseipdb-check" hx-target="#abuseipdb-result" class="flex gap-2 mb-4">
             <input name="ip" placeholder="IP address" class="input flex-1" required>
             <input name="api_key" type="password" placeholder="API key" class="input" value="{{ settings.abuseipdb_api_key if settings else '' }}">
-            <button type="submit" class="btn-primary">Check</button>
+            <button type="submit" class="btn-ghost text-blue-700 dark:text-blue-400">Check</button>
         </form>
         <div id="abuseipdb-result" class="mb-2"></div>
         <div id="abuseipdb-blacklist" class="max-h-80 overflow-y-auto"></div>
@@ -283,7 +283,7 @@
                 <label class="block text-xs text-gray-500 mb-1">Duration (min)</label>
                 <input name="duration" type="number" value="60" class="input w-24">
             </div>
-            <button type="submit" class="btn-primary">Ban IP</button>
+            <button type="submit" class="btn-ghost text-red-700 dark:text-red-400">Ban IP</button>
         </form>
     </div>
 </div>
