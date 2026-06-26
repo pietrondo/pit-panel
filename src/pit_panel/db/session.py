@@ -45,3 +45,15 @@ async def init_db(settings: Settings) -> None:
     engine = get_engine(settings)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_migrate_v4_is_main_domain)
+
+
+def _migrate_v4_is_main_domain(conn):
+    import sqlalchemy as sa
+    from sqlalchemy import inspect
+
+    inspector = inspect(conn)
+    columns = [c["name"] for c in inspector.get_columns("subdomains")]
+    if "is_main_domain" not in columns:
+        conn.execute(sa.text("ALTER TABLE subdomains ADD COLUMN is_main_domain BOOLEAN DEFAULT 0"))
+        conn.execute(sa.text("UPDATE subdomains SET is_main_domain = 0 WHERE is_main_domain IS NULL"))
