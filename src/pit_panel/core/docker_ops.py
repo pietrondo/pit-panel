@@ -113,7 +113,11 @@ class DockerManager:
 
     async def ps_all(self) -> list[dict[str, Any]]:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "ps", "-a", "--format", "json",
+            "docker",
+            "ps",
+            "-a",
+            "--format",
+            "json",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -127,7 +131,9 @@ class DockerManager:
 
     async def container_stop(self, container_id: str) -> dict[str, Any]:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "stop", container_id,
+            "docker",
+            "stop",
+            container_id,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -140,7 +146,9 @@ class DockerManager:
 
     async def container_start(self, container_id: str) -> dict[str, Any]:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "start", container_id,
+            "docker",
+            "start",
+            container_id,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -153,7 +161,12 @@ class DockerManager:
 
     async def container_stats(self, container_id: str) -> dict[str, Any]:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "stats", container_id, "--no-stream", "--format", "json",
+            "docker",
+            "stats",
+            container_id,
+            "--no-stream",
+            "--format",
+            "json",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -163,11 +176,14 @@ class DockerManager:
         except json.JSONDecodeError:
             return {}
 
-    async def container_logs_live(
-        self, container_id: str, tail: int = 100
-    ) -> str:
+    async def container_logs_live(self, container_id: str, tail: int = 100) -> str:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "logs", container_id, "--tail", str(tail), "--timestamps",
+            "docker",
+            "logs",
+            container_id,
+            "--tail",
+            str(tail),
+            "--timestamps",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

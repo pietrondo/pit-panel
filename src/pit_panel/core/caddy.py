@@ -90,9 +90,7 @@ class CaddyManager:
         expires_in = None
         if not_after:
             try:
-                expiry = dt.datetime.fromisoformat(
-                    not_after.replace("Z", "+00:00")
-                )
+                expiry = dt.datetime.fromisoformat(not_after.replace("Z", "+00:00"))
                 expires_in = (expiry - dt.datetime.now(dt.UTC)).days
             except (ValueError, TypeError):
                 pass
@@ -115,9 +113,7 @@ class CaddyManager:
             re.DOTALL,
         ):
             try:
-                der = base64.b64decode(
-                    re.sub(r"\s+", "", match.group(1))
-                )
+                der = base64.b64decode(re.sub(r"\s+", "", match.group(1)))
                 na_match = re.search(
                     rb"\x17\x0d(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z",
                     der,
@@ -126,29 +122,33 @@ class CaddyManager:
                     yy, mo, dd, hh, mm, ss = na_match.groups()
                     not_after = f"20{int(yy):02d}-{int(mo):02d}-{int(dd):02d}"
                     expiry = dt.datetime(
-                        2000 + int(yy), int(mo), int(dd),
-                        int(hh), int(mm), int(ss),
+                        2000 + int(yy),
+                        int(mo),
+                        int(dd),
+                        int(hh),
+                        int(mm),
+                        int(ss),
                         tzinfo=dt.UTC,
                     )
                     expires_in = (expiry - dt.datetime.now(dt.UTC)).days
                 else:
                     not_after = "?"
                     expires_in = None
-                certs.append({
-                    "serial": match.group(1)[:16].strip(),
-                    "domains": "Local CA",
-                    "not_before": "",
-                    "not_after": not_after,
-                    "expires_in_days": expires_in,
-                    "issuer": "Caddy Local CA",
-                })
+                certs.append(
+                    {
+                        "serial": match.group(1)[:16].strip(),
+                        "domains": "Local CA",
+                        "not_before": "",
+                        "not_after": not_after,
+                        "expires_in_days": expires_in,
+                        "issuer": "Caddy Local CA",
+                    }
+                )
             except Exception:
                 pass
         return certs
 
-    def _parse_caddy_storage_certs(
-        self, client: httpx.AsyncClient
-    ) -> list[dict[str, Any]]:
+    def _parse_caddy_storage_certs(self, client: httpx.AsyncClient) -> list[dict[str, Any]]:
         import json
         from pathlib import Path
 
@@ -159,9 +159,7 @@ class CaddyManager:
             for json_file in certs_dir.rglob("*.json"):
                 try:
                     meta = json.loads(json_file.read_text())
-                    domains = (
-                        meta.get("sans", meta.get("domains", [])) or []
-                    )
+                    domains = meta.get("sans", meta.get("domains", [])) or []
                     if not domains:
                         continue
 
@@ -174,17 +172,20 @@ class CaddyManager:
                         pem_file = json_file.with_suffix(".pem")
                     if not pem_file.exists():
                         pem_file = json_file.with_name(
-                            json_file.stem.replace(".caddy-identifier", "")
-                            + ".crt"
+                            json_file.stem.replace(".caddy-identifier", "") + ".crt"
                         )
 
                     if pem_file.exists():
                         try:
                             result = subprocess.run(
                                 [
-                                    "openssl", "x509", "-in",
-                                    str(pem_file), "-noout",
-                                    "-enddate", "-startdate",
+                                    "openssl",
+                                    "x509",
+                                    "-in",
+                                    str(pem_file),
+                                    "-noout",
+                                    "-enddate",
+                                    "-startdate",
                                 ],
                                 capture_output=True,
                                 text=True,
@@ -197,16 +198,12 @@ class CaddyManager:
                                     not_before = line.split("=", 1)[1]
                             if not_after:
                                 try:
-
                                     expiry = dt.datetime.strptime(
                                         not_after,
                                         "%b %d %H:%M:%S %Y %Z",
                                     )
                                     expires_in = (
-                                        expiry.replace(
-                                            tzinfo=dt.UTC
-                                        )
-                                        - dt.datetime.now(dt.UTC)
+                                        expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)
                                     ).days
                                 except ValueError:
                                     pass
@@ -214,28 +211,24 @@ class CaddyManager:
                             pass
 
                     if not not_after:
-                        not_after = meta.get(
-                            "not_after", ""
-                        )
-                        not_before = meta.get(
-                            "not_before", ""
-                        )
+                        not_after = meta.get("not_after", "")
+                        not_before = meta.get("not_before", "")
 
                     issuer = meta.get(
                         "issuer_common_name",
-                        meta.get(
-                            "issuer_data", {}
-                        ).get("ca", "Let's Encrypt"),
+                        meta.get("issuer_data", {}).get("ca", "Let's Encrypt"),
                     )
 
-                    certs.append({
-                        "serial": str(meta.get("id", "?"))[:16],
-                        "domains": ", ".join(domains),
-                        "not_before": not_before if not_before else "",
-                        "not_after": not_after if not_after else "",
-                        "expires_in_days": expires_in,
-                        "issuer": issuer,
-                    })
+                    certs.append(
+                        {
+                            "serial": str(meta.get("id", "?"))[:16],
+                            "domains": ", ".join(domains),
+                            "not_before": not_before if not_before else "",
+                            "not_after": not_after if not_after else "",
+                            "expires_in_days": expires_in,
+                            "issuer": issuer,
+                        }
+                    )
                 except Exception:
                     pass
         except Exception:

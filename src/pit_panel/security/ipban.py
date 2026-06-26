@@ -72,12 +72,8 @@ async def unban_ip(db: AsyncSession, ip: str, user_id: int | None = None) -> boo
     return False
 
 
-async def ban_ip(
-    db: AsyncSession, ip: str, reason: str, duration_minutes: int = 60
-) -> bool:
-    existing = await db.execute(
-        select(IPBan).where(IPBan.ip_address == ip)
-    )
+async def ban_ip(db: AsyncSession, ip: str, reason: str, duration_minutes: int = 60) -> bool:
+    existing = await db.execute(select(IPBan).where(IPBan.ip_address == ip))
     if existing.scalar_one_or_none():
         return False
     ban_entry = IPBan(

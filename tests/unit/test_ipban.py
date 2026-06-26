@@ -188,9 +188,7 @@ async def test_ban_ip_duplicate_rejected(db_session):
 @pytest.mark.asyncio
 async def test_ban_ip_no_expiry(db_session):
     await ban_ip(db_session, "5.6.7.8", "permanent", duration_minutes=60)
-    check = await db_session.execute(
-        select(IPBan).where(IPBan.ip_address == "5.6.7.8")
-    )
+    check = await db_session.execute(select(IPBan).where(IPBan.ip_address == "5.6.7.8"))
     ban = check.scalar_one_or_none()
     assert ban is not None
     assert ban.reason == "permanent"
