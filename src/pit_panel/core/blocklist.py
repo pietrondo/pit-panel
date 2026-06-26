@@ -1,6 +1,7 @@
 """IP blocklist management: sources, fetching, daily import."""
 
 import asyncio
+import time
 
 import httpx
 
@@ -52,7 +53,17 @@ BLOCKLIST_SOURCES = {
 }
 
 
+_BLOCKLIST_CACHE: dict[str, tuple[list[str], float]] = {}
+CACHE_TTL = 3600  # 1 hour
+
+
 async def fetch_blocklist(url: str) -> list[str]:
+    now = time.time()
+    if url in _BLOCKLIST_CACHE:
+        cached_ips, timestamp = _BLOCKLIST_CACHE[url]
+        if now - timestamp < CACHE_TTL:
+            return cached_ips
+
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(url)
@@ -63,7 +74,9 @@ async def fetch_blocklist(url: str) -> list[str]:
                 line = line.strip()
                 if line and not line.startswith("#"):
                     ips.append(line.split()[0] if " " in line else line)
-            return ips[:200]
+            result = ips[:200]
+            _BLOCKLIST_CACHE[url] = (result, now)
+            return result
     except Exception:
         return []
 
