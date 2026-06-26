@@ -1,11 +1,13 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
-from fastapi import Request, HTTPException
 
-from pit_panel.web.deps import get_current_user
-from pit_panel.db.models import User
+import pytest
+from fastapi import HTTPException, Request
+
 from pit_panel.config import Settings
+from pit_panel.db.models import User
 from pit_panel.web.auth import SESSION_COOKIE
+from pit_panel.web.deps import get_current_user
+
 
 @pytest.fixture
 def mock_request():
@@ -43,7 +45,13 @@ async def test_get_current_user_no_uid(mock_request, mock_db, mock_settings, mon
         URLSafeTimedSerializer = mock_url_safe_timed_serializer
 
     original_import = __builtins__["__import__"]
-    monkeypatch.setattr("builtins.__import__", lambda name, *args, **kwargs: MockItsDangerous() if name == "itsdangerous" else original_import(name, *args, **kwargs))
+
+    def import_mock(name, *args, **kwargs):
+        if name == "itsdangerous":
+            return MockItsDangerous()
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", import_mock)
 
     with pytest.raises(HTTPException) as excinfo:
         await get_current_user(mock_request, mock_db, mock_settings)
@@ -66,7 +74,13 @@ async def test_get_current_user_invalid_session(mock_request, mock_db, mock_sett
         URLSafeTimedSerializer = mock_url_safe_timed_serializer
 
     original_import = __builtins__["__import__"]
-    monkeypatch.setattr("builtins.__import__", lambda name, *args, **kwargs: MockItsDangerous() if name == "itsdangerous" else original_import(name, *args, **kwargs))
+
+    def import_mock(name, *args, **kwargs):
+        if name == "itsdangerous":
+            return MockItsDangerous()
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", import_mock)
 
     async def mock_validate_session(*args, **kwargs):
         return None
@@ -94,7 +108,13 @@ async def test_get_current_user_success(mock_request, mock_db, mock_settings, mo
         URLSafeTimedSerializer = mock_url_safe_timed_serializer
 
     original_import = __builtins__["__import__"]
-    monkeypatch.setattr("builtins.__import__", lambda name, *args, **kwargs: MockItsDangerous() if name == "itsdangerous" else original_import(name, *args, **kwargs))
+
+    def import_mock(name, *args, **kwargs):
+        if name == "itsdangerous":
+            return MockItsDangerous()
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", import_mock)
 
     mock_user = User(id=1, username="admin")
     async def mock_validate_session(*args, **kwargs):
