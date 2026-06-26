@@ -156,3 +156,62 @@ class TestSecurityRoutes:
 
         assert result["ip"] == malicious_ip
         assert result["score"] == 0
+
+    def test_security_overview_authenticated(self, client, monkeypatch):
+        from pit_panel.db.models import User
+
+        # Mock the authenticated admin
+        async def mock_get_admin(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
+
+        # Mock _firewall_status and _fail2ban_status
+        async def mock_fw(*args, **kwargs):
+            return {"active": True, "rules": []}
+
+        async def mock_f2b(*args, **kwargs):
+            return {"active": True, "jails": []}
+
+        monkeypatch.setattr("pit_panel.web.routes.security._firewall_status", mock_fw)
+        monkeypatch.setattr("pit_panel.web.routes.security._fail2ban_status", mock_f2b)
+
+        # Mock get_banned_ips
+        async def mock_get_banned_ips(*args, **kwargs):
+            return []
+
+        monkeypatch.setattr("pit_panel.web.routes.security.get_banned_ips", mock_get_banned_ips)
+
+        # Mock the DB execute method instead of a real DB
+        class MockResult:
+            def scalars(self):
+                return self
+
+            def all(self):
+                return []
+
+            def scalar_one_or_none(self):
+                return None
+
+            def __iter__(self):
+                return iter([])
+
+        class MockSession:
+            async def execute(self, *args, **kwargs):
+                return MockResult()
+
+        async def mock_get_db():
+            yield MockSession()
+
+        # Update the app dependency directly on the test client's app
+        from pit_panel.web.routes.security import get_db
+
+        client.app.dependency_overrides[get_db] = mock_get_db
+
+        try:
+            resp = client.get("/security")
+            assert resp.status_code == 200
+            assert "<title>pit-panel</title>" in resp.text
+            assert "Security" in resp.text
+        finally:
+            client.app.dependency_overrides.clear()
