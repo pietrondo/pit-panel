@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from pit_panel.config import Settings, init_settings
+from pit_panel.db.models import User
 from pit_panel.web.app import create_app
 
 
@@ -86,6 +87,34 @@ class TestDebugRoute:
     def test_debug_raw_unauthorized(self, client):
         resp = client.get("/debug/raw", follow_redirects=False)
         assert resp.status_code == 401
+
+    def test_debug_page_authenticated(self, client, monkeypatch): # type: ignore
+        async def mock_get_admin(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        def mock_run(*args, **kwargs):
+            return "mocked_output"
+
+        monkeypatch.setattr("pit_panel.web.routes.debug.get_admin", mock_get_admin)
+        monkeypatch.setattr("pit_panel.web.routes.debug._run", mock_run)
+
+        resp = client.get("/debug")
+        assert resp.status_code == 200
+        assert "Debug & Diagnostics" in resp.text
+
+    def test_debug_raw_authenticated(self, client, monkeypatch): # type: ignore
+        async def mock_get_admin(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        def mock_run(*args, **kwargs):
+            return "mocked_output"
+
+        monkeypatch.setattr("pit_panel.web.routes.debug.get_admin", mock_get_admin)
+        monkeypatch.setattr("pit_panel.web.routes.debug._run", mock_run)
+
+        resp = client.get("/debug/raw")
+        assert resp.status_code == 200
+        assert "=== pit-panel debug report ===" in resp.text
 
 
 class TestRunHelper:

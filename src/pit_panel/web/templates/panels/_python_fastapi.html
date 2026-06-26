@@ -1,0 +1,41 @@
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="card">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Quick Links</h3>
+        </div>
+        <div class="p-6 space-y-3">
+            <a href="https://{{ sd.subdomain }}.{{ sd.base_domain }}/docs" target="_blank"
+               class="btn-ghost w-full flex items-center justify-center gap-2">
+                <span>📖</span> Swagger Docs
+            </a>
+            <a href="https://{{ sd.subdomain }}.{{ sd.base_domain }}/redoc" target="_blank"
+               class="btn-ghost w-full flex items-center justify-center gap-2">
+                <span>📕</span> ReDoc
+            </a>
+            <a href="https://{{ sd.subdomain }}.{{ sd.base_domain }}/health" target="_blank"
+               class="btn-ghost w-full flex items-center justify-center gap-2">
+                <span>❤️</span> Health Endpoint
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Environment</h3>
+        </div>
+        <div class="p-6 space-y-3 text-sm">
+            <div class="flex justify-between">
+                <span class="text-gray-500">Python</span>
+                <span class="font-mono text-gray-900 dark:text-white">{{ app_version or '—' }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">Server</span>
+                <span class="font-mono text-gray-900 dark:text-white">uvicorn</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">Port</span>
+                <span class="font-mono text-gray-900 dark:text-white">{{ app_port or '8000' }}</span>
+            </div>
+        </div>
+    </div>
+</div>

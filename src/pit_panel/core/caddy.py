@@ -7,6 +7,11 @@ from typing import Any
 
 import httpx
 
+_PEM_CERT_PATTERN = re.compile(
+    r"-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----", re.DOTALL
+)
+_WHITESPACE_PATTERN = re.compile(r"\s+")
+_DER_EXPIRY_PATTERN = re.compile(rb"\x17\x0d(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z")
 
 class CaddyManager:
     def __init__(self, admin_url: str = "http://127.0.0.1:2019"):
@@ -107,17 +112,12 @@ class CaddyManager:
         import base64
 
         certs = []
-        for match in re.finditer(
-            r"-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----",
-            pem_text,
-            re.DOTALL,
-        ):
+        for match in _PEM_CERT_PATTERN.finditer(pem_text):
             try:
-                der = base64.b64decode(re.sub(r"\s+", "", match.group(1)))
-                na_match = re.search(
-                    rb"\x17\x0d(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z",
-                    der,
+                der = base64.b64decode(
+                    _WHITESPACE_PATTERN.sub("", match.group(1))
                 )
+                na_match = _DER_EXPIRY_PATTERN.search(der)
                 if na_match:
                     yy, mo, dd, hh, mm, ss = na_match.groups()
                     not_after = f"20{int(yy):02d}-{int(mo):02d}-{int(dd):02d}"

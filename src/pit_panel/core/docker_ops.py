@@ -11,15 +11,14 @@ class DockerManager:
     def __init__(self, apps_dir: str = "/opt/pit-panel/apps"):
         self.apps_dir = Path(apps_dir)
 
-    async def compose_up(self, subdomain: str) -> dict[str, Any]:
+    async def _run_compose(self, command: list[str], subdomain: str) -> dict[str, Any]:
         path = self.apps_dir / subdomain
         proc = await asyncio.create_subprocess_exec(
             "docker",
             "compose",
             "-f",
             str(path / "docker-compose.yml"),
-            "up",
-            "-d",
+            *command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(path),
@@ -31,24 +30,11 @@ class DockerManager:
             "stderr": stderr.decode(),
         }
 
+    async def compose_up(self, subdomain: str) -> dict[str, Any]:
+        return await self._run_compose(["up", "-d"], subdomain)
+
     async def compose_down(self, subdomain: str) -> dict[str, Any]:
-        path = self.apps_dir / subdomain
-        proc = await asyncio.create_subprocess_exec(
-            "docker",
-            "compose",
-            "-f",
-            str(path / "docker-compose.yml"),
-            "down",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(path),
-        )
-        stdout, stderr = await proc.communicate()
-        return {
-            "success": proc.returncode == 0,
-            "stdout": stdout.decode(),
-            "stderr": stderr.decode(),
-        }
+        return await self._run_compose(["down"], subdomain)
 
     async def compose_ps(self, subdomain: str) -> list[dict[str, Any]]:
         path = self.apps_dir / subdomain
@@ -93,23 +79,7 @@ class DockerManager:
         return stdout.decode()
 
     async def compose_restart(self, subdomain: str) -> dict[str, Any]:
-        path = self.apps_dir / subdomain
-        proc = await asyncio.create_subprocess_exec(
-            "docker",
-            "compose",
-            "-f",
-            str(path / "docker-compose.yml"),
-            "restart",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(path),
-        )
-        stdout, stderr = await proc.communicate()
-        return {
-            "success": proc.returncode == 0,
-            "stdout": stdout.decode(),
-            "stderr": stderr.decode(),
-        }
+        return await self._run_compose(["restart"], subdomain)
 
     async def ps_all(self) -> list[dict[str, Any]]:
         proc = await asyncio.create_subprocess_exec(

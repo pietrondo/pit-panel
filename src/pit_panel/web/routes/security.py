@@ -9,10 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
 from pit_panel.core.blocklist import BLOCKLIST_SOURCES, fetch_blocklist
-from pit_panel.db.models import LoginAttempt, User
+from pit_panel.db.models import LoginAttempt, MalwareScan, User
 from pit_panel.db.models import Session as DBSession
 from pit_panel.db.session import get_db
 from pit_panel.security.ipban import ban_ip, get_banned_ips, unban_ip
+from pit_panel.security.malware_scanner import MalwareScanner
 from pit_panel.web.auth import revoke_session
 from pit_panel.web.deps import get_admin
 from pit_panel.web.render import render
@@ -214,6 +215,19 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
     fw = await _firewall_status()
     f2b = await _fail2ban_status()
 
+    try:
+        scan_result = await db.execute(
+            select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(5)
+        )
+        scan_history = scan_result.scalars().all()
+    except Exception:
+        from pit_panel.db.models import Base
+        from pit_panel.db.session import get_engine
+        engine = get_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        scan_history = []
+
     settings = get_settings()
     abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
 
@@ -228,6 +242,7 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
         fail2ban=f2b,
         abuseipdb_key=abuseipdb_key != "",
         ban_result=None,
+        scan_history=scan_history,
     )
 
 
@@ -515,3 +530,48 @@ async def security_fail2ban_jails_html(request: Request, db: AsyncSession = Depe
         return HTMLResponse("<p class='text-sm text-gray-500'>No active jails</p>")
 
     return HTMLResponse("<div class='flex flex-wrap gap-2'>" + "".join(rows) + "</div>")
+
+
+@router.post("/security/malware/scan", response_class=HTMLResponse)
+async def security_malware_scan(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized")
+
+    from datetime import datetime
+
+    settings = get_settings()
+    scanner = MalwareScanner(settings.apps_dir)
+    clamav = await scanner.check_docker_clamav()
+
+    if not clamav:
+        try:
+            msg = await scanner.pull_clamav()
+        except Exception:
+            msg = "Failed to pull ClamAV image"
+        return HTMLResponse(
+            f'<p class="text-amber-600">ClamAV Docker image not found. Pulling...<br>{msg}</p>'
+            f'<button class="btn-primary mt-2" hx-post="/security/malware/scan" '
+            f'hx-target="closest div" hx-swap="outerHTML">Retry</button>'
+        )
+
+    scan = MalwareScan(target="all", scan_type="full", status="running")
+    db.add(scan)
+    await db.commit()
+
+    try:
+        results = await scanner.scan_all()
+        total_infected = sum(r.get("infected_total", 0) for r in results)
+        total_scanned = sum(r.get("scanned_total", 0) for r in results)
+        scan.status = "completed"
+        scan.infected_count = total_infected
+        scan.scanned_count = total_scanned
+        scan.details = {"apps": results}
+    except Exception as e:
+        scan.status = "failed"
+        scan.details = {"error": str(e)}
+
+    scan.completed_at = datetime.utcnow()
+    await db.commit()
+
+    return await security_overview(request, db)

@@ -1,0 +1,42 @@
+<div class="card">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Containers</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Name</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Image</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 uppercase">Ports</th>
+                    <th class="text-right px-6 py-2 text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for c in containers %}
+                <tr>
+                    <td class="px-6 py-2 text-sm font-mono text-xs text-gray-900 dark:text-white">{{ c.get('Name', '?') }}</td>
+                    <td class="px-6 py-2 text-sm text-gray-500 text-xs">{{ c.get('Image', '?') }}</td>
+                    <td class="px-6 py-2">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if 'Up' in c.get('Status', '')|string %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                            {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                            {{ c.get('Status', '?') }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-2 text-sm text-gray-500 text-xs font-mono">{{ c.get('Ports', '-') }}</td>
+                    <td class="px-6 py-2 text-right">
+                        {% set cid = c.get('ID', '') %}
+                        {% if cid %}
+                        <a href="/containers/container/{{ cid }}/logs" class="btn-ghost text-xs" target="_blank">Logs</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">No containers running.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
