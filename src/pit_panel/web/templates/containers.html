@@ -86,6 +86,61 @@
 </div>
 {% endfor %}
 
+{% if orphan_containers %}
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Other Containers</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Container</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Image</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ports</th>
+                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for c in orphan_containers %}
+                <tr>
+                    <td class="px-6 py-2 text-sm font-mono text-gray-900 dark:text-white text-xs">{{ c.get('Name', '?') }}</td>
+                    <td class="px-6 py-2 text-sm text-gray-500 dark:text-gray-400 text-xs">{{ c.get('Image', '?') }}</td>
+                    <td class="px-6 py-2">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if 'Up' in (c.get('Status', '')) %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                            {% elif 'Exit' in (c.get('Status', '')) %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                            {% else %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+                            {{ c.get('Status', '?') }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-2 text-sm text-gray-500 dark:text-gray-400 text-xs font-mono">{{ c.get('Ports', '-') }}</td>
+                    <td class="px-6 py-2 text-sm">
+                        {% set cid = c.get('ID', '') %}
+                        {% if cid %}
+                        <div class="flex items-center gap-1">
+                            <a href="/containers/container/{{ cid }}/logs" class="btn-ghost text-xs" target="_blank">Logs</a>
+                            {% if 'Up' in (c.get('Status', '')) %}
+                            <form method="POST" action="/containers/container/{{ cid }}/stop" class="inline">
+                                <button type="submit" class="btn-ghost text-xs text-red-600">Stop</button>
+                            </form>
+                            {% else %}
+                            <form method="POST" action="/containers/container/{{ cid }}/start" class="inline">
+                                <button type="submit" class="btn-ghost text-xs text-green-600">Start</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <div class="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400 text-center" hx-get="/containers" hx-trigger="every 15s" hx-swap="outerHTML">
     Auto-refreshing every 15s via HTMX...
 </div>
