@@ -1,7 +1,5 @@
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
-import subprocess
-
 from fastapi import Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -9,132 +7,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
 from pit_panel.core.blocklist import BLOCKLIST_SOURCES, fetch_blocklist
+from pit_panel.core.security import (
+    JAIL_DEFAULTS,
+    _fail2ban_status,
+    _firewall_status,
+    _run_cmd,
+    ban_ip_address,
+    unban_ip_address,
+)
 from pit_panel.db.models import LoginAttempt, User
 from pit_panel.db.models import Session as DBSession
 from pit_panel.db.session import get_db
-from pit_panel.security.ipban import ban_ip, get_banned_ips, unban_ip
+from pit_panel.security.ipban import ban_ip, get_banned_ips
 from pit_panel.web.auth import revoke_session
 from pit_panel.web.deps import get_admin
 from pit_panel.web.render import render
 from pit_panel.web.router import router
-
-
-def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) -> str:
-    try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, input=input
-        )
-        return result.stdout.strip() or result.stderr.strip()
-    except Exception:
-        return "unavailable"
-
-
-async def _firewall_status() -> dict:
-    ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
-    if "not found" in ufw.lower() or "command not found" in ufw.lower():
-        install = _run_cmd(
-            ["sudo", "-n", "apt-get", "install", "-y", "ufw"], timeout=60
-        )
-        if "Setting up ufw" in install or "ufw is already" in install:
-            _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
-            for port in ["22/tcp", "80/tcp", "443/tcp", "8080/tcp"]:
-                _run_cmd(["sudo", "-n", "ufw", "allow", port])
-            ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
-    active = "Status: active" in ufw
-    if not active and "Status: inactive" in ufw:
-        _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
-        for port in ["22/tcp", "80/tcp", "443/tcp", "8080/tcp"]:
-            _run_cmd(["sudo", "-n", "ufw", "allow", port])
-        ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
-        active = "Status: active" in ufw
-    rules = []
-    for line in ufw.split("\n"):
-        stripped = line.strip()
-        if stripped and stripped != "Status: active" and "sudo:" not in stripped:
-            rules.append(stripped)
-    return {"active": active, "rules": rules[:20]}
-
-
-async def _fail2ban_status() -> dict:
-    status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
-    if "not found" in status.lower() or "command not found" in status.lower():
-        install = _run_cmd(
-            ["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=60
-        )
-        if "Setting up fail2ban" in install or "fail2ban is already" in install:
-            _ensure_fail2ban_jails()
-            status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
-    jails = []
-    active = "|- Number of jail:" in status
-    if "sudo:" in status and "|- Number of jail:" not in status:
-        return {"active": False, "jails": []}
-    for line in status.split("\n"):
-        stripped = line.strip().lstrip("`")
-        if stripped.startswith("- ") and "Jail list:" not in stripped:
-            jails.append(stripped.lstrip("- "))
-    if active and not jails:
-        _ensure_fail2ban_jails()
-        status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
-        for line in status.split("\n"):
-            stripped = line.strip().lstrip("`")
-            if stripped.startswith("- ") and "Jail list:" not in stripped:
-                jails.append(stripped.lstrip("- "))
-    return {"active": active, "jails": jails}
-
-
-JAIL_DEFAULTS = {
-    "sshd": {
-        "port": "ssh",
-        "filter": "sshd",
-        "logpath": "/var/log/auth.log",
-        "maxretry": "5",
-        "bantime": "3600",
-    },
-    "sshd-ddos": {
-        "port": "ssh",
-        "filter": "sshd-ddos",
-        "logpath": "/var/log/auth.log",
-        "maxretry": "3",
-        "bantime": "7200",
-    },
-    "nginx-http-auth": {
-        "port": "http,https",
-        "filter": "nginx-http-auth",
-        "logpath": "/var/log/nginx/error.log",
-        "maxretry": "5",
-        "bantime": "3600",
-    },
-    "apache-auth": {
-        "port": "http,https",
-        "filter": "apache-auth",
-        "logpath": "/var/log/apache2/error.log",
-        "maxretry": "5",
-        "bantime": "3600",
-    },
-    "postfix": {
-        "port": "smtp,ssmtp",
-        "filter": "postfix",
-        "logpath": "/var/log/mail.log",
-        "maxretry": "5",
-        "bantime": "3600",
-    },
-}
-
-
-def _ensure_fail2ban_jails():
-    lines = []
-    for jail, cfg in JAIL_DEFAULTS.items():
-        lines.append(f"[{jail}]")
-        for k, v in cfg.items():
-            lines.append(f"{k} = {v}")
-        lines.append("")
-    content = "\n".join(lines)
-    _run_cmd(
-        ["sudo", "-n", "tee", "/etc/fail2ban/jail.local"],
-        timeout=10,
-        input=content,
-    )
-    _run_cmd(["sudo", "-n", "systemctl", "restart", "fail2ban"])
 
 
 async def _abuseipdb_check(ip: str, api_key: str) -> dict:
@@ -189,12 +77,7 @@ async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict]:
         return []
 
 
-@router.get("/security", response_class=HTMLResponse)
-async def security_overview(request: Request, db: AsyncSession = Depends(get_db)):
-    user = await get_admin(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=302)
-
+async def _get_security_context(db: AsyncSession) -> dict:
     bans = await get_banned_ips(db)
     result = await db.execute(
         select(LoginAttempt).order_by(LoginAttempt.attempted_at.desc()).limit(50)
@@ -221,18 +104,36 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
     f2b = await _fail2ban_status()
 
     settings = get_settings()
-    abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
+    abuseipdb_key = getattr(settings, "abuseipdb_api_key", "") != ""
+
+    return {
+        "bans": bans,
+        "attempts": attempts,
+        "sessions": active_sessions,
+        "firewall": fw,
+        "fail2ban": f2b,
+        "abuseipdb_key": abuseipdb_key,
+    }
+
+
+@router.get("/security", response_class=HTMLResponse)
+async def security_overview(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    ctx = await _get_security_context(db)
 
     return render(
         "security.html",
         user=user,
-        bans=bans,
-        attempts=attempts,
-        sessions=active_sessions,
+        bans=ctx["bans"],
+        attempts=ctx["attempts"],
+        sessions=ctx["sessions"],
         unban_result=None,
-        firewall=fw,
-        fail2ban=f2b,
-        abuseipdb_key=abuseipdb_key != "",
+        firewall=ctx["firewall"],
+        fail2ban=ctx["fail2ban"],
+        abuseipdb_key=ctx["abuseipdb_key"],
         ban_result=None,
     )
 
@@ -249,38 +150,22 @@ async def security_unban(
 
     result = None
     if ip:
-        ok = await unban_ip(db, ip, user.id)
+        ok = await unban_ip_address(db, ip, user.id)
         result = {"ip": ip, "success": ok}
 
-    bans = await get_banned_ips(db)
-    attempts_result = await db.execute(
-        select(LoginAttempt).order_by(LoginAttempt.attempted_at.desc()).limit(50)
-    )
-    attempts = attempts_result.scalars().all()
-
-    ses_result = await db.execute(
-        select(DBSession, User.username)
-        .join(User, DBSession.user_id == User.id)
-        .order_by(DBSession.created_at.desc())
-    )
-    active_sessions = []
-    for sess, uname in ses_result:
-        active_sessions.append(
-            {
-                "id": sess.id,
-                "username": uname,
-                "ip": sess.ip,
-                "created": sess.created_at,
-            }
-        )
+    ctx = await _get_security_context(db)
 
     return render(
         "security.html",
         user=user,
-        bans=bans,
-        attempts=attempts,
-        sessions=active_sessions,
+        bans=ctx["bans"],
+        attempts=ctx["attempts"],
+        sessions=ctx["sessions"],
         unban_result=result,
+        firewall=ctx["firewall"],
+        fail2ban=ctx["fail2ban"],
+        abuseipdb_key=ctx["abuseipdb_key"],
+        ban_result=None,
     )
 
 
@@ -317,52 +202,27 @@ async def security_ban_ip(
 
     result = None
     if ip:
-        ok = await ban_ip(db, ip, reason, duration)
+        ok = await ban_ip_address(db, ip, reason, duration)
         result = {"ip": ip, "ok": ok}
 
-    bans = await get_banned_ips(db)
-    attempts_result = await db.execute(
-        select(LoginAttempt).order_by(LoginAttempt.attempted_at.desc()).limit(50)
-    )
-    attempts = attempts_result.scalars().all()
-
-    ses_result = await db.execute(
-        select(DBSession, User.username)
-        .join(User, DBSession.user_id == User.id)
-        .order_by(DBSession.created_at.desc())
-    )
-    active_sessions = []
-    for sess, uname in ses_result:
-        active_sessions.append(
-            {
-                "id": sess.id,
-                "username": uname,
-                "ip": sess.ip,
-                "created": sess.created_at,
-            }
-        )
-
-    fw = await _firewall_status()
-    f2b = await _fail2ban_status()
+    ctx = await _get_security_context(db)
 
     return render(
         "security.html",
         user=user,
-        bans=bans,
-        attempts=attempts,
-        sessions=active_sessions,
+        bans=ctx["bans"],
+        attempts=ctx["attempts"],
+        sessions=ctx["sessions"],
         unban_result=None,
-        firewall=fw,
-        fail2ban=f2b,
-        abuseipdb_key=False,
+        firewall=ctx["firewall"],
+        fail2ban=ctx["fail2ban"],
+        abuseipdb_key=ctx["abuseipdb_key"],
         ban_result=result,
     )
 
 
 @router.post("/security/abuseipdb-check")
-async def security_abuseipdb_check(
-    request: Request, db: AsyncSession = Depends(get_db)
-):
+async def security_abuseipdb_check(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -375,9 +235,7 @@ async def security_abuseipdb_check(
 
     result = await _abuseipdb_check(ip, api_key)
     if "error" in result:
-        return HTMLResponse(
-            f"<p class='text-red-500'>Error checking {ip}: {result['error']}</p>"
-        )
+        return HTMLResponse(f"<p class='text-red-500'>Error checking {ip}: {result['error']}</p>")
     return HTMLResponse(
         f"<div class='text-sm'>"
         f"<span class='font-mono'>{result['ip']}</span>: "
@@ -389,9 +247,7 @@ async def security_abuseipdb_check(
 
 
 @router.get("/security/abuseipdb-blacklist")
-async def security_abuseipdb_blacklist(
-    request: Request, db: AsyncSession = Depends(get_db)
-):
+async def security_abuseipdb_blacklist(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
@@ -399,15 +255,11 @@ async def security_abuseipdb_blacklist(
     settings = get_settings()
     api_key = settings.abuseipdb_api_key
     if not api_key:
-        return HTMLResponse(
-            "<p class='text-yellow-500'>Set abuseipdb_api_key in config.toml</p>"
-        )
+        return HTMLResponse("<p class='text-yellow-500'>Set abuseipdb_api_key in config.toml</p>")
 
     entries = await _abuseipdb_blacklist(api_key)
     if not entries:
-        return HTMLResponse(
-            "<p class='text-gray-500'>No entries or API error</p>"
-        )
+        return HTMLResponse("<p class='text-gray-500'>No entries or API error</p>")
 
     rows = []
     for e in entries:
@@ -428,17 +280,11 @@ async def security_abuseipdb_blacklist(
             f"</td>"
             f"</tr>"
         )
-    return HTMLResponse(
-        "<table class='w-full'>"
-        + "".join(rows)
-        + "</table>"
-    )
+    return HTMLResponse("<table class='w-full'>" + "".join(rows) + "</table>")
 
 
 @router.get("/security/blocklist")
-async def security_blocklist_page(
-    request: Request, db: AsyncSession = Depends(get_db)
-):
+async def security_blocklist_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -454,7 +300,7 @@ async def security_blocklist_page(
             f"</div>"
             f"<button class='btn-ghost text-xs' "
             f"hx-post='/security/blocklist/import' "
-            f"hx-vals='{{\"source\":\"{key}\"}}' "
+            f'hx-vals=\'{{"source":"{key}"}}\' '
             f"hx-target='#blocklist-result' "
             f"hx-swap='innerHTML'>Import</button>"
             f"</div>"
@@ -464,9 +310,7 @@ async def security_blocklist_page(
 
 
 @router.post("/security/blocklist/import")
-async def security_blocklist_import(
-    request: Request, db: AsyncSession = Depends(get_db)
-):
+async def security_blocklist_import(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
@@ -491,15 +335,12 @@ async def security_blocklist_import(
             pass
 
     return HTMLResponse(
-        f"<p class='text-green-500'>Imported {count}/{len(ips)} IPs "
-        f"from {info['name']}</p>"
+        f"<p class='text-green-500'>Imported {count}/{len(ips)} IPs from {info['name']}</p>"
     )
 
 
 @router.post("/security/fail2ban/enable")
-async def security_fail2ban_enable(
-    request: Request, db: AsyncSession = Depends(get_db)
-):
+async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
@@ -520,15 +361,11 @@ async def security_fail2ban_enable(
         input="\n".join(lines) + "\n",
     )
     _run_cmd(["sudo", "-n", "systemctl", "restart", "fail2ban"])
-    return HTMLResponse(
-        f"<p class='text-green-500'>Jail {jail} enabled</p>"
-    )
+    return HTMLResponse(f"<p class='text-green-500'>Jail {jail} enabled</p>")
 
 
 @router.get("/security/fail2ban/jails")
-async def security_fail2ban_jails_html(
-    request: Request, db: AsyncSession = Depends(get_db)
-):
+async def security_fail2ban_jails_html(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
@@ -543,10 +380,6 @@ async def security_fail2ban_jails_html(
         )
 
     if not rows:
-        return HTMLResponse(
-            "<p class='text-sm text-gray-500'>No active jails</p>"
-        )
+        return HTMLResponse("<p class='text-sm text-gray-500'>No active jails</p>")
 
-    return HTMLResponse(
-        "<div class='flex flex-wrap gap-2'>" + "".join(rows) + "</div>"
-    )
+    return HTMLResponse("<div class='flex flex-wrap gap-2'>" + "".join(rows) + "</div>")
