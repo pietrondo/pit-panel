@@ -55,12 +55,13 @@ class TestSessionAuth:
         import datetime
         import secrets
 
+        from sqlalchemy import select
         from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
         from pit_panel.db.models import Base, User
         from pit_panel.db.models import Session as DBSession
         from pit_panel.security.crypto import hash_token
-        from pit_panel.web.auth import create_session_record, create_session_token, validate_session
+        from pit_panel.web.auth import create_session_record, create_session_token, revoke_session, validate_session
 
         engine = create_async_engine("sqlite+aiosqlite://")
         async with engine.begin() as conn:
@@ -102,8 +103,6 @@ class TestSessionAuth:
             wrong_user_result = await validate_session(db_session, signed, settings, user.id + 1)
             assert wrong_user_result is None
 
-            from pit_panel.web.auth import revoke_session
-
             await revoke_session(db_session, session_id)
             revoked_result = await validate_session(db_session, signed, settings, user.id)
             assert revoked_result is None
@@ -129,6 +128,51 @@ class TestSessionAuth:
 
             expired_result = await validate_session(db_session, signed_2, settings, user.id)
             assert expired_result is None
+
+    @pytest.mark.asyncio
+    async def test_revoke_session(self, settings):
+        import datetime
+
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        from pit_panel.db.models import Base, User
+        from pit_panel.db.models import Session as DBSession
+        from pit_panel.web.auth import revoke_session
+
+        engine = create_async_engine("sqlite+aiosqlite://")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+        async with sessionmaker() as db:
+            user = User(
+                username="test_revoke",
+                email="test_revoke@test.com",
+                password_hash="hash",
+                is_admin=True,
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+
+            sess = DBSession(
+                user_id=user.id,
+                token_hash="testhash123",
+                ip="127.0.0.1",
+                expires_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1),
+            )
+            db.add(sess)
+            await db.commit()
+            await db.refresh(sess)
+
+            result = await db.execute(select(DBSession).where(DBSession.id == sess.id))
+            assert result.scalar_one_or_none() is not None
+
+            await revoke_session(db, sess.id)
+
+            result = await db.execute(select(DBSession).where(DBSession.id == sess.id))
+            assert result.scalar_one_or_none() is None
 
 
 class TestAppFactory:
