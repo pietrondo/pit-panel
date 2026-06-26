@@ -1,3 +1,6 @@
+import pytest
+
+
 class TestSessionAuth:
     def test_get_serializer(self, settings):
         from itsdangerous import URLSafeTimedSerializer
@@ -44,6 +47,54 @@ class TestSessionAuth:
         raw, signed = create_session_token(settings, user_id=1, session_id=1)
         data = unsign_session_token(settings, signed)
         assert data["tok"] == hash_token(raw)
+
+    @pytest.mark.asyncio
+    async def test_revoke_session(self):
+        import datetime
+
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        from pit_panel.db.models import Base, User
+        from pit_panel.db.models import Session as DBSession
+        from pit_panel.web.auth import revoke_session
+
+        engine = create_async_engine("sqlite+aiosqlite://")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+        async with sessionmaker() as db:
+            user = User(
+                username="test_revoke",
+                email="test_revoke@test.com",
+                password_hash="hash",
+                is_admin=True,
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+
+            sess = DBSession(
+                user_id=user.id,
+                token_hash="testhash123",
+                ip="127.0.0.1",
+                expires_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1),
+            )
+            db.add(sess)
+            await db.commit()
+            await db.refresh(sess)
+
+            # verify it exists
+            result = await db.execute(select(DBSession).where(DBSession.id == sess.id))
+            assert result.scalar_one_or_none() is not None
+
+            # revoke it
+            await revoke_session(db, sess.id)
+
+            # verify it's gone
+            result = await db.execute(select(DBSession).where(DBSession.id == sess.id))
+            assert result.scalar_one_or_none() is None
 
 
 class TestAppFactory:
