@@ -306,3 +306,67 @@ class TestContainerRestart:
             mock_compose_restart.assert_called_once_with("testapp")
         finally:
             client.app.dependency_overrides.clear()
+
+
+class TestContainersRoute:
+    def test_containers_list_authenticated_with_data(self, client, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        from pit_panel.db.models import Subdomain
+
+        async def mock_get_user(*args, **kwargs):
+            from pit_panel.db.models import User
+
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
+
+        mock_docker_mgr = AsyncMock()
+        mock_docker_mgr.ps_all.return_value = [
+            {
+                "ID": "123",
+                "Names": "test-app",
+                "State": "running",
+                "Labels": "com.docker.compose.project=app1",
+            },
+            {"ID": "456", "Names": "orphan-app", "State": "exited", "Labels": ""},
+        ]
+
+        monkeypatch.setattr(
+            "pit_panel.web.routes.containers.DockerManager", lambda *args: mock_docker_mgr
+        )
+
+        class MockResult:
+            def scalars(self):
+                class MockScalars:
+                    def all(self):
+                        return [Subdomain(id=1, subdomain="app1", app_type="docker")]
+
+                return MockScalars()
+
+        async def mock_execute(*args, **kwargs):
+            return MockResult()
+
+        class MockDb:
+            def __init__(self):
+                self.execute = mock_execute
+
+        from pit_panel.db.session import get_db
+
+        async def override_get_db():
+            yield MockDb()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        try:
+            resp = client.get("/containers")
+            assert resp.status_code == 200
+            assert "test-app" in resp.text
+            assert "orphan-app" in resp.text
+        finally:
+            client.app.dependency_overrides.clear()
+
+    def test_containers_list_unauthenticated(self, client):
+        resp = client.get("/containers", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers["location"] == "/login"
