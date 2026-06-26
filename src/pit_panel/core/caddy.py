@@ -1,17 +1,21 @@
 """Caddy reverse proxy integration via admin API."""
 
 import datetime as dt
+import logging
 import re
 import subprocess
 from typing import Any
 
 import httpx
 
+logger = logging.getLogger(__name__)
+
 _PEM_CERT_PATTERN = re.compile(
     r"-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----", re.DOTALL
 )
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 _DER_EXPIRY_PATTERN = re.compile(rb"\x17\x0d(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z")
+
 
 class CaddyManager:
     def __init__(self, admin_url: str = "http://127.0.0.1:2019"):
@@ -80,8 +84,8 @@ class CaddyManager:
                             certs.append(self._parse_cert(c))
                     else:
                         certs.extend(self._parse_pem_certs(resp.text))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to get certificates from Caddy API: {e}")
 
         if not certs:
             certs.extend(self._parse_caddy_storage_certs(client))
@@ -114,9 +118,7 @@ class CaddyManager:
         certs = []
         for match in _PEM_CERT_PATTERN.finditer(pem_text):
             try:
-                der = base64.b64decode(
-                    _WHITESPACE_PATTERN.sub("", match.group(1))
-                )
+                der = base64.b64decode(_WHITESPACE_PATTERN.sub("", match.group(1)))
                 na_match = _DER_EXPIRY_PATTERN.search(der)
                 if na_match:
                     yy, mo, dd, hh, mm, ss = na_match.groups()
@@ -144,8 +146,8 @@ class CaddyManager:
                         "issuer": "Caddy Local CA",
                     }
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to parse PEM certificate: {e}")
         return certs
 
     def _parse_caddy_storage_certs(self, client: httpx.AsyncClient) -> list[dict[str, Any]]:
@@ -205,10 +207,10 @@ class CaddyManager:
                                     expires_in = (
                                         expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)
                                     ).days
-                                except ValueError:
-                                    pass
-                        except Exception:
-                            pass
+                                except ValueError as e:
+                                    logger.warning(f"Failed to parse expiry date: {e}")
+                        except Exception as e:
+                            logger.warning(f"Failed to execute openssl command: {e}")
 
                     if not not_after:
                         not_after = meta.get("not_after", "")
@@ -229,10 +231,10 @@ class CaddyManager:
                             "issuer": issuer,
                         }
                     )
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as e:
+                    logger.warning(f"Failed to parse certificate metadata: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to scan Caddy storage certificates: {e}")
         return certs
 
     async def renew_certificate(self, domain: str) -> dict[str, Any]:
@@ -256,6 +258,7 @@ class CaddyManager:
                     }
                 return {"success": False, "domain": domain, "error": "Cannot read config"}
             except Exception as e:
+                logger.error(f"Failed to renew certificate for domain {domain}: {e}")
                 return {"success": False, "domain": domain, "error": str(e)}
 
     async def _delete_route(self, route_id: str) -> dict[str, Any]:

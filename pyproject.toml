@@ -77,5 +77,6 @@ addopts = "-v --tb=short"
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
     "types-qrcode>=8.2.0.20260518",
 ]

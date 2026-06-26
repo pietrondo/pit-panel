@@ -64,9 +64,18 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                <script>
+                    document.addEventListener('alpine:init', () => {
+                        Alpine.data('subdomainEditor', (subdomain, appType) => ({
+                            editing: false,
+                            name: subdomain,
+                            appType: appType
+                        }));
+                    });
+                </script>
                 {% for sd in subdomains %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                    x-data="{ editing: false, name: '{{ sd.subdomain }}', appType: '{{ sd.app_type or 'none' }}' }">
+                    x-data="subdomainEditor('{{ sd.subdomain }}', '{{ sd.app_type or 'none' }}')">
                     <td class="px-6 py-3 text-sm">
                         <template x-if="!editing">
                             <span class="font-mono text-gray-900 dark:text-white">{{ sd.subdomain }}.{{ sd.base_domain }}</span>

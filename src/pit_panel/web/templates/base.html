@@ -8,6 +8,27 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
     <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('layout', () => ({
+                dark: localStorage.getItem('dark') === 'true',
+                sidebarOpen: window.innerWidth >= 1024,
+                mobileOpen: false,
+                init() {
+                    this.$watch('dark', val => {
+                        localStorage.setItem('dark', val);
+                        document.documentElement.classList.toggle('dark', val);
+                    });
+                    document.documentElement.classList.toggle('dark', this.dark);
+                }
+            }));
+            Alpine.data('toastSystem', () => ({
+                showToast(type, message) {
+                    // Logic to show a toast message (this can be implemented further later)
+                    console.log(`[${type}] ${message}`);
+                }
+            }));
+        });
+
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -112,16 +133,14 @@
     </style>
 </head>
 <body class="h-full bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-100 antialiased"
-      x-data="{ dark: localStorage.getItem('dark') === 'true', sidebarOpen: true, mobileOpen: false }"
-      x-init="$watch('dark', v => { localStorage.setItem('dark', v); document.documentElement.classList.toggle('dark', v) }); document.documentElement.classList.toggle('dark', dark)">
+      x-data="layout">
     <div class="flex h-full">
         <!-- Mobile backdrop -->
         <div class="fixed inset-0 bg-black/50 z-20 lg:hidden" x-show="mobileOpen" @click="mobileOpen = false" x-cloak></div>
 
         <!-- Sidebar -->
         <aside class="w-64 bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-800 flex flex-col fixed lg:static inset-y-0 left-0 z-30 transition-transform duration-200"
-               :class="{ '-translate-x-full': !sidebarOpen && !mobileOpen, 'translate-x-0': sidebarOpen || mobileOpen }"
-               x-init="sidebarOpen = window.innerWidth >= 1024">
+               :class="{ '-translate-x-full': !sidebarOpen && !mobileOpen, 'translate-x-0': sidebarOpen || mobileOpen }">
             <div class="h-16 flex items-center gap-3 px-5 border-b border-surface-200 dark:border-surface-800">
                 <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
                     <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
@@ -245,6 +264,6 @@
             </div>
         </main>
     </div>
-    <div id="toasts" class="fixed top-4 right-4 z-50 space-y-2" x-data></div>
+    <div id="toasts" class="fixed top-4 right-4 z-50 space-y-2" x-data="toastSystem"></div>
 </body>
 </html>

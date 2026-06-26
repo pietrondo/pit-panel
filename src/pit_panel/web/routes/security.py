@@ -223,6 +223,7 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
     except Exception:
         from pit_panel.db.models import Base
         from pit_panel.db.session import get_engine
+
         engine = get_engine()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -538,9 +539,7 @@ async def security_malware_page(request: Request, db: AsyncSession = Depends(get
     if not user:
         return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
 
-    result = await db.execute(
-        select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(20)
-    )
+    result = await db.execute(select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(20))
     history = result.scalars().all()
 
     scanner = MalwareScanner(get_settings().apps_dir)
