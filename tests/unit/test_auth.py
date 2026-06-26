@@ -1,3 +1,6 @@
+import pytest
+
+
 class TestSessionAuth:
     def test_get_serializer(self, settings):
         from itsdangerous import URLSafeTimedSerializer
@@ -70,3 +73,54 @@ class TestAppFactory:
         resp = client.get("/health")
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
+
+
+class TestSessionRecords:
+    @pytest.mark.asyncio
+    async def test_create_session_record(self, settings):
+        import datetime
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+        from pit_panel.db.models import Base, User, Session as DBSession
+        from pit_panel.web.auth import create_session_record
+
+        engine = create_async_engine("sqlite+aiosqlite://")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+        async with sessionmaker() as db:
+            user = User(
+                username="test_user", email="test@test.com", password_hash="hash", is_admin=False
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+
+            token_hash = "fake_token_hash"
+            ip = "127.0.0.1"
+            user_agent = "pytest-agent"
+
+            sess_id = await create_session_record(
+                db_session=db,
+                user_id=user.id,
+                token_hash=token_hash,
+                ip=ip,
+                user_agent=user_agent,
+                settings=settings,
+            )
+
+            assert sess_id is not None
+            assert sess_id > 0
+
+            # Verify the record was created
+            from sqlalchemy import select
+
+            result = await db.execute(select(DBSession).where(DBSession.id == sess_id))
+            sess = result.scalar_one_or_none()
+
+            assert sess is not None
+            assert sess.user_id == user.id
+            assert sess.token_hash == token_hash
+            assert sess.ip == ip
+            assert sess.user_agent == user_agent
+            assert isinstance(sess.expires_at, datetime.datetime)
