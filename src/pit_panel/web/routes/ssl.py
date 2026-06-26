@@ -1,7 +1,6 @@
 """SSL certificate management routes via Caddy admin API."""
 
 import contextlib
-import re
 import subprocess
 from pathlib import Path
 
@@ -43,7 +42,9 @@ def _sanitize(val: str) -> str:
     if not val:
         return ""
     # Strip dangerous characters that could break out of a Caddyfile value
-    return re.sub(r'[\r\n"{}]', "", val)
+    return (
+        val.replace("\r", "").replace("\n", "").replace('"', "").replace("{", "").replace("}", "")
+    )
 
 
 def _get_acme_config(
