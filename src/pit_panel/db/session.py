@@ -49,11 +49,20 @@ async def init_db(settings: Settings) -> None:
 
 
 def _migrate_v4_is_main_domain(conn):
-    import sqlalchemy as sa
-    from sqlalchemy import inspect
+    import logging
 
-    inspector = inspect(conn)
-    columns = [c["name"] for c in inspector.get_columns("subdomains")]
-    if "is_main_domain" not in columns:
-        conn.execute(sa.text("ALTER TABLE subdomains ADD COLUMN is_main_domain BOOLEAN DEFAULT 0"))
-        conn.execute(sa.text("UPDATE subdomains SET is_main_domain = 0 WHERE is_main_domain IS NULL"))
+    import sqlalchemy as sa
+
+    try:
+        rows = conn.execute(sa.text("PRAGMA table_info(subdomains)")).fetchall()
+        columns = [r[1] for r in rows]
+        if "is_main_domain" not in columns:
+            conn.execute(
+                sa.text("ALTER TABLE subdomains ADD COLUMN is_main_domain BOOLEAN DEFAULT 0")
+            )
+            conn.execute(
+                sa.text("UPDATE subdomains SET is_main_domain = 0 WHERE is_main_domain IS NULL")
+            )
+            logging.getLogger(__name__).info("Migration v4: added is_main_domain column")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Migration v4 skipped: {e}")
