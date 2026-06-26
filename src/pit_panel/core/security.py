@@ -10,9 +10,7 @@ from pit_panel.security.ipban import ban_ip
 
 def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) -> str:
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, input=input
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, input=input)
         return result.stdout.strip() or result.stderr.strip()
     except Exception:
         return "unavailable"
@@ -21,9 +19,7 @@ def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) -> str
 async def _firewall_status() -> dict:
     ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
     if "not found" in ufw.lower() or "command not found" in ufw.lower():
-        install = _run_cmd(
-            ["sudo", "-n", "apt-get", "install", "-y", "ufw"], timeout=60
-        )
+        install = _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "ufw"], timeout=60)
         if "Setting up ufw" in install or "ufw is already" in install:
             _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
             for port in ["22/tcp", "80/tcp", "443/tcp", "8080/tcp"]:
@@ -47,9 +43,7 @@ async def _firewall_status() -> dict:
 async def _fail2ban_status() -> dict:
     status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
     if "not found" in status.lower() or "command not found" in status.lower():
-        install = _run_cmd(
-            ["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=60
-        )
+        install = _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=60)
         if "Setting up fail2ban" in install or "fail2ban is already" in install:
             _ensure_fail2ban_jails()
             status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
@@ -126,8 +120,6 @@ def _ensure_fail2ban_jails():
     _run_cmd(["sudo", "-n", "systemctl", "restart", "fail2ban"])
 
 
-
-
 async def ban_ip_address(
     db: AsyncSession, ip: str, reason: str, duration_minutes: int = 60
 ) -> bool:
@@ -138,6 +130,7 @@ async def ban_ip_address(
 
     # Database level ban
     return await ban_ip(db, ip, reason, duration_minutes)
+
 
 async def unban_ip_address(db: AsyncSession, ip: str, user_id: int | None = None) -> bool:
     """Unban an IP address at both the database and system (UFW) level."""

@@ -124,8 +124,12 @@ async def app_deploy(
         templates = mgr2.list_templates()
         template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
         return render(
-            "apps.html", user=user, subdomains=subdomains,
-            templates=templates, template_infos=template_infos, error=error,
+            "apps.html",
+            user=user,
+            subdomains=subdomains,
+            templates=templates,
+            template_infos=template_infos,
+            error=error,
         )
 
     # Deploy template
@@ -137,8 +141,14 @@ async def app_deploy(
         mgr2 = AppManager()
         tpls = mgr2.list_templates()
         infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in tpls]
-        return render("apps.html", user=user, subdomains=subdomains,
-                      templates=tpls, template_infos=infos, error=str(e))
+        return render(
+            "apps.html",
+            user=user,
+            subdomains=subdomains,
+            templates=tpls,
+            template_infos=infos,
+            error=str(e),
+        )
 
     # Docker compose up
     compose_ok = False
@@ -162,18 +172,24 @@ async def app_deploy(
     sd.last_deployed = datetime.datetime.now(datetime.UTC)
 
     deployment = AppDeployment(
-        subdomain_id=sd.id, stack_type=stack_type,
+        subdomain_id=sd.id,
+        stack_type=stack_type,
         compose_path=f"{settings.apps_dir}/{sd.subdomain}/docker-compose.yml",
         status="running" if compose_ok else "failed",
     )
     db.add(deployment)
 
-    db.add(AuditLog(
-        user_id=user.id, action="app_deploy", target_type="subdomain", target_id=sd.id,
-        details={"stack": stack_type, "subdomain": sd.subdomain, "success": compose_ok},
-        ip=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    ))
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action="app_deploy",
+            target_type="subdomain",
+            target_id=sd.id,
+            details={"stack": stack_type, "subdomain": sd.subdomain, "success": compose_ok},
+            ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    )
     await db.commit()
 
     if error:
@@ -183,8 +199,12 @@ async def app_deploy(
         templates = mgr2.list_templates()
         template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
         return render(
-            "apps.html", user=user, subdomains=subdomains,
-            templates=templates, template_infos=template_infos, error=error,
+            "apps.html",
+            user=user,
+            subdomains=subdomains,
+            templates=templates,
+            template_infos=template_infos,
+            error=error,
         )
 
     return RedirectResponse(f"/apps/{sd.id}", status_code=302)
@@ -222,9 +242,16 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     has_db = _has_db_container(settings, sd.subdomain)
 
     return render(
-        "app_detail.html", user=user, sd=sd, containers=containers, logs=logs,
-        app_info=app_info, db_password=db_password, db_container=has_db,
-        app_version=app_info.get("version", ""), app_port=app_info.get("default_port", ""),
+        "app_detail.html",
+        user=user,
+        sd=sd,
+        containers=containers,
+        logs=logs,
+        app_info=app_info,
+        db_password=db_password,
+        db_container=has_db,
+        app_version=app_info.get("version", ""),
+        app_port=app_info.get("default_port", ""),
     )
 
 
@@ -253,11 +280,147 @@ async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_
         settings = get_settings()
         docker_mgr = DockerManager(settings.apps_dir)
         await docker_mgr.compose_down(sd.subdomain)
-        db.add(AuditLog(
-            user_id=user.id, action="app_stop", target_type="subdomain", target_id=sd.id,
-            details={"subdomain": sd.subdomain},
-            ip=request.client.host if request.client else None,
-            user_agent=request.headers.get("user-agent"),
-        ))
+        db.add(
+            AuditLog(
+                user_id=user.id,
+                action="app_stop",
+                target_type="subdomain",
+                target_id=sd.id,
+                details={"subdomain": sd.subdomain},
+                ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
+        )
         await db.commit()
     return RedirectResponse("/apps", status_code=302)
+
+
+@router.post("/apps/{sd_id}/delete", response_class=HTMLResponse)
+async def app_delete(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if sd:
+        settings = get_settings()
+
+        # 1. Stop containers and remove volumes
+        docker_mgr = DockerManager(settings.apps_dir)
+        await docker_mgr.compose_down(sd.subdomain, remove_volumes=True)
+
+        # 2. Delete Caddy route
+        if settings.base_domain and sd.app_type:
+            try:
+                caddy = CaddyManager(settings.caddy_admin_url)
+                await caddy.remove_subdomain(sd.subdomain, settings.base_domain)
+            except Exception:
+                pass
+
+        # 3. Delete app files
+        mgr = AppManager(settings.apps_dir)
+        mgr.delete_app(sd.subdomain)
+
+        # 4. Reset subdomain app_type
+        old_app_type = sd.app_type
+        sd.app_type = None
+
+        # 5. Delete AppDeployment DB records
+        await db.execute(
+            AppDeployment.__table__.delete().where(AppDeployment.subdomain_id == sd.id)
+        )
+
+        db.add(
+            AuditLog(
+                user_id=user.id,
+                action="app_delete",
+                target_type="subdomain",
+                target_id=sd.id,
+                details={"subdomain": sd.subdomain, "app_type": old_app_type},
+                ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
+        )
+        await db.commit()
+    return RedirectResponse("/apps", status_code=302)
+
+
+@router.get("/apps/{sd_id}/env", response_class=HTMLResponse)
+async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return "<div class='text-red-500'>App not found</div>"
+
+    settings = get_settings()
+    env_path = os.path.join(settings.apps_dir, sd.subdomain, ".env")
+    env_content = ""
+    if os.path.exists(env_path):
+        try:
+            with open(env_path) as f:
+                env_content = f.read()
+        except Exception:
+            env_content = "# Error reading .env file"
+    else:
+        env_content = "# No .env file found"
+
+    return render(
+        "tabs/_env.html", request=request, sd=sd, env_content=env_content, error=None, success=None
+    )
+
+
+@router.post("/apps/{sd_id}/env", response_class=HTMLResponse)
+async def app_env_post(
+    request: Request, sd_id: int, env_content: str = Form(...), db: AsyncSession = Depends(get_db)
+):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return "<div class='text-red-500'>App not found</div>"
+
+    settings = get_settings()
+    env_path = os.path.join(settings.apps_dir, sd.subdomain, ".env")
+
+    error = None
+    success = None
+    try:
+        with open(env_path, "w") as f:
+            # Basic sanitization
+            safe_content = env_content.replace("\r", "")
+            f.write(safe_content)
+        success = (
+            "Environment variables updated successfully. "
+            "You may need to restart the app for changes to take effect."
+        )
+
+        db.add(
+            AuditLog(
+                user_id=user.id,
+                action="app_env_update",
+                target_type="subdomain",
+                target_id=sd.id,
+                details={"subdomain": sd.subdomain},
+                ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
+        )
+        await db.commit()
+    except Exception as e:
+        error = f"Error saving .env file: {e}"
+
+    return render(
+        "tabs/_env.html",
+        request=request,
+        sd=sd,
+        env_content=env_content,
+        error=error,
+        success=success,
+    )

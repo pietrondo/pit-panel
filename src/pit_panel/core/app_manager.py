@@ -40,6 +40,13 @@ class AppManager:
 
         return target_dir
 
+    def delete_app(self, subdomain: str) -> bool:
+        target_dir = self.apps_dir / subdomain
+        if target_dir.exists() and target_dir.is_dir():
+            shutil.rmtree(target_dir)
+            return True
+        return False
+
     def list_templates(self) -> list[str]:
         if not TEMPLATES_DIR.exists():
             return []
