@@ -215,10 +215,18 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
     fw = await _firewall_status()
     f2b = await _fail2ban_status()
 
-    scan_result = await db.execute(
-        select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(5)
-    )
-    scan_history = scan_result.scalars().all()
+    try:
+        scan_result = await db.execute(
+            select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(5)
+        )
+        scan_history = scan_result.scalars().all()
+    except Exception:
+        from pit_panel.db.models import Base
+        from pit_panel.db.session import get_engine
+        engine = get_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        scan_history = []
 
     settings = get_settings()
     abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
