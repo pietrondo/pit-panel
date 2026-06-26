@@ -69,6 +69,19 @@ class CaddyManager:
         }
         return await self._patch_routes(route)
 
+    async def add_main_domain(
+        self, base_domain: str, port: int = 80
+    ) -> dict[str, Any]:
+        route = {
+            "@id": f"main-{base_domain}",
+            "match": [{"host": [base_domain]}],
+            "handle": [{"handler": "reverse_proxy", "upstreams": [{"dial": f"127.0.0.1:{port}"}]}],
+        }
+        return await self._patch_routes(route)
+
+    async def remove_main_domain(self, base_domain: str) -> dict[str, Any]:
+        return await self._delete_route(f"main-{base_domain}")
+
     async def get_certificates(self) -> list[dict[str, Any]]:
         certs = []
         async with httpx.AsyncClient() as client:
