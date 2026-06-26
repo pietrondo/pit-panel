@@ -47,24 +47,34 @@
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
     </div>
     <div class="p-6">
-        <form method="POST" action="/apps/deploy" class="space-y-4" x-data>
+        <form method="POST" action="/apps/deploy" class="space-y-4" x-data="{ isMain: false }">
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="label">Subdomain</label>
-                    <select name="subdomain_id" class="input" x-ref="sdSelect"
-                            @change="$refs.newSd.disabled = $event.target.value > 0; if($event.target.value > 0) $refs.newSd.value = ''">
-                        <option value="-1" selected>Create new...</option>
-                        {% for sd in subdomains %}
-                        <option value="{{ sd.id }}">{{ sd.subdomain }}.{{ sd.base_domain }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="label">New subdomain name</label>
-                    <input type="text" name="new_subdomain" x-ref="newSd" class="input"
-                           placeholder="myapp" pattern="[a-z0-9-]+"
-                           @input="$refs.sdSelect.value = '-1'">
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="is_main_domain" class="checkbox checkbox-primary"
+                           x-model="isMain">
+                    <span class="label-text">Deploy on main domain <code class="text-indigo-600">{{ settings.base_domain or '—' }}</code></span>
+                </label>
+            </div>
+
+            <div x-show="!isMain" x-transition.duration.200ms>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="label">Subdomain</label>
+                        <select name="subdomain_id" class="input" x-ref="sdSelect"
+                                @change="$refs.newSd.disabled = $event.target.value > 0; if($event.target.value > 0) $refs.newSd.value = ''">
+                            <option value="-1" selected>Create new...</option>
+                            {% for sd in subdomains %}
+                            <option value="{{ sd.id }}">{{ sd.subdomain }}.{{ sd.base_domain }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label">New subdomain name</label>
+                        <input type="text" name="new_subdomain" x-ref="newSd" class="input"
+                               placeholder="myapp" pattern="[a-z0-9-]+"
+                               @input="$refs.sdSelect.value = '-1'">
+                    </div>
                 </div>
             </div>
 
@@ -112,7 +122,8 @@
                 {% if sd.app_type %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                     <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white">
-                        <a href="/apps/{{ sd.id }}" class="hover:text-indigo-600">{{ sd.subdomain }}.{{ sd.base_domain or '?' }}</a>
+                        <a href="/apps/{{ sd.id }}" class="hover:text-indigo-600">{% if sd.is_main_domain %}{{ sd.base_domain }}{% else %}{{ sd.subdomain }}.{{ sd.base_domain or '?' }}{% endif %}</a>
+                        {% if sd.is_main_domain %}<span class="badge badge-accent ml-2">Main Domain</span>{% endif %}
                     </td>
                     <td class="px-6 py-3">
                         <span class="badge badge-blue">{{ sd.app_type }}</span>

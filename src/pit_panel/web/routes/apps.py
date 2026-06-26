@@ -49,6 +49,7 @@ async def apps_list(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
+    settings = get_settings()
     result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
     subdomains = result.scalars().all()
     mgr = AppManager()
@@ -58,6 +59,7 @@ async def apps_list(request: Request, db: AsyncSession = Depends(get_db)):
     return render(
         "apps.html",
         user=user,
+        settings=settings,
         subdomains=subdomains,
         templates=templates,
         template_infos=template_infos,
@@ -150,6 +152,7 @@ async def app_deploy(
         return render(
             "apps.html",
             user=user,
+            settings=settings,
             subdomains=subdomains,
             templates=templates,
             template_infos=template_infos,
@@ -168,6 +171,7 @@ async def app_deploy(
         return render(
             "apps.html",
             user=user,
+            settings=settings,
             subdomains=subdomains,
             templates=tpls,
             template_infos=infos,
@@ -228,6 +232,7 @@ async def app_deploy(
         return render(
             "apps.html",
             user=user,
+            settings=settings,
             subdomains=subdomains,
             templates=templates,
             template_infos=template_infos,
