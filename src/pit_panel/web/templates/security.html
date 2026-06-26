@@ -289,42 +289,50 @@
 </div>
 
 <!-- IP Bans -->
-<div class="card mb-6">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+<div class="card mb-6" x-data="{ open: true }">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between cursor-pointer" @click="open = !open">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">IP Bans</h2>
+        <div class="flex items-center gap-2 text-sm text-gray-500">
+            <span>{{ bans|length }} total</span>
+            <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </div>
     </div>
-    <div class="overflow-x-auto">
-        <table class="w-full">
-            <thead>
-                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
-                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Reason</th>
-                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Failed</th>
-                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Expires</th>
-                    <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                {% for ban in bans %}
-                <tr>
-                    <td class="px-6 py-2 text-sm font-mono text-gray-900 dark:text-white">{{ ban.ip_address }}</td>
-                    <td class="px-6 py-2 text-xs text-gray-500 dark:text-gray-400">{{ ban.reason }}</td>
-                    <td class="px-6 py-2 text-xs text-red-600 dark:text-red-400 font-bold">{{ ban.failed_attempts }}</td>
-                    <td class="px-6 py-2 text-xs text-gray-500">
-                        {% if ban.expires_at %}{{ ban.expires_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Permanent{% endif %}
-                    </td>
-                    <td class="px-6 py-2 text-right">
-                        <form method="POST" action="/security/unban" class="inline">
-                            <input type="hidden" name="ip" value="{{ ban.ip_address }}">
-                            <button class="btn-ghost text-xs text-green-600">Unban</button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No banned IPs.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div x-show="open" x-collapse>
+        <div class="overflow-x-auto max-h-96 overflow-y-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 sticky top-0">
+                        <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
+                        <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Reason</th>
+                        <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Failed</th>
+                        <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Expires</th>
+                        <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for ban in bans %}
+                    <tr>
+                        <td class="px-6 py-2 text-sm font-mono text-gray-900 dark:text-white">{{ ban.ip_address }}</td>
+                        <td class="px-6 py-2 text-xs text-gray-500 dark:text-gray-400">{{ ban.reason }}</td>
+                        <td class="px-6 py-2 text-xs text-red-600 dark:text-red-400 font-bold">{{ ban.failed_attempts }}</td>
+                        <td class="px-6 py-2 text-xs text-gray-500">
+                            {% if ban.expires_at %}{{ ban.expires_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Permanent{% endif %}
+                        </td>
+                        <td class="px-6 py-2 text-right">
+                            <form method="POST" action="/security/unban" class="inline">
+                                <input type="hidden" name="ip" value="{{ ban.ip_address }}">
+                                <button class="btn-ghost text-xs text-green-600">Unban</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No banned IPs.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 

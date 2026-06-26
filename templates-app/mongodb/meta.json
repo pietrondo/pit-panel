@@ -1,0 +1,8 @@
+{
+    "name": "MongoDB",
+    "version": "1.0",
+    "description": "MongoDB NoSQL database",
+    "requires_db": false,
+    "default_port": 27017,
+    "icon": "🍃"
+}

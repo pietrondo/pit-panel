@@ -1,0 +1,8 @@
+{
+    "name": "Next.js",
+    "version": "1.0",
+    "description": "Next.js React application with Node.js",
+    "requires_db": false,
+    "default_port": 3000,
+    "icon": "▲"
+}

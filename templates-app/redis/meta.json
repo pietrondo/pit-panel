@@ -1,0 +1,8 @@
+{
+    "name": "Redis",
+    "version": "1.0",
+    "description": "Redis in-memory data store",
+    "requires_db": false,
+    "default_port": 6379,
+    "icon": "🔴"
+}

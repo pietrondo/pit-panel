@@ -1,0 +1,8 @@
+{
+    "name": "Python Flask",
+    "version": "1.0",
+    "description": "Python Flask web application with Gunicorn",
+    "requires_db": false,
+    "default_port": 5000,
+    "icon": "🧪"
+}
