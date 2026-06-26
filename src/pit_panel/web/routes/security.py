@@ -239,7 +239,8 @@ async def security_overview(request: Request, db: AsyncSession = Depends(get_db)
     scan_interval_hours = SCAN_DEFAULT_INTERVAL_HOURS
     try:
         sr = await db.execute(
-            select(SystemSettings).where(SystemSettings.key == "scan_interval_hours"))
+            select(SystemSettings).where(SystemSettings.key == "scan_interval_hours")
+        )
         row = sr.scalar_one_or_none()
         if row:
             scan_interval_hours = int(row.value.get("hours", SCAN_DEFAULT_INTERVAL_HOURS))
@@ -630,6 +631,7 @@ async def security_malware_scan_full(request: Request, db: AsyncSession = Depend
     if not user:
         return HTMLResponse("Unauthorized")
     from datetime import datetime
+
     scanner = MalwareScanner(get_settings().apps_dir)
     scan = MalwareScan(target="system (full)", scan_type="full", status="running")
     db.add(scan)
@@ -677,7 +679,7 @@ async def security_malware_update_defs(request: Request, db: AsyncSession = Depe
     if result.get("ok"):
         return HTMLResponse(
             f'<span class="text-green-600">Definitions updated: '
-            f'{result.get("output", "")[:200]}</span>'
+            f"{result.get('output', '')[:200]}</span>"
         )
     return HTMLResponse(
         f'<span class="text-red-600">Update failed: {result.get("error", "unknown")[:200]}</span>'

@@ -1,6 +1,3 @@
-import os
-from pathlib import Path
-
 import pytest
 
 from pit_panel.core.subdomain import SubdomainManager

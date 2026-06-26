@@ -1,4 +1,3 @@
-import subprocess
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -64,7 +63,7 @@ async def test_firewall_status_active():
 @pytest.mark.asyncio
 async def test_firewall_status_inactive():
     with patch("pit_panel.core.security._run_cmd") as mock_run_cmd:
-        # First call returns inactive, second call returns enable, third call returns allow, fourth call returns allow, fifth call returns allow, sixth call returns allow, seventh call returns active
+        # First call returns inactive, second returns enable, then allows, then active
         mock_run_cmd.side_effect = [
             "Status: inactive\n",
             "Firewall is active and enabled on system startup\n",
@@ -104,9 +103,7 @@ async def test_firewall_status_not_found():
 @pytest.mark.asyncio
 async def test_fail2ban_status_active():
     with patch("pit_panel.core.security._run_cmd") as mock_run_cmd:
-        mock_run_cmd.return_value = (
-            "Status\n|- Number of jail:\t1\n`- sshd\n"
-        )
+        mock_run_cmd.return_value = "Status\n|- Number of jail:\t1\n`- sshd\n"
 
         result = await _fail2ban_status()
 
@@ -116,35 +113,39 @@ async def test_fail2ban_status_active():
 
 @pytest.mark.asyncio
 async def test_fail2ban_status_not_found():
-    with patch("pit_panel.core.security._run_cmd") as mock_run_cmd:
-        with patch("pit_panel.core.security._ensure_fail2ban_jails") as mock_ensure:
-            mock_run_cmd.side_effect = [
-                "fail2ban-client: command not found\n",
-                "Setting up fail2ban\n",
-                "Status\n|- Number of jail:\t1\n`- sshd\n",
-            ]
+    with (
+        patch("pit_panel.core.security._run_cmd") as mock_run_cmd,
+        patch("pit_panel.core.security._ensure_fail2ban_jails") as mock_ensure,
+    ):
+        mock_run_cmd.side_effect = [
+            "fail2ban-client: command not found\n",
+            "Setting up fail2ban\n",
+            "Status\n|- Number of jail:\t1\n`- sshd\n",
+        ]
 
-            result = await _fail2ban_status()
+        result = await _fail2ban_status()
 
-            assert result["active"] is True
-            assert "sshd" in result["jails"]
-            mock_ensure.assert_called_once()
+        assert result["active"] is True
+        assert "sshd" in result["jails"]
+        mock_ensure.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_fail2ban_status_no_jails():
-    with patch("pit_panel.core.security._run_cmd") as mock_run_cmd:
-        with patch("pit_panel.core.security._ensure_fail2ban_jails") as mock_ensure:
-            mock_run_cmd.side_effect = [
-                "Status\n|- Number of jail:\t0\n`- Jail list:\t\n",
-                "Status\n|- Number of jail:\t1\n`- sshd\n",
-            ]
+    with (
+        patch("pit_panel.core.security._run_cmd") as mock_run_cmd,
+        patch("pit_panel.core.security._ensure_fail2ban_jails") as mock_ensure,
+    ):
+        mock_run_cmd.side_effect = [
+            "Status\n|- Number of jail:\t0\n`- Jail list:\t\n",
+            "Status\n|- Number of jail:\t1\n`- sshd\n",
+        ]
 
-            result = await _fail2ban_status()
+        result = await _fail2ban_status()
 
-            assert result["active"] is True
-            assert "sshd" in result["jails"]
-            mock_ensure.assert_called_once()
+        assert result["active"] is True
+        assert "sshd" in result["jails"]
+        mock_ensure.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -177,43 +178,52 @@ def test_ensure_fail2ban_jails():
 async def test_ban_ip_address():
     mock_db = AsyncMock(spec=AsyncSession)
 
-    with patch("pit_panel.core.security._run_cmd") as mock_run_cmd:
-        with patch("pit_panel.core.security.ban_ip", new_callable=AsyncMock) as mock_ban_ip:
-            mock_ban_ip.return_value = True
+    with (
+        patch("pit_panel.core.security._run_cmd") as mock_run_cmd,
+        patch("pit_panel.core.security.ban_ip", new_callable=AsyncMock) as mock_ban_ip,
+    ):
+        mock_ban_ip.return_value = True
 
-            result = await ban_ip_address(mock_db, "1.2.3.4", "Test reason", 60)
+        result = await ban_ip_address(mock_db, "1.2.3.4", "Test reason", 60)
 
-            assert result is True
-            mock_run_cmd.assert_called_once_with(["sudo", "-n", "ufw", "deny", "from", "1.2.3.4"])
-            mock_ban_ip.assert_called_once_with(mock_db, "1.2.3.4", "Test reason", 60)
+        assert result is True
+        mock_run_cmd.assert_called_once_with(["sudo", "-n", "ufw", "deny", "from", "1.2.3.4"])
+        mock_ban_ip.assert_called_once_with(mock_db, "1.2.3.4", "Test reason", 60)
 
 
 @pytest.mark.asyncio
 async def test_ban_ip_address_ufw_fails():
     mock_db = AsyncMock(spec=AsyncSession)
 
-    with patch("pit_panel.core.security._run_cmd") as mock_run_cmd:
-        with patch("pit_panel.core.security.ban_ip", new_callable=AsyncMock) as mock_ban_ip:
-            mock_run_cmd.side_effect = Exception("UFW failed")
-            mock_ban_ip.return_value = True
+    with (
+        patch("pit_panel.core.security._run_cmd") as mock_run_cmd,
+        patch("pit_panel.core.security.ban_ip", new_callable=AsyncMock) as mock_ban_ip,
+    ):
+        mock_run_cmd.side_effect = Exception("UFW failed")
+        mock_ban_ip.return_value = True
 
-            result = await ban_ip_address(mock_db, "1.2.3.4", "Test reason", 60)
+        result = await ban_ip_address(mock_db, "1.2.3.4", "Test reason", 60)
 
-            assert result is True
-            mock_ban_ip.assert_called_once_with(mock_db, "1.2.3.4", "Test reason", 60)
+        assert result is True
+        mock_ban_ip.assert_called_once_with(mock_db, "1.2.3.4", "Test reason", 60)
 
 
 @pytest.mark.asyncio
 async def test_unban_ip_address():
     mock_db = AsyncMock(spec=AsyncSession)
 
-    with patch("pit_panel.core.security._run_cmd") as mock_run_cmd:
-        with patch("pit_panel.security.ipban.unban_ip", new_callable=AsyncMock) as mock_unban_ip:
-            mock_unban_ip.return_value = True
+    with (
+        patch("pit_panel.core.security._run_cmd") as mock_run_cmd,
+        patch("pit_panel.security.ipban.unban_ip", new_callable=AsyncMock) as mock_unban_ip,
+    ):
+        mock_unban_ip.return_value = True
 
-            with patch.dict("sys.modules", {"pit_panel.security.ipban": MagicMock(unban_ip=mock_unban_ip)}):
-                result = await unban_ip_address(mock_db, "1.2.3.4", 1)
+        sys_dict = {"pit_panel.security.ipban": MagicMock(unban_ip=mock_unban_ip)}
+        with patch.dict("sys.modules", sys_dict):
+            result = await unban_ip_address(mock_db, "1.2.3.4", 1)
 
-            assert result is True
-            mock_run_cmd.assert_called_once_with(["sudo", "-n", "ufw", "delete", "deny", "from", "1.2.3.4"])
-            mock_unban_ip.assert_called_once_with(mock_db, "1.2.3.4", 1)
+        assert result is True
+        mock_run_cmd.assert_called_once_with(
+            ["sudo", "-n", "ufw", "delete", "deny", "from", "1.2.3.4"]
+        )
+        mock_unban_ip.assert_called_once_with(mock_db, "1.2.3.4", 1)

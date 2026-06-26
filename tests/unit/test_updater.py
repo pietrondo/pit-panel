@@ -1,4 +1,3 @@
-import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -89,30 +88,32 @@ async def test_apply_update_success(updater):
     mock_sessionmaker = MagicMock()
     mock_sessionmaker.return_value.__aenter__.return_value = mock_db
 
-    with patch("pit_panel.core.updater.get_sessionmaker", return_value=mock_sessionmaker):
-        with patch("subprocess.run") as mock_run:
-            # git rev-parse HEAD
-            # git reset
-            # uv sync
-            # alembic upgrade
-            mock_run.side_effect = [
-                MagicMock(stdout="old_sha\n"),
-                MagicMock(returncode=0),
-                MagicMock(returncode=0),
-                MagicMock(returncode=0),
-            ]
+    with (
+        patch("pit_panel.core.updater.get_sessionmaker", return_value=mock_sessionmaker),
+        patch("subprocess.run") as mock_run,
+    ):
+        # git rev-parse HEAD
+        # git reset
+        # uv sync
+        # alembic upgrade
+        mock_run.side_effect = [
+            MagicMock(stdout="old_sha\n"),
+            MagicMock(returncode=0),
+            MagicMock(returncode=0),
+            MagicMock(returncode=0),
+        ]
 
-            result = await updater.apply_update("new_sha")
+        result = await updater.apply_update("new_sha")
 
-            assert result is True
-            assert mock_db.add.call_count == 1
-            added_entry = mock_db.add.call_args[0][0]
-            assert isinstance(added_entry, UpdateHistory)
-            assert added_entry.version_from == "old_sha"
-            assert added_entry.version_to == "new_sha"
-            assert added_entry.status == "completed"
-            assert mock_db.commit.call_count == 2
-            assert mock_run.call_count == 4
+        assert result is True
+        assert mock_db.add.call_count == 1
+        added_entry = mock_db.add.call_args[0][0]
+        assert isinstance(added_entry, UpdateHistory)
+        assert added_entry.version_from == "old_sha"
+        assert added_entry.version_to == "new_sha"
+        assert added_entry.status == "completed"
+        assert mock_db.commit.call_count == 2
+        assert mock_run.call_count == 4
 
 
 @pytest.mark.asyncio
@@ -122,23 +123,25 @@ async def test_apply_update_failure(updater):
     mock_sessionmaker = MagicMock()
     mock_sessionmaker.return_value.__aenter__.return_value = mock_db
 
-    with patch("pit_panel.core.updater.get_sessionmaker", return_value=mock_sessionmaker):
-        with patch("subprocess.run") as mock_run:
-            # git rev-parse HEAD
-            # git reset (fails)
-            mock_run.side_effect = [
-                MagicMock(stdout="old_sha\n"),
-                MagicMock(returncode=1),
-            ]
+    with (
+        patch("pit_panel.core.updater.get_sessionmaker", return_value=mock_sessionmaker),
+        patch("subprocess.run") as mock_run,
+    ):
+        # git rev-parse HEAD
+        # git reset (fails)
+        mock_run.side_effect = [
+            MagicMock(stdout="old_sha\n"),
+            MagicMock(returncode=1),
+        ]
 
-            result = await updater.apply_update("new_sha")
+        result = await updater.apply_update("new_sha")
 
-            assert result is False
-            assert mock_db.add.call_count == 1
-            added_entry = mock_db.add.call_args[0][0]
-            assert added_entry.status == "failed"
-            assert mock_db.commit.call_count == 2
-            assert mock_run.call_count == 2
+        assert result is False
+        assert mock_db.add.call_count == 1
+        added_entry = mock_db.add.call_args[0][0]
+        assert added_entry.status == "failed"
+        assert mock_db.commit.call_count == 2
+        assert mock_run.call_count == 2
 
 
 @pytest.mark.asyncio

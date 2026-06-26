@@ -203,6 +203,7 @@ class TestSystemApp:
         assert "/system" in paths
         assert "/system/upgrade" in paths
 
+
 @pytest.mark.asyncio
 async def test_ban_ips_bulk(db_session):
     from pit_panel.security.ipban import ban_ips_bulk, is_ip_banned
