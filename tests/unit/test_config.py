@@ -47,3 +47,22 @@ class TestSettings:
         s1 = init_settings()
         s2 = get_settings()
         assert s1 is s2
+
+    def test_effective_domain_with_base_domain(self):
+        from pit_panel.config import Settings
+
+        s = Settings(base_domain="example.com")
+        assert s.effective_domain == "example.com"
+
+    def test_effective_domain_fallback(self, monkeypatch):
+        from pit_panel.config import Settings
+
+        s = Settings(base_domain="")
+        monkeypatch.setattr(Settings, "_detect_ip", staticmethod(lambda: "1.2.3.4"))
+        assert s.effective_domain == "1-2-3-4.nip.io"
+
+    def test_panel_url(self):
+        from pit_panel.config import Settings
+
+        s = Settings(base_domain="example.com", panel_subdomain="admin")
+        assert s.panel_url == "https://admin.example.com"
