@@ -95,7 +95,7 @@ async def app_deploy(
         else:
             existing = await db.execute(
                 select(Subdomain).where(
-                    Subdomain.is_main_domain == True,
+                    Subdomain.is_main_domain,
                     Subdomain.base_domain == settings.base_domain,
                 )
             )

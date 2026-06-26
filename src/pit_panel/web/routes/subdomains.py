@@ -46,7 +46,7 @@ async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse("/login", status_code=302)
 
     result = await db.execute(
-        select(Subdomain).where(Subdomain.is_main_domain == False).order_by(Subdomain.created_at.desc())
+        select(Subdomain).where(~Subdomain.is_main_domain).order_by(Subdomain.created_at.desc())
     )
     subdomains = result.scalars().all()
 
@@ -69,7 +69,7 @@ async def subdomain_add(
     safe_subdomain = subdomain.strip().lower().replace(" ", "-")
     if not safe_subdomain or not re.fullmatch(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$", safe_subdomain):
         result = await db.execute(
-            select(Subdomain).where(Subdomain.is_main_domain == False).order_by(Subdomain.created_at.desc())
+            select(Subdomain).where(~Subdomain.is_main_domain).order_by(Subdomain.created_at.desc())
         )
         subdomains = result.scalars().all()
         return render(
@@ -87,7 +87,7 @@ async def subdomain_add(
     )
     if existing.scalar_one_or_none():
         result = await db.execute(
-            select(Subdomain).where(Subdomain.is_main_domain == False).order_by(Subdomain.created_at.desc())
+            select(Subdomain).where(~Subdomain.is_main_domain).order_by(Subdomain.created_at.desc())
         )
         subdomains = result.scalars().all()
         return render(

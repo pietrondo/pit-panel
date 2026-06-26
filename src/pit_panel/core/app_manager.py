@@ -58,7 +58,7 @@ class AppManager:
         meta_path = TEMPLATES_DIR / stack_type / "meta.json"
         if meta_path.exists():
             try:
-                return json.loads(meta_path.read_text())
+                return json.loads(meta_path.read_text(encoding="utf-8"))
             except json.JSONDecodeError:
                 pass
         return {"name": stack_type, "description": stack_type}
