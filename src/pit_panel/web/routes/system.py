@@ -148,20 +148,11 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
             True,
         ),
         (["systemctl", "daemon-reload"], 10, True),
-        (["systemctl", "restart", "--no-block", "pit-panel.service"], 10, True),
     ]
 
     log_lines: list[str] = []
     ok = True
     for cmd, timeout, use_sudo in steps:
-        if use_sudo and "restart" in cmd and "--no-block" in cmd:
-            subprocess.Popen(
-                ["sudo", "-n", *cmd],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            log_lines.append(f"OK   {' '.join(cmd)} (queued)")
-            continue
         result = _sudo(cmd, timeout=timeout) if use_sudo else _run(cmd, timeout=timeout)
         if result.returncode != 0:
             err = (result.stderr or result.stdout or "").strip()[:200]
@@ -187,6 +178,15 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
         pass
 
     current, remote = await _get_git_info()
+
+    if ok:
+        subprocess.Popen(
+            ["sudo", "-n", "systemctl", "restart", "--no-block", "pit-panel.service"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        result_msg += "\nOK   systemctl restart --no-block pit-panel.service (queued)"
+
     return render(
         "system.html",
         user=user,

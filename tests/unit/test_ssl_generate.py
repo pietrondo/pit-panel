@@ -1,4 +1,4 @@
-from pit_panel.web.routes.ssl import _generate_caddyfile, _sanitize, CaddyfileConfig
+from pit_panel.web.routes.ssl import CaddyfileConfig, _generate_caddyfile, _sanitize
 
 
 def test_caddyfile_injection():
