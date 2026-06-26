@@ -74,11 +74,17 @@ async def lifespan(app: FastAPI):
 
         from pit_panel.db.models import SystemSettings  # noqa: E402
 
-        result = await db.execute(select(SystemSettings))
-        for row in result.scalars().all():
-            val = row.value.get("v", "") if isinstance(row.value, dict) else row.value
-            if row.key in ("base_domain", "panel_subdomain", "host"):
-                setattr(s, row.key, val)
+        result = await db.execute(
+            select(SystemSettings).where(
+                SystemSettings.key.in_(("base_domain", "panel_subdomain", "host"))
+            )
+        )
+        updates = {
+            row.key: row.value.get("v", "") if isinstance(row.value, dict) else row.value
+            for row in result.scalars().all()
+        }
+        if updates:
+            s.__dict__.update(updates)
 
     if s.effective_domain and s.panel_subdomain:
         from pit_panel.core.caddy import CaddyManager
