@@ -66,9 +66,17 @@
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for sd in subdomains %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                    x-data="{ editing: false, appType: '{{ sd.app_type or 'none' }}' }">
-                    <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white">
-                        {{ sd.subdomain }}.{{ sd.base_domain }}
+                    x-data="{ editing: false, name: '{{ sd.subdomain }}', appType: '{{ sd.app_type or 'none' }}' }">
+                    <td class="px-6 py-3 text-sm">
+                        <template x-if="!editing">
+                            <span class="font-mono text-gray-900 dark:text-white">{{ sd.subdomain }}.{{ sd.base_domain }}</span>
+                        </template>
+                        <template x-if="editing">
+                            <span class="inline-flex items-center gap-1">
+                                <input type="text" x-model="name" class="input text-xs py-1 w-32 font-mono" placeholder="subdomain">
+                                <span class="text-xs text-surface-400 font-mono">.{{ sd.base_domain }}</span>
+                            </span>
+                        </template>
                     </td>
                     <td class="px-6 py-3 text-sm">
                         <template x-if="!editing">
@@ -76,16 +84,13 @@
                                   x-text="appType">{{ sd.app_type or 'none' }}</span>
                         </template>
                         <template x-if="editing">
-                            <form method="POST" action="/subdomains/{{ sd.id }}/edit" class="inline-flex items-center gap-2"
-                                  @submit="setTimeout(() => editing = false, 100)">
-                                <select name="app_type" class="input text-xs py-1" x-model="appType">
+                            <span>
+                                <select class="input text-xs py-1" x-model="appType">
                                     {% for val, label in stack_options %}
                                     <option value="{{ val }}">{{ label }}</option>
                                     {% endfor %}
                                 </select>
-                                <button type="submit" class="btn-primary text-xs py-1">Save</button>
-                                <button type="button" class="btn-ghost text-xs py-1" @click="editing = false">Cancel</button>
-                            </form>
+                            </span>
                         </template>
                     </td>
                     <td class="px-6 py-3">
@@ -100,11 +105,26 @@
                         {{ sd.created_at.strftime('%Y-%m-%d %H:%M') if sd.created_at else '-' }}
                     </td>
                     <td class="px-6 py-3 text-right space-x-1">
-                        <button class="btn-ghost text-xs" @click="editing = !editing" x-show="!editing">Edit</button>
-                        <form method="POST" action="/subdomains/{{ sd.id }}/delete" class="inline"
-                              onsubmit="return confirm('Delete {{ sd.subdomain }}?')">
-                            <button type="submit" class="btn-ghost text-red-600 hover:text-red-700 text-xs">Delete</button>
-                        </form>
+                        <template x-if="!editing">
+                            <span class="space-x-1">
+                                <button class="btn-ghost text-xs" @click="editing = true">Edit</button>
+                                <form method="POST" action="/subdomains/{{ sd.id }}/delete" class="inline"
+                                      onsubmit="return confirm('Delete {{ sd.subdomain }}?')">
+                                    <button type="submit" class="btn-ghost text-red-600 hover:text-red-700 text-xs">Delete</button>
+                                </form>
+                            </span>
+                        </template>
+                        <template x-if="editing">
+                            <span class="space-x-1">
+                                <form method="POST" action="/subdomains/{{ sd.id }}/edit" class="inline"
+                                      @submit="setTimeout(() => editing = false, 100)">
+                                    <input type="hidden" name="subdomain" x-bind:value="name">
+                                    <input type="hidden" name="app_type" x-bind:value="appType">
+                                    <button type="submit" class="btn-primary text-xs py-1">Save</button>
+                                </form>
+                                <button class="btn-ghost text-xs py-1" @click="editing = false">Cancel</button>
+                            </span>
+                        </template>
                     </td>
                 </tr>
                 {% else %}
