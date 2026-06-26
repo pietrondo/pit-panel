@@ -45,7 +45,9 @@ async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+    result = await db.execute(
+        select(Subdomain).where(Subdomain.is_main_domain == False).order_by(Subdomain.created_at.desc())
+    )
     subdomains = result.scalars().all()
 
     return render("subdomains.html", user=user, subdomains=subdomains, error=None)
@@ -66,7 +68,9 @@ async def subdomain_add(
 
     safe_subdomain = subdomain.strip().lower().replace(" ", "-")
     if not safe_subdomain or not re.fullmatch(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$", safe_subdomain):
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+        result = await db.execute(
+            select(Subdomain).where(Subdomain.is_main_domain == False).order_by(Subdomain.created_at.desc())
+        )
         subdomains = result.scalars().all()
         return render(
             "subdomains.html",
@@ -82,7 +86,9 @@ async def subdomain_add(
         )
     )
     if existing.scalar_one_or_none():
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+        result = await db.execute(
+            select(Subdomain).where(Subdomain.is_main_domain == False).order_by(Subdomain.created_at.desc())
+        )
         subdomains = result.scalars().all()
         return render(
             "subdomains.html",
@@ -134,36 +140,37 @@ async def subdomain_edit(
     settings = get_settings()
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
-    if sd:
-        new_name = subdomain.strip().lower().replace(" ", "-")
-        old_name = sd.subdomain
-        old_type = sd.app_type
-        sd.app_type = app_type if app_type != "none" else None
+    if not sd or sd.is_main_domain:
+        return RedirectResponse("/subdomains", status_code=302)
+    new_name = subdomain.strip().lower().replace(" ", "-")
+    old_name = sd.subdomain
+    old_type = sd.app_type
+    sd.app_type = app_type if app_type != "none" else None
 
-        name_valid = bool(re.fullmatch(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$", new_name))
-        if new_name and new_name != old_name and name_valid:
-            sd.subdomain = new_name
-            if settings.base_domain:
-                caddy = CaddyManager(settings.caddy_admin_url)
-                with contextlib.suppress(Exception):
-                    await caddy.remove_subdomain(old_name, settings.base_domain)
-                    await caddy.add_subdomain(new_name, settings.base_domain)
+    name_valid = bool(re.fullmatch(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$", new_name))
+    if new_name and new_name != old_name and name_valid:
+        sd.subdomain = new_name
+        if settings.base_domain:
+            caddy = CaddyManager(settings.caddy_admin_url)
+            with contextlib.suppress(Exception):
+                await caddy.remove_subdomain(old_name, settings.base_domain)
+                await caddy.add_subdomain(new_name, settings.base_domain)
 
-        await _log_audit(
-            db,
-            user.id,
-            "subdomain_edit",
-            "subdomain",
-            sd.id,
-            {
-                "old_subdomain": old_name,
-                "new_subdomain": sd.subdomain,
-                "old_app_type": old_type,
-                "new_app_type": sd.app_type,
-            },
-            request,
-        )
-        await db.commit()
+    await _log_audit(
+        db,
+        user.id,
+        "subdomain_edit",
+        "subdomain",
+        sd.id,
+        {
+            "old_subdomain": old_name,
+            "new_subdomain": sd.subdomain,
+            "old_app_type": old_type,
+            "new_app_type": sd.app_type,
+        },
+        request,
+    )
+    await db.commit()
 
     return RedirectResponse("/subdomains", status_code=302)
 
@@ -180,23 +187,24 @@ async def subdomain_delete(
 
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
-    if sd:
-        settings = get_settings()
-        if settings.base_domain:
-            caddy = CaddyManager(settings.caddy_admin_url)
+    if not sd or sd.is_main_domain:
+        return RedirectResponse("/subdomains", status_code=302)
+    settings = get_settings()
+    if settings.base_domain:
+        caddy = CaddyManager(settings.caddy_admin_url)
         with contextlib.suppress(Exception):
             await caddy.remove_subdomain(sd.subdomain, settings.base_domain)
 
-        await _log_audit(
-            db,
-            user.id,
-            "subdomain_delete",
-            "subdomain",
-            sd.id,
-            {"subdomain": sd.subdomain},
-            request,
-        )
-        await db.delete(sd)
-        await db.commit()
+    await _log_audit(
+        db,
+        user.id,
+        "subdomain_delete",
+        "subdomain",
+        sd.id,
+        {"subdomain": sd.subdomain},
+        request,
+    )
+    await db.delete(sd)
+    await db.commit()
 
     return RedirectResponse("/subdomains", status_code=302)
