@@ -6,7 +6,7 @@ import httpx
 
 from pit_panel.config import get_settings
 from pit_panel.db.session import get_sessionmaker
-from pit_panel.security.ipban import ban_ip
+from pit_panel.security.ipban import ban_ips_bulk
 
 BLOCKLIST_SOURCES = {
     "firehol_level1": {
@@ -79,7 +79,6 @@ async def daily_blocklist_import():
             for key, info in BLOCKLIST_SOURCES.items():
                 try:
                     ips = await fetch_blocklist(info["url"])
-                    for ip in ips:
-                        await ban_ip(db, ip, f"auto:{key}", 10080)
+                    await ban_ips_bulk(db, ips, f"auto:{key}", 10080)
                 except Exception:
                     pass
