@@ -44,6 +44,10 @@ class TestUnauthenticated:
         resp = client.get("/containers", follow_redirects=False)
         assert resp.status_code == 302
 
+    def test_container_restart_redirects_to_login(self, client):
+        resp = client.post("/containers/1/restart", follow_redirects=False)
+        assert resp.status_code == 302
+
     def test_ssl_redirects_to_login(self, client):
         resp = client.get("/ssl", follow_redirects=False)
         assert resp.status_code == 302
@@ -160,13 +164,11 @@ class TestSecurityRoutes:
     def test_security_overview_authenticated(self, client, monkeypatch):
         from pit_panel.db.models import User
 
-        # Mock the authenticated admin
         async def mock_get_admin(*args, **kwargs):
             return User(id=1, username="admin", is_admin=True)
 
         monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
 
-        # Mock _firewall_status and _fail2ban_status
         async def mock_fw(*args, **kwargs):
             return {"active": True, "rules": []}
 
@@ -176,13 +178,11 @@ class TestSecurityRoutes:
         monkeypatch.setattr("pit_panel.web.routes.security._firewall_status", mock_fw)
         monkeypatch.setattr("pit_panel.web.routes.security._fail2ban_status", mock_f2b)
 
-        # Mock get_banned_ips
         async def mock_get_banned_ips(*args, **kwargs):
             return []
 
         monkeypatch.setattr("pit_panel.web.routes.security.get_banned_ips", mock_get_banned_ips)
 
-        # Mock the DB execute method instead of a real DB
         class MockResult:
             def scalars(self):
                 return self
@@ -203,7 +203,6 @@ class TestSecurityRoutes:
         async def mock_get_db():
             yield MockSession()
 
-        # Update the app dependency directly on the test client's app
         from pit_panel.web.routes.security import get_db
 
         client.app.dependency_overrides[get_db] = mock_get_db
@@ -213,5 +212,97 @@ class TestSecurityRoutes:
             assert resp.status_code == 200
             assert "<title>pit-panel</title>" in resp.text
             assert "Security" in resp.text
+        finally:
+            client.app.dependency_overrides.clear()
+
+
+class TestContainerRestart:
+    def test_container_restart_authenticated_not_found(self, client, monkeypatch):
+        class MockResult:
+            def scalar_one_or_none(self):
+                return None
+
+        class MockSession:
+            async def execute(self, *args, **kwargs):
+                return MockResult()
+
+            async def commit(self):
+                pass
+
+            async def close(self):
+                pass
+
+        from pit_panel.db.models import User
+        from pit_panel.db.session import get_db
+
+        async def override_get_db():
+            yield MockSession()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
+
+        from unittest.mock import AsyncMock
+
+        mock_compose_restart = AsyncMock()
+        monkeypatch.setattr(
+            "pit_panel.core.docker_ops.DockerManager.compose_restart", mock_compose_restart
+        )
+
+        try:
+            resp = client.post("/containers/1/restart", follow_redirects=False)
+            assert resp.status_code == 302
+            assert resp.headers.get("location") == "/containers"
+            mock_compose_restart.assert_not_called()
+        finally:
+            client.app.dependency_overrides.clear()
+
+    def test_container_restart_authenticated_success(self, client, monkeypatch):
+        class MockSubdomain:
+            id = 1
+            subdomain = "testapp"
+
+        class MockResult:
+            def scalar_one_or_none(self):
+                return MockSubdomain()
+
+        class MockSession:
+            async def execute(self, *args, **kwargs):
+                return MockResult()
+
+            async def commit(self):
+                pass
+
+            async def close(self):
+                pass
+
+        from pit_panel.db.models import User
+        from pit_panel.db.session import get_db
+
+        async def override_get_db():
+            yield MockSession()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
+
+        from unittest.mock import AsyncMock
+
+        mock_compose_restart = AsyncMock()
+        monkeypatch.setattr(
+            "pit_panel.core.docker_ops.DockerManager.compose_restart", mock_compose_restart
+        )
+
+        try:
+            resp = client.post("/containers/1/restart", follow_redirects=False)
+            assert resp.status_code == 302
+            assert resp.headers.get("location") == "/containers"
+            mock_compose_restart.assert_called_once_with("testapp")
         finally:
             client.app.dependency_overrides.clear()
