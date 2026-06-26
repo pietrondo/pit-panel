@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-{% set title = sd.subdomain + "." + sd.base_domain %}
+{% set title = sd.base_domain if sd.is_main_domain else sd.subdomain + "." + sd.base_domain %}
 {% set stack_id = sd.app_type|replace('-', '_') if sd.app_type else 'custom_compose' %}
 
 <div class="mb-6 flex items-center justify-between">
@@ -8,8 +8,9 @@
         <div class="flex items-center gap-3">
             <a href="/apps" class="btn-ghost text-sm">&larr; Apps</a>
             <h1 class="text-xl font-bold text-gray-900 dark:text-white font-mono">
-                {{ sd.subdomain }}.{{ sd.base_domain }}
+                {% if sd.is_main_domain %}{{ sd.base_domain }}{% else %}{{ sd.subdomain }}.{{ sd.base_domain }}{% endif %}
             </h1>
+            {% if sd.is_main_domain %}<span class="badge badge-accent">Main Domain</span>{% endif %}
         </div>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-20">
             <span class="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
