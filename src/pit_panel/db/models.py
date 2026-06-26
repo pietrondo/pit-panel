@@ -53,6 +53,7 @@ class Subdomain(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     app_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    is_main_domain: Mapped[bool] = mapped_column(default=False)
     status: Mapped[str] = mapped_column(String(16), default="active")
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
     last_deployed: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
