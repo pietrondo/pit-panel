@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 
@@ -49,13 +50,16 @@ class TestSessionAuth:
         assert data["tok"] == hash_token(raw)
 
     @pytest.mark.asyncio
-    async def test_validate_session(self, settings):
-        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-        from pit_panel.db.models import Base, User, Session as DBSession
-        from pit_panel.web.auth import validate_session, create_session_token, create_session_record
-        from pit_panel.security.crypto import hash_token
-        import secrets
+    async def test_validate_session(self, settings: Any) -> None:
         import datetime
+        import secrets
+
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+        from pit_panel.db.models import Base, User
+        from pit_panel.db.models import Session as DBSession
+        from pit_panel.security.crypto import hash_token
+        from pit_panel.web.auth import create_session_record, create_session_token, validate_session
 
         engine = create_async_engine("sqlite+aiosqlite://")
         async with engine.begin() as conn:
@@ -126,7 +130,10 @@ class TestSessionAuth:
 
             # Manually expire it
             db_sess = await db_session.get(DBSession, session_id_2)
-            db_sess.expires_at = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
+            if db_sess:
+                db_sess.expires_at = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+                    hours=1
+                )
             await db_session.commit()
 
             expired_result = await validate_session(db_session, signed_2, settings, user.id)
