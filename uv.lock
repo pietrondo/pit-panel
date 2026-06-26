@@ -1164,6 +1164,8 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "fastapi" },
+    { name = "jinja2" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -1203,6 +1205,8 @@ provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "fastapi", specifier = ">=0.138.0" },
+    { name = "jinja2", specifier = ">=3.1.6" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
