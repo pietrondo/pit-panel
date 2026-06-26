@@ -340,7 +340,10 @@ async def app_delete(request: Request, sd_id: int, db: AsyncSession = Depends(ge
         if settings.base_domain and sd.app_type:
             try:
                 caddy = CaddyManager(settings.caddy_admin_url)
-                await caddy.remove_subdomain(sd.subdomain, settings.base_domain)
+                if sd.is_main_domain:
+                    await caddy.remove_main_domain(settings.base_domain)
+                else:
+                    await caddy.remove_subdomain(sd.subdomain, settings.base_domain)
             except Exception:
                 pass
 
