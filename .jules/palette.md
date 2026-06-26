@@ -1,0 +1,3 @@
+## 2024-05-24 - Alpine Dependencies in Standalone Pages
+**Learning:** Standalone auth pages (like `login.html` and `setup_2fa.html`) do not inherit from the global `base.html` layout. Therefore, when introducing new interactive UI elements (like a password visibility toggle using Alpine.js), you must explicitly include the Alpine library `<script>` tag and necessary structural styles (like `[x-cloak]`) in the page's `<head>` to prevent raw content flashes and ensure interactivity works as expected.
+**Action:** When adding Alpine-driven components to standalone entry points in this app, always verify that the page either extends a base layout with the required dependencies or includes them explicitly.
