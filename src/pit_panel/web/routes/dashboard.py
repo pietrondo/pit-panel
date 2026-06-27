@@ -1,6 +1,7 @@
 """Dashboard with live system stats."""
 
 import os
+import platform
 import shutil
 
 from fastapi import APIRouter, Depends, Request
@@ -26,6 +27,13 @@ def _disk_usage() -> str:
         return f"{free_gb:.0f}G free / {total_gb:.0f}G ({pct:.0f}%)"
     except Exception:
         return "N/A"
+
+
+def _server_hostname() -> str:
+    try:
+        return platform.node() or "unknown"
+    except Exception:
+        return "unknown"
 
 
 def _cpu_usage() -> dict:

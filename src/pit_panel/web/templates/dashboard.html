@@ -4,7 +4,9 @@
 
 <div class="mb-6">
     <h1 class="text-xl font-bold text-surface-900 dark:text-white">Dashboard</h1>
+    {% if settings.base_domain %}
     <p class="text-xs text-surface-400 dark:text-surface-500 mt-0.5">{{ settings.panel_url }}</p>
+    {% endif %}
 </div>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">

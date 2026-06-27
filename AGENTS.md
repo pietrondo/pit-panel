@@ -7,6 +7,19 @@
 - Caddy for reverse proxy
 - Docker Compose for app isolation
 
+## Key Library Versions
+- Caddy: ultima v2 stable, usa `/pki/ca/local/certificates` per lista cert via admin API, `/load` per reload config
+- FastAPI: ultima 0.128.0+, usa `Depends()` per DI, `APIRouter()` per moduli
+- Tailwind CSS: CDN via `cdn.tailwindcss.com`, dark mode via `class` strategy
+- Alpine.js: 3.14+, `x-data`, `x-show`, `x-init`, `Alpine.data()`
+- HTMX: 2.x, `hx-get`, `hx-post`, `hx-target`, `hx-swap`
+- SQLAlchemy: 2.0 async con `AsyncSession`, `select()`, `func.count()`
+
+## SSL Cert Parsing
+- `openssl x509 -enddate -noout` restituisce `notAfter=Jun 27 09:00:00 2026 GMT`
+- `%Z` in `strptime` fallisce con timezone testuali (GMT, UTC, etc.)
+- **Fix**: strip ultima parola (timezone) prima del parsing: `" ".join(not_after.rsplit(None, 1)[:-1])` + formato `%b %d %H:%M:%S %Y`
+
 ## Conventions
 - Use `uv` for all Python operations
 - Async SQLAlchemy throughout

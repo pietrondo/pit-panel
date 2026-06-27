@@ -211,9 +211,10 @@ class CaddyManager:
                                     not_before = line.split("=", 1)[1]
                             if not_after:
                                 try:
+                                    cleaned = " ".join(not_after.rsplit(None, 1)[:-1])
                                     expiry = dt.datetime.strptime(
-                                        not_after,
-                                        "%b %d %H:%M:%S %Y %Z",
+                                        cleaned,
+                                        "%b %d %H:%M:%S %Y",
                                     )
                                     expires_in = (
                                         expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)
