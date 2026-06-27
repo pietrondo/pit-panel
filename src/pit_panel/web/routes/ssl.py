@@ -1,6 +1,7 @@
 """SSL certificate management routes via Caddy admin API."""
 
 import contextlib
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -287,6 +288,9 @@ async def ssl_renew(
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
+
+    if not re.match(r"^[a-zA-Z0-9.-]+$", domain):
+        return HTMLResponse("Invalid domain format", status_code=400)
 
     settings = get_settings()
     caddy = CaddyManager(settings.caddy_admin_url)

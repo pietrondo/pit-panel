@@ -1,5 +1,7 @@
 """Container management routes with live state and logs."""
 
+import re
+
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -96,8 +98,10 @@ async def container_restart(request: Request, sd_id: int, db: AsyncSession = Dep
 
 
 @router.post("/containers/container/{container_id}/stop")
-async def container_stop(request: Request, container_id: str) -> RedirectResponse:
+async def container_stop(request: Request, container_id: str):
     user = await get_user(request)
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
+        return HTMLResponse("Invalid container ID", status_code=400)
     if not user:
         return RedirectResponse("/login", status_code=302)
     settings = get_settings()
@@ -107,8 +111,10 @@ async def container_stop(request: Request, container_id: str) -> RedirectRespons
 
 
 @router.post("/containers/container/{container_id}/start")
-async def container_start(request: Request, container_id: str) -> RedirectResponse:
+async def container_start(request: Request, container_id: str):
     user = await get_user(request)
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
+        return HTMLResponse("Invalid container ID", status_code=400)
     if not user:
         return RedirectResponse("/login", status_code=302)
     settings = get_settings()
@@ -122,6 +128,8 @@ async def container_logs_live(
     request: Request, container_id: str, db: AsyncSession = Depends(get_db)
 ):
     user = await get_user(request, db)
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
+        return HTMLResponse("Invalid container ID", status_code=400)
     if not user:
         return RedirectResponse("/login", status_code=302)
     settings = get_settings()
@@ -142,6 +150,8 @@ async def container_logs_live(
 @router.get("/containers/container/{container_id}/stats")
 async def container_stats(request: Request, container_id: str):
     user = await get_user(request)
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
+        return HTMLResponse("Invalid container ID", status_code=400)
     if not user:
         return RedirectResponse("/login", status_code=302)
     settings = get_settings()
