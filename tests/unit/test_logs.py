@@ -1,12 +1,16 @@
 import os
-import subprocess
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import Request
 
-from pit_panel.web.routes.logs import _read_journal_sync, _read_log, applog_partial, journal_partial
+from pit_panel.web.routes.logs import (
+    _read_journal_async,
+    _read_log,
+    applog_partial,
+    journal_partial,
+)
 
 
 @pytest.mark.asyncio
@@ -42,44 +46,55 @@ async def test_read_log_tail():
         os.remove(path)
 
 
-def test_read_journal_sync_direct_success():
-    with patch("subprocess.run") as mock_run:
-        mock_proc = MagicMock()
-        mock_proc.stdout = "Dec 10 12:00:00 pit-panel test log\n"
-        mock_run.return_value = mock_proc
+@pytest.mark.asyncio
+async def test_read_journal_async_direct_success():
+    with patch("asyncio.create_subprocess_exec") as mock_exec:
+        mock_proc = AsyncMock()
+        mock_proc.communicate.return_value = (b"Dec 10 12:00:00 pit-panel test log\n", b"")
+        mock_exec.return_value = mock_proc
 
-        res = _read_journal_sync(10)
-        assert res == "Dec 10 12:00:00 pit-panel test log\n"
-        mock_run.assert_called_once_with(
-            ["journalctl", "-u", "pit-panel.service", "-n", "10", "--no-pager"],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        res = await _read_journal_async(10)
+        assert res == "Dec 10 12:00:00 pit-panel test log"
+        import asyncio
+
+        mock_exec.assert_called_once_with(
+            "journalctl",
+            "-u",
+            "pit-panel.service",
+            "-n",
+            "10",
+            "--no-pager",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
 
 
-def test_read_journal_sync_fallback_success():
-    with patch("subprocess.run") as mock_run:
+@pytest.mark.asyncio
+async def test_read_journal_async_fallback_success():
+    with patch("asyncio.create_subprocess_exec") as mock_exec:
 
-        def side_effect(args, **kwargs):
+        def side_effect(*args, **kwargs):
             if args[0] == "journalctl":
+                import subprocess
+
                 raise subprocess.SubprocessError("Permission denied")
-            mock_proc = MagicMock()
-            mock_proc.stdout = "Dec 10 12:00:00 sudo pit-panel test log\n"
-            return mock_proc
+            m = AsyncMock()
+            m.communicate.return_value = (b"Dec 10 12:00:00 sudo pit-panel test log\n", b"")
+            return m
 
-        mock_run.side_effect = side_effect
+        mock_exec.side_effect = side_effect
 
-        res = _read_journal_sync(10)
-        assert res == "Dec 10 12:00:00 sudo pit-panel test log\n"
-        assert mock_run.call_count == 2
+        res = await _read_journal_async(10)
+        assert res == "Dec 10 12:00:00 sudo pit-panel test log"
+        assert mock_exec.call_count == 2
 
 
-def test_read_journal_sync_failure():
-    with patch("subprocess.run") as mock_run:
-        mock_run.side_effect = Exception("failed")
+@pytest.mark.asyncio
+async def test_read_journal_async_failure():
+    with patch("asyncio.create_subprocess_exec") as mock_exec:
+        mock_exec.side_effect = Exception("failed")
 
-        res = _read_journal_sync(10)
+        res = await _read_journal_async(10)
         assert res == "[journal unavailable — pit-panel user needs systemd-journal group]"
 
 
