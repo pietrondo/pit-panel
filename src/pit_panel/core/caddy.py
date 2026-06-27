@@ -44,7 +44,7 @@ class CaddyManager:
             routes = resp.json() or []
             return [r.get("@id", "") for r in routes if r.get("@id")]
 
-    async def _patch_routes(self, route: dict) -> dict[str, Any]:
+    async def _patch_routes(self, route: dict[str, Any]) -> dict[str, Any]:
         route_id = route["@id"]
         async with httpx.AsyncClient() as client:
             resp = await client.patch(
@@ -151,7 +151,7 @@ class CaddyManager:
                 pass
         return certs
 
-    def _parse_cert(self, c: dict) -> dict[str, Any]:
+    def _parse_cert(self, c: dict[str, Any]) -> dict[str, Any]:
         not_after = c.get("not_after", "")
         expires_in = None
         if not_after:
