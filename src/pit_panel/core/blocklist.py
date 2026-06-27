@@ -82,6 +82,7 @@ async def fetch_blocklist(url: str) -> list[str]:
 
 
 async def daily_blocklist_import():
+    """Daily import of blocklist IPs."""
     while True:
         await asyncio.sleep(86400)
         settings = get_settings()
