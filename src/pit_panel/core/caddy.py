@@ -4,6 +4,7 @@ import datetime as dt
 import logging
 import re
 import subprocess
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -185,73 +186,118 @@ class CaddyManager:
                     continue
             for json_file in json_files:
                 try:
-                    try:
-                        meta_text = json_file.read_text()
-                    except PermissionError:
-                        result = subprocess.run(
-                            ["sudo", "-n", "cat", str(json_file)],
-                            capture_output=True, text=True, timeout=5,
-                        )
-                        meta_text = result.stdout if result.returncode == 0 else ""
+                    meta_text = self._read_file_safely(json_file)
+                    if not meta_text:
+                        continue
                     meta = json.loads(meta_text)
                     domains = meta.get("sans", meta.get("domains", [])) or []
                     if not domains:
                         continue
 
-                    not_before = ""
-                    not_after = ""
-                    expires_in = None
-
-                    pem_file = json_file.with_suffix(".crt")
-                    if not pem_file.exists():
-                        pem_file = json_file.with_suffix(".pem")
-                    if not pem_file.exists():
-                        pem_file = json_file.with_name(
-                            json_file.stem.replace(".caddy-identifier", "") + ".crt"
-                        )
-
-                    if pem_file.exists():
-                        try:
-                            result = subprocess.run(
-                                ["openssl", "x509", "-in", str(pem_file), "-noout", "-enddate"],
-                                capture_output=True, text=True, timeout=5,
-                            )
-                            for line in result.stdout.split("\n"):
-                                if line.startswith("notAfter="):
-                                    not_after = line.split("=", 1)[1]
-                                elif line.startswith("notBefore="):
-                                    not_before = line.split("=", 1)[1]
-                            if not_after:
-                                try:
-                                    cleaned = " ".join(not_after.rsplit(None, 1)[:-1])
-                                    expiry = dt.datetime.strptime(cleaned, "%b %d %H:%M:%S %Y")
-                                    expires_in = (expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)).days  # noqa: E501
-                                except ValueError as e:
-                                    logger.warning(f"Failed to parse expiry date: {e}")
-                        except Exception as e:
-                            logger.warning(f"Failed to execute openssl command: {e}")
+                    not_after, expires_in = "", None
+                    pem_file = self._find_pem_file(json_file)
+                    if pem_file and pem_file.exists():
+                        not_after, expires_in = self._parse_expiry(pem_file)
 
                     if not not_after:
                         not_after = meta.get("not_after", "")
-                        not_before = meta.get("not_before", "")
 
-                    issuer = meta.get(
-                        "issuer_common_name",
-                        meta.get("issuer_data", {}).get("ca", "Let's Encrypt"),
-                    )
+                    issuer = meta.get("issuer_common_name",
+                                      meta.get("issuer_data", {}).get("ca", "Let's Encrypt"))
 
                     certs.append({
                         "serial": str(meta.get("id", "?"))[:16],
                         "domains": ", ".join(domains),
-                        "not_before": not_before if not_before else "",
+                        "not_before": "",
                         "not_after": not_after if not_after else "",
                         "expires_in_days": expires_in,
                         "issuer": issuer,
                     })
                 except Exception as e:
                     logger.warning(f"Failed to parse certificate metadata: {e}")
+            if not certs and dir_path.is_dir():
+                certs = self._scan_via_openssl_client(certs_dir)
             if certs:
                 break
+        return certs
+
+    def _read_file_safely(self, path: Path) -> str:
+        try:
+            return path.read_text()
+        except PermissionError:
+            try:
+                result = subprocess.run(
+                    ["sudo", "-n", "cat", str(path)],
+                    capture_output=True, text=True, timeout=5,
+                )
+                return result.stdout.strip() if result.returncode == 0 else ""
+            except Exception:
+                return ""
+
+    def _find_pem_file(self, json_file: Path) -> Path | None:
+        pem_file = json_file.with_suffix(".crt")
+        if pem_file.exists():
+            return pem_file
+        pem_file = json_file.with_suffix(".pem")
+        if pem_file.exists():
+            return pem_file
+        pem_file = json_file.with_name(
+            json_file.stem.replace(".caddy-identifier", "") + ".crt"
+        )
+        return pem_file if pem_file.exists() else None
+
+    def _parse_expiry(self, pem_file: Path) -> tuple[str, int | None]:
+        try:
+            result = subprocess.run(
+                ["openssl", "x509", "-in", str(pem_file), "-noout", "-enddate"],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in result.stdout.split("\n"):
+                if line.startswith("notAfter="):
+                    not_after = line.split("=", 1)[1]
+                    try:
+                        cleaned = " ".join(not_after.rsplit(None, 1)[:-1])
+                        expiry = dt.datetime.strptime(cleaned, "%b %d %H:%M:%S %Y")
+                        days = (expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)).days
+                        return not_after, days
+                    except ValueError as e:
+                        logger.warning(f"Failed to parse expiry date: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to execute openssl command: {e}")
+        return "", None
+
+    def _scan_via_openssl_client(self, certs_dir: str) -> list[dict[str, Any]]:
+        certs = []
+        try:
+            for acme_dir in Path(certs_dir).iterdir():
+                if not acme_dir.is_dir():
+                    continue
+                for domain_dir in acme_dir.iterdir():
+                    if not domain_dir.is_dir():
+                        continue
+                    domain = domain_dir.name
+                    try:
+                        result = subprocess.run(
+                            ["openssl", "s_client", "-connect", f"{domain}:443",
+                             "-servername", domain, "-tlsextdebug"],
+                            input=b"",
+                            capture_output=True, text=True, timeout=10,
+                        )
+                        for line in result.stdout.split("\n"):
+                            if line.startswith("notAfter="):
+                                not_after = line.split("=", 1)[1]
+                                certs.append({
+                                    "serial": "?",
+                                    "domains": domain,
+                                    "not_before": "",
+                                    "not_after": not_after[:10] if not_after else "",
+                                    "expires_in_days": 0,
+                                    "issuer": "Let's Encrypt",
+                                })
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         return certs
 
     async def renew_certificate(self, domain: str) -> dict[str, Any]:
