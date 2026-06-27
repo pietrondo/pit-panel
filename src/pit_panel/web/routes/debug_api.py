@@ -6,7 +6,7 @@ import platform
 import subprocess
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from pit_panel.config import get_settings
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _verify_token(x_debug_token: str | None) -> str:
+def _verify_token(x_debug_token: str | None = Header(None)) -> str:
     if not x_debug_token:
         raise HTTPException(status_code=401, detail="Missing X-Debug-Token header")
     token_path = Path(get_settings().debug_token_path)
