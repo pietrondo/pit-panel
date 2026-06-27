@@ -40,6 +40,17 @@ class TestSessionAuth:
         with pytest.raises(BadSignature):
             different_serializer.loads(signed_data)
 
+    def test_get_serializer_empty_secret(self, settings):
+        from itsdangerous import URLSafeTimedSerializer
+
+        from pit_panel.web.auth import get_serializer
+        settings.secret_key = ""
+        serializer = get_serializer(settings)
+        assert isinstance(serializer, URLSafeTimedSerializer)
+        test_data = {"test": "empty"}
+        signed = serializer.dumps(test_data)
+        assert serializer.loads(signed) == test_data
+
     def test_create_and_verify_token(self, settings):
         from pit_panel.web.auth import create_session_token, unsign_session_token
 
