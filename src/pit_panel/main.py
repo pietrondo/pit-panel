@@ -1,6 +1,4 @@
 import argparse
-import logging
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import uvicorn
@@ -22,13 +20,39 @@ def main():
     port = args.port or settings.port
     reload = args.reload or settings.debug
 
-    # Ensure /var/log/pit-panel exists
     log_dir = Path("/var/log/pit-panel")
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    handler = RotatingFileHandler(log_dir / "app.log", maxBytes=5_242_880, backupCount=3)
-    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
-    logging.getLogger().addHandler(handler)
+    log_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            },
+            "access": {
+                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            },
+        },
+        "handlers": {
+            "default": {
+                "formatter": "default",
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stderr",
+            },
+            "app_file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": str(log_dir / "app.log"),
+                "maxBytes": 5_242_880,
+                "backupCount": 3,
+                "formatter": "default",
+            },
+        },
+        "loggers": {
+            "uvicorn": {"handlers": ["default", "app_file"], "level": "INFO", "propagate": False},
+            "pit_panel": {"handlers": ["default", "app_file"], "level": "INFO", "propagate": False},
+        },
+    }
 
     # When no domain configured, bind to all interfaces for direct IP access
     if not settings.base_domain and host == "127.0.0.1":
@@ -40,6 +64,7 @@ def main():
         port=port,
         reload=reload,
         factory=True,
+        log_config=log_config,
         log_level="debug" if settings.debug else "info",
     )
 
