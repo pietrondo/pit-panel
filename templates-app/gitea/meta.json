@@ -1,0 +1,9 @@
+{
+    "name": "gitea",
+    "display_name": "Gitea",
+    "version": "1.21",
+    "description": "Git with a cup of tea, painless self-hosted git service.",
+    "icon": "🍵",
+    "requires_db": true,
+    "default_port": 3000
+}

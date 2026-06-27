@@ -242,10 +242,42 @@ class CaddyManager:
                     if not domains:
                         continue
 
-                    not_after, expires_in = "", None
-                    pem_file = self._find_pem_file(json_file)
-                    if pem_file and pem_file.exists():
-                        not_after, expires_in = self._parse_expiry(pem_file)
+                    not_before = ""
+                    not_after = ""
+                    expires_in = None
+
+                    pem_file = json_file.with_suffix(".crt")
+                    if not pem_file.exists():
+                        pem_file = json_file.with_suffix(".pem")
+                    if not pem_file.exists():
+                        pem_file = json_file.with_name(
+                            json_file.stem.replace(".caddy-identifier", "") + ".crt"
+                        )
+
+                    if pem_file.exists():
+                        try:
+                            result = subprocess.run(
+                                ["openssl", "x509", "-in", str(pem_file), "-noout", "-enddate", "-issuer"],
+                                capture_output=True,
+                                text=True,
+                                timeout=5,
+                            )
+                            for line in result.stdout.split("\n"):
+                                if line.startswith("notAfter="):
+                                    not_after = line.split("=", 1)[1]
+                                elif line.startswith("notBefore="):
+                                    not_before = line.split("=", 1)[1]
+                            if not_after:
+                                try:
+                                    cleaned = " ".join(not_after.rsplit(None, 1)[:-1])
+                                    expiry = dt.datetime.strptime(cleaned, "%b %d %H:%M:%S %Y")
+                                    expires_in = (
+                                        expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)
+                                    ).days
+                                except ValueError as e:
+                                    logger.warning(f"Failed to parse expiry date: {e}")
+                        except Exception as e:
+                            logger.warning(f"Failed to execute openssl command: {e}")
 
                     if not not_after:
                         not_after = meta.get("not_after", "")
@@ -258,7 +290,7 @@ class CaddyManager:
                         {
                             "serial": str(meta.get("id", "?"))[:16],
                             "domains": ", ".join(domains),
-                            "not_before": "",
+                            "not_before": not_before if not_before else "",
                             "not_after": not_after if not_after else "",
                             "expires_in_days": expires_in,
                             "issuer": issuer,
