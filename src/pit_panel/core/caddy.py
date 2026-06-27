@@ -177,7 +177,7 @@ class CaddyManager:
             except (PermissionError, Exception):
                 try:
                     result = subprocess.run(
-                        ["sudo", "-u", "caddy", "find", certs_dir, "-name", "*.json"],
+                        ["sudo", "-n", "find", certs_dir, "-name", "*.json"],
                         capture_output=True, text=True, timeout=10,
                     )
                     json_files = [Path(p) for p in result.stdout.strip().split("\n") if p]
@@ -189,10 +189,10 @@ class CaddyManager:
                         meta_text = json_file.read_text()
                     except PermissionError:
                         result = subprocess.run(
-                            ["sudo", "-u", "caddy", "cat", str(json_file)],
+                            ["sudo", "-n", "cat", str(json_file)],
                             capture_output=True, text=True, timeout=5,
                         )
-                        meta_text = result.stdout
+                        meta_text = result.stdout if result.returncode == 0 else ""
                     meta = json.loads(meta_text)
                     domains = meta.get("sans", meta.get("domains", [])) or []
                     if not domains:
