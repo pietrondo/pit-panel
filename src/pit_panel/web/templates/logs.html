@@ -27,7 +27,7 @@
 </div>
 
 <!-- Journal -->
-<div x-show="tab === 'journal'" x-cloak class="card">
+<div x-show="tab === 'journal'" class="card">
     <div class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">pit-panel journal</h2>
         <div class="flex gap-2">
@@ -42,7 +42,7 @@
 </div>
 
 <!-- App log -->
-<div x-show="tab === 'app'" x-cloak class="card">
+<div x-show="tab === 'app'" class="card">
     <div class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Application log</h2>
         <button onclick="copyLog('applog-box')" class="btn-ghost text-xs">Copy</button>
