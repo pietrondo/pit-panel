@@ -126,7 +126,7 @@ def test_journal_partial_integration(monkeypatch):
         "System message &lt;script&gt;alert(&quot;hacked&quot;)&lt;/script&gt; &amp;" in resp.text
     )
     assert 'id="journal-box"' in resp.text
-    assert "text-green-400" in resp.text
+    assert 'text-green-400' in resp.text
 
 
 def test_applog_partial_integration(monkeypatch):
@@ -148,4 +148,4 @@ def test_applog_partial_integration(monkeypatch):
     assert resp.status_code == 200
     assert "App message &lt;div&gt;test&lt;/div&gt;" in resp.text
     assert 'id="applog-box"' in resp.text
-    assert "text-green-400" in resp.text
+    assert 'text-green-400' in resp.text

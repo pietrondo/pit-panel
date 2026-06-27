@@ -1,8 +1,6 @@
 """Container management routes with live state and logs."""
 
-from typing import Any
-
-from fastapi import Depends, Request, Response
+from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +15,7 @@ from pit_panel.web.router import router
 
 
 @router.get("/containers", response_class=HTMLResponse)
-async def containers_list(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
+async def containers_list(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -30,8 +28,8 @@ async def containers_list(request: Request, db: AsyncSession = Depends(get_db)) 
     result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
     subdomains = {sd.subdomain: sd for sd in result.scalars().all()}
 
-    containers_data: dict[int, list[dict[str, Any]]] = {}
-    orphan_containers: list[dict[str, Any]] = []
+    containers_data: dict[int, list[dict]] = {}
+    orphan_containers: list[dict] = []
 
     for c in all_containers:
         if "Name" not in c and "Names" in c:
@@ -61,9 +59,7 @@ async def containers_list(request: Request, db: AsyncSession = Depends(get_db)) 
 
 
 @router.get("/containers/{sd_id}/logs", response_class=HTMLResponse)
-async def container_logs(
-    request: Request, sd_id: int, db: AsyncSession = Depends(get_db)
-) -> Response:
+async def container_logs(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -84,9 +80,7 @@ async def container_logs(
 
 
 @router.post("/containers/{sd_id}/restart", response_class=HTMLResponse)
-async def container_restart(
-    request: Request, sd_id: int, db: AsyncSession = Depends(get_db)
-) -> Response:
+async def container_restart(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -102,10 +96,8 @@ async def container_restart(
 
 
 @router.post("/containers/container/{container_id}/stop")
-async def container_stop(
-    request: Request, container_id: str, db: AsyncSession = Depends(get_db)
-) -> Response:
-    user = await get_user(request, db)
+async def container_stop(request: Request, container_id: str) -> RedirectResponse:
+    user = await get_user(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     settings = get_settings()
@@ -115,10 +107,8 @@ async def container_stop(
 
 
 @router.post("/containers/container/{container_id}/start")
-async def container_start(
-    request: Request, container_id: str, db: AsyncSession = Depends(get_db)
-) -> Response:
-    user = await get_user(request, db)
+async def container_start(request: Request, container_id: str) -> RedirectResponse:
+    user = await get_user(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     settings = get_settings()
@@ -130,7 +120,7 @@ async def container_start(
 @router.get("/containers/container/{container_id}/logs", response_class=HTMLResponse)
 async def container_logs_live(
     request: Request, container_id: str, db: AsyncSession = Depends(get_db)
-) -> Response:
+):
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -150,10 +140,8 @@ async def container_logs_live(
 
 
 @router.get("/containers/container/{container_id}/stats")
-async def container_stats(
-    request: Request, container_id: str, db: AsyncSession = Depends(get_db)
-) -> Response:
-    user = await get_user(request, db)
+async def container_stats(request: Request, container_id: str):
+    user = await get_user(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     settings = get_settings()
