@@ -1,4 +1,5 @@
 """Tests for DB schema migrations."""
+
 import pytest
 import sqlalchemy as sa
 
@@ -35,10 +36,14 @@ async def test_migration_v4_adds_column(tmp_path):
 
         # Verify column missing
         def check_before(c):
-            cols = [r[1] for r in c.execute(  # noqa: E501
-                sa.text("PRAGMA table_info(subdomains)")
-            ).fetchall()]
+            cols = [
+                r[1]
+                for r in c.execute(  # noqa: E501
+                    sa.text("PRAGMA table_info(subdomains)")
+                ).fetchall()
+            ]
             assert "is_main_domain" not in cols
+
         async with engine.connect() as conn:
             await conn.run_sync(check_before)
 
@@ -49,10 +54,14 @@ async def test_migration_v4_adds_column(tmp_path):
 
         # Verify column exists
         def check_after(c):
-            cols = [r[1] for r in c.execute(  # noqa: E501
-                sa.text("PRAGMA table_info(subdomains)")
-            ).fetchall()]
+            cols = [
+                r[1]
+                for r in c.execute(  # noqa: E501
+                    sa.text("PRAGMA table_info(subdomains)")
+                ).fetchall()
+            ]
             assert "is_main_domain" in cols
+
         async with engine.connect() as conn:
             await conn.run_sync(check_after)
 
@@ -67,11 +76,11 @@ async def test_migration_v4_adds_column(tmp_path):
                     )
                 )
             )
+
         def check_default(c):
-            rows = c.execute(
-                sa.text("SELECT is_main_domain FROM subdomains")
-            ).fetchall()
+            rows = c.execute(sa.text("SELECT is_main_domain FROM subdomains")).fetchall()
             assert rows[0][0] == 0
+
         async with engine.connect() as conn:
             await conn.run_sync(check_default)
     finally:
@@ -114,11 +123,16 @@ async def test_migration_v4_idempotent(tmp_path):
         await db_session.init_db(s)
 
         engine = db_session.get_engine(s)
+
         def check(c):
-            cols = [r[1] for r in c.execute(  # noqa: E501
-                sa.text("PRAGMA table_info(subdomains)")
-            ).fetchall()]
+            cols = [
+                r[1]
+                for r in c.execute(  # noqa: E501
+                    sa.text("PRAGMA table_info(subdomains)")
+                ).fetchall()
+            ]
             assert "is_main_domain" in cols
+
         async with engine.connect() as conn:
             await conn.run_sync(check)
     finally:
