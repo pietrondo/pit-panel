@@ -343,6 +343,7 @@ async def test_settings_update_empty_panel(monkeypatch):
     assert mock_settings.panel_subdomain == "panel"
     assert mock_settings.host == "0.0.0.0"
 
+
 @pytest.mark.asyncio
 async def test_settings_update_invalid_base_domain(monkeypatch):
     mock_request = MagicMock(spec=Request)
@@ -362,6 +363,7 @@ async def test_settings_update_invalid_base_domain(monkeypatch):
 
     assert response.status_code == 400
     assert response.body == b"Invalid base domain"
+
 
 @pytest.mark.asyncio
 async def test_settings_update_invalid_panel_subdomain(monkeypatch):
@@ -383,6 +385,7 @@ async def test_settings_update_invalid_panel_subdomain(monkeypatch):
     assert response.status_code == 400
     assert response.body == b"Invalid panel subdomain"
 
+
 @pytest.mark.asyncio
 async def test_audit_log_unauthenticated(monkeypatch):
     mock_request = MagicMock(spec=Request)
@@ -394,11 +397,13 @@ async def test_audit_log_unauthenticated(monkeypatch):
     monkeypatch.setattr("pit_panel.web.routes.settings.get_admin", mock_get_admin)
 
     from pit_panel.web.routes.settings import audit_log
+
     response = await audit_log(mock_request, mock_db)
 
     assert isinstance(response, RedirectResponse)
     assert response.status_code == 302
     assert response.headers["location"] == "/login"
+
 
 @pytest.mark.asyncio
 async def test_audit_log_authenticated(monkeypatch):
@@ -420,6 +425,7 @@ async def test_audit_log_authenticated(monkeypatch):
     mock_db.execute.return_value = mock_result
 
     from pit_panel.web.routes.settings import audit_log
+
     await audit_log(mock_request, mock_db)
 
     mock_render.assert_called_once_with("audit.html", user=user, entries=[mock_audit])
