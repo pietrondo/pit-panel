@@ -1,5 +1,6 @@
 """App deployment wizard routes."""
 
+import asyncio
 import contextlib
 import datetime
 import logging
@@ -387,6 +388,70 @@ async def app_delete(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     return RedirectResponse("/apps", status_code=302)
 
 
+@router.get("/apps/{sd_id}/containers", response_class=HTMLResponse)
+async def app_containers_get(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<div class='text-red-500'>App not found</div>")
+
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    containers = []
+    with contextlib.suppress(Exception):
+        containers = await docker_mgr.compose_ps(sd.subdomain)
+
+    return render("tabs/_containers.html", request=request, sd=sd, containers=containers)
+
+
+@router.get("/apps/{sd_id}/backup", response_class=HTMLResponse)
+async def app_backup_get(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<div class='text-red-500'>App not found</div>")
+
+    return render("tabs/_backup.html", request=request, sd=sd)
+
+
+@router.get("/apps/{sd_id}/logs", response_class=HTMLResponse)
+async def app_logs_get(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<div class='text-red-500'>App not found</div>")
+
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    logs = ""
+    try:
+        logs = await docker_mgr.compose_logs(sd.subdomain, tail=50)
+    except Exception:
+        logs = "Error fetching logs"
+
+    return render("tabs/_logs.html", request=request, sd=sd, logs=logs)
+
+
 @router.get("/apps/{sd_id}/env", response_class=HTMLResponse)
 async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
@@ -470,4 +535,137 @@ async def app_env_post(
         env_content=env_content,
         error=error,
         success=success,
+    )
+
+
+@router.post("/apps/{sd_id}/wp/flush-cache", response_class=HTMLResponse)
+async def app_wp_flush_cache(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
+
+
+    settings = get_settings()
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker",
+            "compose",
+            "exec",
+            "-T",
+            "wordpress",
+            "wp",
+            "cache",
+            "flush",
+            "--allow-root",
+            cwd=os.path.join(settings.apps_dir, sd.subdomain),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            err = stderr.decode()
+            return HTMLResponse(f"<span class='text-red-500 text-xs'>Error: {err}</span>")
+    except Exception as e:
+        err = str(e)
+        return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {err}</span>")
+
+    return HTMLResponse(
+        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Cache flushed successfully!</span>"
+    )
+
+
+@router.post("/apps/{sd_id}/wp/update-plugins", response_class=HTMLResponse)
+async def app_wp_update_plugins(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
+
+
+    settings = get_settings()
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker",
+            "compose",
+            "exec",
+            "-T",
+            "wordpress",
+            "wp",
+            "plugin",
+            "update",
+            "--all",
+            "--allow-root",
+            cwd=os.path.join(settings.apps_dir, sd.subdomain),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            err = stderr.decode()
+            return HTMLResponse(f"<span class='text-red-500 text-xs'>Error: {err}</span>")
+    except Exception as e:
+        err = str(e)
+        return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {err}</span>")
+
+    return HTMLResponse(
+        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Plugins updated successfully!</span>"
+    )
+
+
+@router.post("/apps/{sd_id}/wp/update-core", response_class=HTMLResponse)
+async def app_wp_update_core(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
+
+
+    settings = get_settings()
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker",
+            "compose",
+            "exec",
+            "-T",
+            "wordpress",
+            "wp",
+            "core",
+            "update",
+            "--allow-root",
+            cwd=os.path.join(settings.apps_dir, sd.subdomain),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            err = stderr.decode()
+            return HTMLResponse(f"<span class='text-red-500 text-xs'>Error: {err}</span>")
+    except Exception as e:
+        err = str(e)
+        return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {err}</span>")
+
+    return HTMLResponse(
+        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Core updated successfully!</span>"
     )
