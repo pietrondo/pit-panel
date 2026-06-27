@@ -172,9 +172,15 @@ class CaddyManager:
 
         try:
             for certs_dir in certs_paths:
-                for json_file in certs_dir.rglob("*.json"):
+                try:
+                    json_files = list(certs_dir.rglob("*.json"))
+                except PermissionError:
+                    logger.warning(f"Cannot read {certs_dir}")
+                    continue
+                for json_file in json_files:
                     try:
-                        meta = json.loads(json_file.read_text())
+                        meta_text = json_file.read_text()
+                        meta = json.loads(meta_text)
                         domains = meta.get("sans", meta.get("domains", [])) or []
                         if not domains:
                             continue

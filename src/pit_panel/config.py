@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     # Docker
     docker_socket: str = "unix:///var/run/docker.sock"
 
+    # Debug API
+    debug_token_path: str = "/etc/pit-panel/debug_token"
+
     # Ratelimit
     rate_limit_login: str = "5/minute"
     rate_limit_api: str = "60/minute"

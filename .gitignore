@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -7,27 +8,44 @@ build/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# Secrets & credentials
+.env
+.env.local
+debug_token
+
+# Databases
 *.db
 *.db-journal
 *.db-wal
-beads/
-.env
-.env.local
-/var/
-/opt/
+
+# Logs
 *.log
+
+# Node
 node_modules/
 
-# Beads / Dolt files (added by bd init)
+# Coverage
+.coverage
+
+# Server paths (runtime, not in repo)
+/var/
+/opt/
+
+# Beads / Dolt
 .dolt/
 .beads-credential-key
 
-# Agent skills (installed via npx skills)
+# Agent skills
 .agents/
 .claude/skills/
 skills-lock.json
 
-# Jules bot artifacts
+# Jules artifacts
 pr_body.txt
 .jules/
-.coverage
+
+# Scratch / temp
+scratch*.py
+test_cve*.py
+trivy_*.json
