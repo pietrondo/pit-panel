@@ -67,18 +67,20 @@ async def debug_system(
     token: str = Depends(_verify_token),
 ):
     s = get_settings()
-    return JSONResponse({
-        "python": platform.python_version(),
-        "hostname": platform.node(),
-        "cwd": os.getcwd(),
-        "config_path": s.config_path,
-        "data_dir": s.data_dir,
-        "debug_token_exists": Path(s.debug_token_path).exists(),
-        "panel_url": s.panel_url,
-        "effective_domain": s.effective_domain,
-        "git_remote": s.git_remote,
-        "git_branch": s.git_branch,
-        "disk_free_gb": _run(["df", "-h", "/", "--output=avail", "--no-headers"]),
-        "uptime": _run(["uptime", "-p"]),
-        "memory": _run(["free", "-h"]),
-    })
+    return JSONResponse(
+        {
+            "python": platform.python_version(),
+            "hostname": platform.node(),
+            "cwd": os.getcwd(),
+            "config_path": s.config_path,
+            "data_dir": s.data_dir,
+            "debug_token_exists": Path(s.debug_token_path).exists(),
+            "panel_url": s.panel_url,
+            "effective_domain": s.effective_domain,
+            "git_remote": s.git_remote,
+            "git_branch": s.git_branch,
+            "disk_free_gb": _run(["df", "-h", "/", "--output=avail", "--no-headers"]),
+            "uptime": _run(["uptime", "-p"]),
+            "memory": _run(["free", "-h"]),
+        }
+    )

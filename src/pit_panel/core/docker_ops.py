@@ -11,7 +11,7 @@ class DockerManager:
     def __init__(self, apps_dir: str = "/opt/pit-panel/apps"):
         self.apps_dir = Path(apps_dir)
 
-    async def _run_compose(self, command: list[str], subdomain: str) -> dict[str, Any]:
+    async def run_compose_command(self, subdomain: str, command: list[str]) -> dict[str, Any]:
         path = self.apps_dir / subdomain
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -37,15 +37,6 @@ class DockerManager:
                 "stderr": str(e),
                 "error": f"Failed to execute docker compose command: {e}",
             }
-
-    async def compose_up(self, subdomain: str) -> dict[str, Any]:
-        return await self._run_compose(["up", "-d"], subdomain)
-
-    async def compose_down(self, subdomain: str, remove_volumes: bool = False) -> dict[str, Any]:
-        args = ["down"]
-        if remove_volumes:
-            args.append("-v")
-        return await self._run_compose(args, subdomain)
 
     async def compose_ps(self, subdomain: str) -> list[dict[str, Any]]:
         path = self.apps_dir / subdomain
@@ -94,9 +85,6 @@ class DockerManager:
             return stdout.decode()
         except OSError as e:
             return f"Failed to retrieve logs: {e}"
-
-    async def compose_restart(self, subdomain: str) -> dict[str, Any]:
-        return await self._run_compose(["restart"], subdomain)
 
     async def ps_all(self) -> list[dict[str, Any]]:
         try:

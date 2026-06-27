@@ -291,16 +291,16 @@ class TestContainerRestart:
 
         from unittest.mock import AsyncMock
 
-        mock_compose_restart = AsyncMock()
+        mock_run_compose = AsyncMock()
         monkeypatch.setattr(
-            "pit_panel.core.docker_ops.DockerManager.compose_restart", mock_compose_restart
+            "pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_run_compose
         )
 
         try:
             resp = client.post("/containers/1/restart", follow_redirects=False)
             assert resp.status_code == 302
             assert resp.headers.get("location") == "/containers"
-            mock_compose_restart.assert_not_called()
+            mock_run_compose.assert_not_called()
         finally:
             client.app.dependency_overrides.clear()
 
@@ -338,16 +338,16 @@ class TestContainerRestart:
 
         from unittest.mock import AsyncMock
 
-        mock_compose_restart = AsyncMock()
+        mock_run_compose = AsyncMock()
         monkeypatch.setattr(
-            "pit_panel.core.docker_ops.DockerManager.compose_restart", mock_compose_restart
+            "pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_run_compose
         )
 
         try:
             resp = client.post("/containers/1/restart", follow_redirects=False)
             assert resp.status_code == 302
             assert resp.headers.get("location") == "/containers"
-            mock_compose_restart.assert_called_once_with("testapp")
+            mock_run_compose.assert_called_once_with("testapp", ["restart"])
         finally:
             client.app.dependency_overrides.clear()
 
@@ -367,8 +367,10 @@ class TestMainDomain:
 
         monkeypatch.setattr("pit_panel.web.routes.apps.get_user", mock_get_user)
 
-        mock_compose_up = AsyncMock(return_value={"success": True})
-        monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.compose_up", mock_compose_up)
+        mock_run_compose = AsyncMock(return_value={"success": True})
+        monkeypatch.setattr(
+            "pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_run_compose
+        )
 
         mock_add_main = AsyncMock(return_value={})
         monkeypatch.setattr("pit_panel.core.caddy.CaddyManager.add_main_domain", mock_add_main)
@@ -416,7 +418,7 @@ class TestMainDomain:
             )
 
             assert resp.status_code == 302
-            mock_compose_up.assert_called_once_with("_main_")
+            mock_run_compose.assert_called_once_with("_main_", ["up", "-d"])
             mock_add_main.assert_called_once()
         finally:
             client.app.dependency_overrides.clear()
@@ -505,7 +507,9 @@ class TestMainDomain:
         mock_remove = AsyncMock(return_value={})
         monkeypatch.setattr("pit_panel.core.caddy.CaddyManager.remove_main_domain", mock_remove)
 
-        monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.compose_down", AsyncMock())
+        monkeypatch.setattr(
+            "pit_panel.core.docker_ops.DockerManager.run_compose_command", AsyncMock()
+        )
 
         class MockSD:
             id = 1

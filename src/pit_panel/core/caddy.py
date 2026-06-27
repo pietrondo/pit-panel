@@ -116,8 +116,11 @@ class CaddyManager:
                     f" | openssl x509 -noout -enddate -issuer"
                 )
                 r = subprocess.run(
-                    cmd, shell=True, capture_output=True,
-                    text=True, timeout=10,
+                    cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
                 )
                 not_after = ""
                 issuer = ""
@@ -134,14 +137,16 @@ class CaddyManager:
                     days = (expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)).days
                 except (ValueError, OSError):
                     days = None
-                certs.append({
-                    "serial": "?",
-                    "domains": domain,
-                    "not_before": "",
-                    "not_after": not_after,
-                    "expires_in_days": days,
-                    "issuer": issuer or "Unknown",
-                })
+                certs.append(
+                    {
+                        "serial": "?",
+                        "domains": domain,
+                        "not_before": "",
+                        "not_after": not_after,
+                        "expires_in_days": days,
+                        "issuer": issuer or "Unknown",
+                    }
+                )
             except Exception:
                 pass
         return certs
@@ -220,7 +225,9 @@ class CaddyManager:
                 try:
                     result = subprocess.run(
                         ["sudo", "-n", "find", certs_dir, "-name", "*.json"],
-                        capture_output=True, text=True, timeout=10,
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
                     )
                     json_files = [Path(p) for p in result.stdout.strip().split("\n") if p]
                 except Exception:
@@ -243,17 +250,20 @@ class CaddyManager:
                     if not not_after:
                         not_after = meta.get("not_after", "")
 
-                    issuer = meta.get("issuer_common_name",
-                                      meta.get("issuer_data", {}).get("ca", "Let's Encrypt"))
+                    issuer = meta.get(
+                        "issuer_common_name", meta.get("issuer_data", {}).get("ca", "Let's Encrypt")
+                    )
 
-                    certs.append({
-                        "serial": str(meta.get("id", "?"))[:16],
-                        "domains": ", ".join(domains),
-                        "not_before": "",
-                        "not_after": not_after if not_after else "",
-                        "expires_in_days": expires_in,
-                        "issuer": issuer,
-                    })
+                    certs.append(
+                        {
+                            "serial": str(meta.get("id", "?"))[:16],
+                            "domains": ", ".join(domains),
+                            "not_before": "",
+                            "not_after": not_after if not_after else "",
+                            "expires_in_days": expires_in,
+                            "issuer": issuer,
+                        }
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to parse certificate metadata: {e}")
             if not certs:
@@ -273,7 +283,9 @@ class CaddyManager:
             try:
                 result = subprocess.run(
                     ["sudo", "-n", "cat", str(path)],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 return result.stdout.strip() if result.returncode == 0 else ""
             except Exception:
@@ -286,16 +298,16 @@ class CaddyManager:
         pem_file = json_file.with_suffix(".pem")
         if pem_file.exists():
             return pem_file
-        pem_file = json_file.with_name(
-            json_file.stem.replace(".caddy-identifier", "") + ".crt"
-        )
+        pem_file = json_file.with_name(json_file.stem.replace(".caddy-identifier", "") + ".crt")
         return pem_file if pem_file.exists() else None
 
     def _parse_expiry(self, pem_file: Path) -> tuple[str, int | None]:
         try:
             result = subprocess.run(
                 ["openssl", "x509", "-in", str(pem_file), "-noout", "-enddate"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             for line in result.stdout.split("\n"):
                 if line.startswith("notAfter="):
@@ -323,8 +335,18 @@ class CaddyManager:
                     domain = domain_dir.name
                     try:
                         result = subprocess.run(
-                            ["openssl", "s_client", "-connect", f"{domain}:443", "-servername", domain],  # noqa: E501
-                            input=b"\n", capture_output=True, text=True, timeout=10,
+                            [
+                                "openssl",
+                                "s_client",
+                                "-connect",
+                                f"{domain}:443",
+                                "-servername",
+                                domain,
+                            ],  # noqa: E501
+                            input=b"\n",
+                            capture_output=True,
+                            text=True,
+                            timeout=10,
                         )
                     except Exception:
                         continue
@@ -338,14 +360,16 @@ class CaddyManager:
                             days = (expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)).days
                         except (ValueError, OSError):
                             days = None
-                        certs.append({
-                            "serial": "?",
-                            "domains": domain,
-                            "not_before": "",
-                            "not_after": not_after[:10] if not_after else "",
-                            "expires_in_days": days,
-                            "issuer": "Let's Encrypt",
-                        })
+                        certs.append(
+                            {
+                                "serial": "?",
+                                "domains": domain,
+                                "not_before": "",
+                                "not_after": not_after[:10] if not_after else "",
+                                "expires_in_days": days,
+                                "issuer": "Let's Encrypt",
+                            }
+                        )
                         break
         except Exception:
             pass

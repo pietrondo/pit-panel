@@ -15,10 +15,10 @@ def mock_proc():
 
 
 @pytest.mark.asyncio
-async def test_compose_up_success(mock_proc):
+async def test_run_compose_command_up_success(mock_proc):
     manager = DockerManager()
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
-        result = await manager.compose_up("test_app")
+        result = await manager.run_compose_command("test_app", ["up", "-d"])
         mock_exec.assert_called_once_with(
             "docker",
             "compose",
@@ -34,11 +34,11 @@ async def test_compose_up_success(mock_proc):
 
 
 @pytest.mark.asyncio
-async def test_compose_up_failure(mock_proc):
+async def test_run_compose_command_up_failure(mock_proc):
     mock_proc.returncode = 1
     manager = DockerManager()
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
-        result = await manager.compose_up("test_app")
+        result = await manager.run_compose_command("test_app", ["up", "-d"])
         mock_exec.assert_called_once_with(
             "docker",
             "compose",
@@ -54,10 +54,10 @@ async def test_compose_up_failure(mock_proc):
 
 
 @pytest.mark.asyncio
-async def test_compose_down_success(mock_proc):
+async def test_run_compose_command_down_success(mock_proc):
     manager = DockerManager()
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
-        result = await manager.compose_down("test_app")
+        result = await manager.run_compose_command("test_app", ["down"])
         mock_exec.assert_called_once_with(
             "docker",
             "compose",
@@ -72,10 +72,10 @@ async def test_compose_down_success(mock_proc):
 
 
 @pytest.mark.asyncio
-async def test_compose_restart_success(mock_proc):
+async def test_run_compose_command_restart_success(mock_proc):
     manager = DockerManager()
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
-        result = await manager.compose_restart("test_app")
+        result = await manager.run_compose_command("test_app", ["restart"])
         mock_exec.assert_called_once_with(
             "docker",
             "compose",

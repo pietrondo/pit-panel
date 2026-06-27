@@ -98,7 +98,7 @@ async def container_restart(
     if sd:
         settings = get_settings()
         docker_mgr = DockerManager(settings.apps_dir)
-        await docker_mgr.compose_restart(sd.subdomain)
+        await docker_mgr.run_compose_command(sd.subdomain, ["restart"])
 
     return RedirectResponse("/containers", status_code=302)
 
