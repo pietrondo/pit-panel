@@ -110,18 +110,22 @@ class CaddyManager:
         certs = []
         for domain in domains:
             try:
+                cmd = (
+                    f"echo | openssl s_client -connect 127.0.0.1:443"
+                    f" -servername {domain} 2>/dev/null"
+                    f" | openssl x509 -noout -enddate -issuer"
+                )
                 r = subprocess.run(
-                    ["openssl", "s_client", "-connect", "127.0.0.1:443",
-                     "-servername", domain, "-showcerts", "-brief"],  # noqa: E501
-                    input=b"", capture_output=True, text=True, timeout=10,
+                    cmd, shell=True, capture_output=True,
+                    text=True, timeout=10,
                 )
                 not_after = ""
                 issuer = ""
-                for line in (r.stdout + r.stderr).split("\n"):
-                    if "notAfter=" in line:
-                        not_after = line.split("notAfter=")[1].strip()
-                    elif "issuer=" in line:
-                        issuer = line.split("issuer=")[1].strip()
+                for line in r.stdout.split("\n"):
+                    if line.startswith("notAfter="):
+                        not_after = line.split("=", 1)[1].strip()
+                    elif line.startswith("issuer="):
+                        issuer = line.split("=", 1)[1].strip()
                 if not not_after:
                     continue
                 try:
@@ -134,7 +138,7 @@ class CaddyManager:
                     "serial": "?",
                     "domains": domain,
                     "not_before": "",
-                    "not_after": not_after[:10] if not_after else "",
+                    "not_after": not_after,
                     "expires_in_days": days,
                     "issuer": issuer or "Unknown",
                 })
