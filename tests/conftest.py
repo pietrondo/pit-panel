@@ -1,4 +1,10 @@
+import os
+
 import pytest
+
+# Set default test paths before any config is loaded
+os.environ["PITPANEL_DATA_DIR"] = "/tmp/pit-panel-data"
+os.environ["PITPANEL_APPS_DIR"] = "/tmp/pit-panel-apps"
 
 
 @pytest.fixture

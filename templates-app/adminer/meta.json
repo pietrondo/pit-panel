@@ -1,0 +1,9 @@
+{
+    "name": "adminer",
+    "display_name": "Adminer",
+    "version": "4.8",
+    "description": "Database management in a single PHP file.",
+    "icon": "🗄️",
+    "requires_db": false,
+    "default_port": 8080
+}

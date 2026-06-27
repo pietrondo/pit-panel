@@ -16,6 +16,7 @@ async def test_get_certificates_api_exception():
 
 
 
+
 @pytest.mark.asyncio
 async def test_renew_certificate_timeout():
     mgr = CaddyManager()
