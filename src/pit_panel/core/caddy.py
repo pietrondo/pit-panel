@@ -110,7 +110,7 @@ class CaddyManager:
         certs = []
         for domain in domains:
             try:
-                # 🛡️ Sentinel: Removed shell=True and dynamic string execution to prevent command injection
+                # 🛡️ Sentinel: Removed shell=True to prevent command injection
                 r1 = subprocess.run(
                     [
                         "openssl", "s_client", "-connect", "127.0.0.1:443",
