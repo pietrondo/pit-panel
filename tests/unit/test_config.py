@@ -107,3 +107,21 @@ class TestSettings:
         assert "/fake/data" in called_paths
         assert "/fake/apps" in called_paths
         assert len(called_paths) == 2
+
+    def test_effective_domain_explicit(self):
+        from pit_panel.config import Settings
+
+        s1 = Settings(base_domain="mydomain.com")
+        assert s1.effective_domain == "mydomain.com"
+
+        s2 = Settings(base_domain="")
+        assert "nip.io" in s2.effective_domain
+
+    def test_get_settings_none(self):
+        import pit_panel.config
+        from pit_panel.config import get_settings
+
+        # Reset the global to force initialization
+        pit_panel.config._settings = None
+        s = get_settings()
+        assert s is not None
