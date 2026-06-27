@@ -46,7 +46,13 @@ def _sanitize(val: str) -> str:
         return ""
     # Strip dangerous characters that could break out of a Caddyfile value
     return (
-        val.replace("\r", "").replace("\n", "").replace('"', "").replace("{", "").replace("}", "")
+        val.replace("\r", "")
+        .replace("\n", "")
+        .replace('"', "")
+        .replace("{", "")
+        .replace("}", "")
+        .replace("'", "")
+        .replace("`", "")
     )
 
 
