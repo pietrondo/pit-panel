@@ -50,8 +50,8 @@ class TestSessionAuth:
         assert serializer1 is not serializer2
 
         # Verify it uses the correct salt and secret
-        assert serializer1.salt == b"pitpanel-session" or serializer1.salt == "pitpanel-session"
-        assert serializer1.secret_key == settings.secret_key or serializer1.secret_key == settings.secret_key.encode()
+        assert serializer1.salt in (b"pitpanel-session", "pitpanel-session")
+        assert serializer1.secret_key in (settings.secret_key, settings.secret_key.encode())
 
     def test_get_serializer_empty_secret(self, settings):
         from itsdangerous import URLSafeTimedSerializer
