@@ -141,3 +141,16 @@ class TestSettings:
         monkeypatch.setattr(Settings, "_detect_ip", staticmethod(lambda: "10.0.0.1"))
         s = Settings(base_domain="", panel_subdomain="panel")
         assert s.panel_url == "https://panel.10-0-0-1.nip.io"
+
+    def test_panel_url_explicit_base_domain(self):
+        from pit_panel.config import Settings
+
+        s = Settings(base_domain="test.com", panel_subdomain="mypanel")
+        assert s.panel_url == "https://mypanel.test.com"
+
+    def test_panel_url_default(self, monkeypatch):
+        from pit_panel.config import Settings
+
+        monkeypatch.setattr(Settings, "_detect_ip", staticmethod(lambda: "1.2.3.4"))
+        s = Settings()
+        assert s.panel_url == "https://panel.1-2-3-4.nip.io"

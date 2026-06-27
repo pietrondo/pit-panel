@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     @property
     def panel_url(self) -> str:
+        """Get the full URL for the panel based on configured domains."""
         return f"https://{self.panel_subdomain}.{self.effective_domain}"
 
     @staticmethod
