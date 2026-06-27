@@ -28,17 +28,15 @@ def _disk_usage() -> str:
         return "N/A"
 
 
-def _cpu_usage() -> str:
+def _cpu_usage() -> dict:
     try:
         with open("/proc/loadavg") as f:
-            load = f.read().split()[:3]
+            load = float(f.read().split()[0])
             cores = os.cpu_count() or 1
-            return f"load {load[0]} ({cores} cores)"
+            pct = min(round((load / cores) * 100), 100)
+            return {"load_1m": load, "cores": cores, "pct": pct}
     except Exception:
-        try:
-            return f"{os.cpu_count() or '?'} cores"
-        except Exception:
-            return "N/A"
+        return {"load_1m": 0, "cores": os.cpu_count() or 1, "pct": 0}
 
 
 @router.get("/", response_class=HTMLResponse)

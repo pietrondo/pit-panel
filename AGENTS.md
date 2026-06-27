@@ -38,6 +38,14 @@
 - `bd create "title" -d "desc" -t type -p priority --json`
 - `bd close <id> --reason "done" --json`
 
+## Server SSH
+
+- `ssh pietro@192.3.187.125` — VPS di produzione
+- `/opt/pit-panel/` — home app
+- `sudo` richiede password (non passwordless)
+- Usare `sudo -u pit-panel` per operazioni git lato server
+- `git -C /opt/pit-panel fetch origin --prune` per pulire ref remoti
+
 ## Jules (Google AI Agent) Integration
 
 Delega task autonomi a Jules tramite CLI. Ricaricare questa skill con `skill pit-panel-jules`.
