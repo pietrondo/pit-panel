@@ -32,10 +32,11 @@ async def test_lifespan_applies_settings(settings):
     mock_sessionmaker = MagicMock()
     mock_sessionmaker.return_value.__aenter__.return_value = mock_db
 
-    with patch("pit_panel.web.app.init_db", new_callable=AsyncMock) as mock_init_db, \
-         patch("pit_panel.web.app.get_sessionmaker", return_value=mock_sessionmaker), \
-         patch("pit_panel.core.caddy.CaddyManager", autospec=True) as mock_caddy_cls:
-
+    with (
+        patch("pit_panel.web.app.init_db", new_callable=AsyncMock) as mock_init_db,
+        patch("pit_panel.web.app.get_sessionmaker", return_value=mock_sessionmaker),
+        patch("pit_panel.core.caddy.CaddyManager", autospec=True) as mock_caddy_cls,
+    ):
         mock_caddy = mock_caddy_cls.return_value
         mock_caddy.setup_panel_route = AsyncMock()
 
@@ -47,6 +48,7 @@ async def test_lifespan_applies_settings(settings):
         assert app.state.settings.panel_subdomain == "admin"
 
         mock_caddy.setup_panel_route.assert_awaited_once_with("admin", "example.com", 8000)
+
 
 @pytest.mark.asyncio
 async def test_lifespan_updates_dict_value(settings):
@@ -67,14 +69,16 @@ async def test_lifespan_updates_dict_value(settings):
     mock_sessionmaker = MagicMock()
     mock_sessionmaker.return_value.__aenter__.return_value = mock_db
 
-    with patch("pit_panel.web.app.init_db", new_callable=AsyncMock), \
-         patch("pit_panel.web.app.get_sessionmaker", return_value=mock_sessionmaker), \
-         patch("pit_panel.core.caddy.CaddyManager"):
-
+    with (
+        patch("pit_panel.web.app.init_db", new_callable=AsyncMock),
+        patch("pit_panel.web.app.get_sessionmaker", return_value=mock_sessionmaker),
+        patch("pit_panel.core.caddy.CaddyManager"),
+    ):
         async with lifespan(app):
             pass
 
         assert app.state.settings.base_domain == "test.com"
+
 
 @pytest.mark.asyncio
 async def test_lifespan_no_caddy_if_missing_settings(settings):
@@ -85,7 +89,7 @@ async def test_lifespan_no_caddy_if_missing_settings(settings):
     app.state.settings.panel_subdomain = ""
 
     mock_result = MagicMock()
-    mock_result.scalars().all.return_value = [] # No updates
+    mock_result.scalars().all.return_value = []  # No updates
 
     mock_db = AsyncMock()
     mock_db.execute.return_value = mock_result
@@ -93,11 +97,12 @@ async def test_lifespan_no_caddy_if_missing_settings(settings):
     mock_sessionmaker = MagicMock()
     mock_sessionmaker.return_value.__aenter__.return_value = mock_db
 
-    with patch("pit_panel.web.app.init_db", new_callable=AsyncMock), \
-         patch("pit_panel.web.app.get_sessionmaker", return_value=mock_sessionmaker), \
-         patch("pit_panel.core.caddy.CaddyManager") as mock_caddy_cls, \
-         patch("pit_panel.config.Settings.effective_domain", ""): # Force no effective domain
-
+    with (
+        patch("pit_panel.web.app.init_db", new_callable=AsyncMock),
+        patch("pit_panel.web.app.get_sessionmaker", return_value=mock_sessionmaker),
+        patch("pit_panel.core.caddy.CaddyManager") as mock_caddy_cls,
+        patch("pit_panel.config.Settings.effective_domain", ""),
+    ):  # Force no effective domain
         async with lifespan(app):
             pass
 
@@ -111,9 +116,10 @@ async def test_internal_lifespan_creates_cancels_task():
     mock_task = asyncio.Future()
     mock_task.cancel = MagicMock()
 
-    with patch("asyncio.create_task", return_value=mock_task) as mock_create, \
-         patch("pit_panel.core.blocklist.daily_blocklist_import", new_callable=MagicMock):
-
+    with (
+        patch("asyncio.create_task", return_value=mock_task) as mock_create,
+        patch("pit_panel.core.blocklist.daily_blocklist_import", new_callable=MagicMock),
+    ):
         async with _lifespan(app):
             mock_create.assert_called_once()
             mock_task.cancel.assert_not_called()
