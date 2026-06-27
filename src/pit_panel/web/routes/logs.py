@@ -66,7 +66,7 @@ async def _read_journal_async(n: int) -> str:
         )
         try:
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             process.kill()
             await process.wait()
             raise
@@ -91,7 +91,7 @@ async def _read_journal_async(n: int) -> str:
         )
         try:
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             process.kill()
             await process.wait()
             raise
