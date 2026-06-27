@@ -1,3 +1,6 @@
 ## 2024-05-24 - Alpine Dependencies in Standalone Pages
 **Learning:** Standalone auth pages (like `login.html` and `setup_2fa.html`) do not inherit from the global `base.html` layout. Therefore, when introducing new interactive UI elements (like a password visibility toggle using Alpine.js), you must explicitly include the Alpine library `<script>` tag and necessary structural styles (like `[x-cloak]`) in the page's `<head>` to prevent raw content flashes and ensure interactivity works as expected.
 **Action:** When adding Alpine-driven components to standalone entry points in this app, always verify that the page either extends a base layout with the required dependencies or includes them explicitly.
+## 2024-06-27 - Refactor FastAPI Routes with Large Form Signatures
+**Learning:** FastAPI endpoints that take numerous individual `Form()` parameters are difficult to maintain and read. Furthermore, inline sub-process calls inside async route handlers can be problematic.
+**Action:** Encapsulate large form inputs using a `@dataclass` equipped with a `@classmethod def as_form(...)` for use with `Depends()`. When interacting with subprocesses like systemctl in async context, extract them to a dedicated manager and use `asyncio.create_subprocess_exec` instead of blocking `subprocess.run`.
