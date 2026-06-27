@@ -4,3 +4,6 @@
 ## 2024-06-27 - Refactor FastAPI Routes with Large Form Signatures
 **Learning:** FastAPI endpoints that take numerous individual `Form()` parameters are difficult to maintain and read. Furthermore, inline sub-process calls inside async route handlers can be problematic.
 **Action:** Encapsulate large form inputs using a `@dataclass` equipped with a `@classmethod def as_form(...)` for use with `Depends()`. When interacting with subprocesses like systemctl in async context, extract them to a dedicated manager and use `asyncio.create_subprocess_exec` instead of blocking `subprocess.run`.
+## 2026-06-27 - HTMX Async Loading States
+**Learning:** HTMX async loading states can feel unresponsive without a visual indicator. Adding simple SVG spinners improves the perceived performance significantly.
+**Action:** When creating or modifying HTMX-powered components with async loading, always add a visual loading indicator (like an SVG spinner) to improve the perceived performance.
