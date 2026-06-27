@@ -3,7 +3,7 @@ import datetime
 import io
 
 import qrcode
-from fastapi import Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,8 +22,10 @@ from pit_panel.web.auth import (
     unsign_session_token,
 )
 from pit_panel.web.deps import get_user
+from pit_panel.web.limiter import limiter
 from pit_panel.web.render import render
-from pit_panel.web.router import router
+
+router = APIRouter()
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -35,7 +37,7 @@ async def login_page(request: Request) -> Response:
 
 
 @router.post("/login", response_class=HTMLResponse)
-@router.state.limiter.limit("5/minute")  # type: ignore
+@limiter.limit("5/minute")  # type: ignore
 async def login_post(
     request: Request,
     username: str = Form(...),

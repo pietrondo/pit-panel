@@ -7,14 +7,12 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from pit_panel.config import Settings, init_settings
 from pit_panel.db.session import get_sessionmaker, init_db
 from pit_panel.security.ipban import is_ip_banned
-from pit_panel.web.router import router
+from pit_panel.web.limiter import limiter
 
 
 @asynccontextmanager
@@ -57,9 +55,6 @@ async def _security_headers_middleware(request: Request, call_next):
             "max-age=63072000; includeSubDomains; preload"
         )
     return response
-
-
-limiter = Limiter(key_func=get_remote_address)
 
 
 @contextlib.asynccontextmanager
@@ -117,24 +112,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-    router.state = app.state
-    router.state.limiter = limiter
-
-    from pit_panel.web.routes import (  # noqa: E402,F401
-        apps,
-        auth_routes,
-        containers,
-        dashboard,
-        debug,
-        logs,
-        security,
-        settings,
-        ssl,
-        subdomains,
-        system,
+    from pit_panel.web.routes import (
+        apps_router,
+        auth_router,
+        containers_router,
+        dashboard_router,
+        debug_router,
+        logs_router,
+        security_router,
+        settings_router,
+        ssl_router,
+        subdomains_router,
+        system_router,
     )
 
-    app.include_router(router)
+    app.include_router(apps_router)
+    app.include_router(auth_router)
+    app.include_router(containers_router)
+    app.include_router(dashboard_router)
+    app.include_router(debug_router)
+    app.include_router(logs_router)
+    app.include_router(security_router)
+    app.include_router(settings_router)
+    app.include_router(ssl_router)
+    app.include_router(subdomains_router)
+    app.include_router(system_router)
 
     @app.get("/health")
     async def health():
