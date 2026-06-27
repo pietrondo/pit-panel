@@ -95,19 +95,24 @@ async def logs_page(
     app_log = await _read_log(APP_LOG)
     journal = await _read_journal()
 
-    return render(
+    response = render(
         "logs.html",
         user=user,
         app_log=app_log,
         journal=journal,
     )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
 
 
 @router.get("/logs/journal", response_class=HTMLResponse)
 async def journal_partial(request: Request) -> HTMLResponse:
     journal = await _read_journal()
     escaped = html.escape(journal)
-    pre = '<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">'
+    pre = (
+        '<pre id="journal-box" '
+        'class="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">'
+    )
     return HTMLResponse(f"{pre}{escaped}</pre>")
 
 
@@ -115,5 +120,8 @@ async def journal_partial(request: Request) -> HTMLResponse:
 async def applog_partial(request: Request) -> HTMLResponse:
     app_log = await _read_log(APP_LOG)
     escaped = html.escape(app_log)
-    pre = '<pre class="text-xs font-mono text-green-400 whitespace-pre-wrap">'
+    pre = (
+        '<pre id="applog-box" '
+        'class="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">'
+    )
     return HTMLResponse(f"{pre}{escaped}</pre>")

@@ -277,3 +277,57 @@ class CaddyManager:
             resp = await client.delete(f"{self.admin_url}/id/{route_id}")
             resp.raise_for_status()
             return resp.json() if resp.text else {}
+
+    async def generate_and_reload(
+        self, caddyfile_content: str, caddyfile_path: str = "/etc/caddy/Caddyfile"
+    ) -> str:
+        import asyncio
+        from pathlib import Path
+
+        try:
+            Path(caddyfile_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(caddyfile_path).write_text(caddyfile_content)
+            process = await asyncio.create_subprocess_exec(
+                "sudo",
+                "-n",
+                "systemctl",
+                "reload",
+                "caddy",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+            if process.returncode == 0:
+                return "Config loaded. Caddy will provision SSL certificates now."
+            else:
+                err = stderr.decode().strip()[:500]
+                return f"Caddy reload failed: {err}"
+        except PermissionError:
+            return "Cannot write Caddyfile — permission denied."
+        except Exception as e:
+            return f"Caddy config error: {e}"
+
+    def save_api_token(
+        self, api_var: str, api_token: str, env_path_str: str = "/etc/caddy/.env"
+    ) -> str:
+        from pathlib import Path
+
+        try:
+            safe_api_var = (
+                api_var.replace("\n", "").replace("\r", "").replace('"', "").replace("'", "")
+            )
+            safe_api_token = (
+                api_token.replace("\n", "").replace("\r", "").replace('"', "").replace("'", "")
+            )
+
+            env_path = Path(env_path_str)
+            env_line = f"{safe_api_var}={safe_api_token}\n"
+            if env_path.exists():
+                content = env_path.read_text()
+                if safe_api_var not in content:
+                    env_path.write_text(content + env_line)
+            else:
+                env_path.write_text(env_line)
+            return " API token saved."
+        except (PermissionError, OSError):
+            return " (API token not saved — set manually in /etc/caddy/.env)"

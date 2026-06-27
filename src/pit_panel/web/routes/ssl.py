@@ -95,6 +95,38 @@ class CaddyfileConfig:
     eab_hmac: str = ""
 
 
+@dataclass
+class SSLGenerateForm:
+    email: str = Form("admin@localhost")
+    acme_provider: str = Form("letsencrypt")
+    dns_provider: str = Form("")
+    api_var: str = Form("CF_API_TOKEN")
+    api_token: str = Form("")
+    eab_key_id: str = Form("")
+    eab_hmac: str = Form("")
+
+    @classmethod
+    def as_form(
+        cls,
+        email: str = Form("admin@localhost"),
+        acme_provider: str = Form("letsencrypt"),
+        dns_provider: str = Form(""),
+        api_var: str = Form("CF_API_TOKEN"),
+        api_token: str = Form(""),
+        eab_key_id: str = Form(""),
+        eab_hmac: str = Form(""),
+    ) -> "SSLGenerateForm":
+        return cls(
+            email=email,
+            acme_provider=acme_provider,
+            dns_provider=dns_provider,
+            api_var=api_var,
+            api_token=api_token,
+            eab_key_id=eab_key_id,
+            eab_hmac=eab_hmac,
+        )
+
+
 def _generate_caddyfile(config: CaddyfileConfig) -> str:
     email = _sanitize(config.email)
     domain = _sanitize(config.domain)
@@ -201,13 +233,7 @@ async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)):
 @router.post("/ssl/generate", response_class=HTMLResponse)
 async def ssl_generate(
     request: Request,
-    email: str = Form("admin@localhost"),
-    acme_provider: str = Form("letsencrypt"),
-    dns_provider: str = Form(""),
-    api_var: str = Form("CF_API_TOKEN"),
-    api_token: str = Form(""),
-    eab_key_id: str = Form(""),
-    eab_hmac: str = Form(""),
+    form: SSLGenerateForm = Depends(SSLGenerateForm.as_form),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_admin(request, db)
@@ -219,63 +245,23 @@ async def ssl_generate(
     panel_sub = settings.panel_subdomain
 
     caddy_config = CaddyfileConfig(
-        email=email,
+        email=form.email,
         domain=domain,
         panel_sub=panel_sub,
-        dns_provider=dns_provider,
-        api_var=api_var,
-        acme_provider=acme_provider,
-        eab_key_id=eab_key_id,
-        eab_hmac=eab_hmac,
+        dns_provider=form.dns_provider,
+        api_var=form.api_var,
+        acme_provider=form.acme_provider,
+        eab_key_id=form.eab_key_id,
+        eab_hmac=form.eab_hmac,
     )
     caddyfile = _generate_caddyfile(caddy_config)
 
-    result_msg = ""
-
-    # Write Caddyfile directly and reload (avoids caddy adapt formatting issues)
-    try:
-        Path(CADDYFILE_PATH).parent.mkdir(parents=True, exist_ok=True)
-        Path(CADDYFILE_PATH).write_text(caddyfile)
-        reload_result = subprocess.run(
-            ["sudo", "-n", "systemctl", "reload", "caddy"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if reload_result.returncode == 0:
-            result_msg = "Config loaded. Caddy will provision SSL certificates now."
-        else:
-            err = reload_result.stderr.strip()[:500]
-            result_msg = f"Caddy reload failed: {err}"
-    except PermissionError:
-        result_msg = "Cannot write Caddyfile — permission denied."
-    except Exception as e:
-        result_msg = f"Caddy config error: {e}"
-
-    # Store API token for DNS-01 providers (Caddy reads from env)
-    if api_token and dns_provider:
-        try:
-            # Sanitize api_var and api_token to prevent escaping
-            safe_api_var = (
-                api_var.replace("\n", "").replace("\r", "").replace('"', "").replace("'", "")
-            )
-            safe_api_token = (
-                api_token.replace("\n", "").replace("\r", "").replace('"', "").replace("'", "")
-            )
-
-            env_path = Path("/etc/caddy/.env")
-            env_line = f"{safe_api_var}={safe_api_token}\n"
-            if env_path.exists():
-                content = env_path.read_text()
-                if safe_api_var not in content:
-                    env_path.write_text(content + env_line)
-            else:
-                env_path.write_text(env_line)
-            result_msg += " API token saved."
-        except (PermissionError, OSError):
-            result_msg += " (API token not saved — set manually in /etc/caddy/.env)"
-
     caddy = CaddyManager(settings.caddy_admin_url)
+    result_msg = await caddy.generate_and_reload(caddyfile, CADDYFILE_PATH)
+
+    if form.api_token and form.dns_provider:
+        result_msg += caddy.save_api_token(form.api_var, form.api_token)
+
     certs = await caddy.get_certificates()
 
     return render(

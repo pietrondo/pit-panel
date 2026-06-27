@@ -66,6 +66,50 @@ class TestUnauthenticated:
 
 
 class TestSecurityHeaders:
+    def test_app_detail_main_domain_display(self, client, monkeypatch):
+        from pit_panel.config import Settings
+        from pit_panel.db.session import get_db
+
+        settings = Settings(secret_key="test", base_domain="example.com")
+        monkeypatch.setattr("pit_panel.web.routes.apps.get_settings", lambda: settings)
+
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.apps.get_user", mock_get_user)
+
+        class MockSD:
+            id = 1
+            subdomain = "_main_"
+            base_domain = "example.com"
+            is_main_domain = True
+            app_type = "static-nginx"
+            last_deployed = None
+
+        class MockResult:
+            def scalar_one_or_none(self):
+                return MockSD()
+
+        class MockSession:
+            async def execute(self, *args, **kwargs):
+                return MockResult()
+
+            async def close(self):
+                pass
+
+        async def override_get_db():
+            yield MockSession()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        try:
+            resp = client.get("/apps/1", follow_redirects=False)
+            assert resp.status_code == 200
+            assert "example.com" in resp.text
+            assert "Main Domain" in resp.text
+        finally:
+            client.app.dependency_overrides.clear()
+
     def test_security_headers_on_login(self, client):
         resp = client.get("/login")
         assert resp.headers["x-content-type-options"] == "nosniff"
@@ -444,6 +488,67 @@ class TestMainDomain:
         finally:
             client.app.dependency_overrides.clear()
 
+    def test_main_domain_delete_calls_remove_main_domain(self, client, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        from pit_panel.config import Settings
+        from pit_panel.db.session import get_db
+
+        settings = Settings(secret_key="test-secret-key-32chars!!", base_domain="example.com")
+        monkeypatch.setattr("pit_panel.web.routes.apps.get_settings", lambda: settings)
+
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.apps.get_user", mock_get_user)
+
+        mock_remove = AsyncMock(return_value={})
+        monkeypatch.setattr("pit_panel.core.caddy.CaddyManager.remove_main_domain", mock_remove)
+
+        monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.compose_down", AsyncMock())
+
+        class MockSD:
+            id = 1
+            subdomain = "_main_"
+            base_domain = "example.com"
+            is_main_domain = True
+            app_type = "static-nginx"
+
+        class MockResult:
+            def scalar_one_or_none(self):
+                return MockSD()
+
+            def scalars(self):
+                return self
+
+            def all(self):
+                return []
+
+        class MockSession:
+            async def execute(self, *args, **kwargs):
+                return MockResult()
+
+            async def commit(self):
+                pass
+
+            async def close(self):
+                pass
+
+            def add(self, obj):
+                pass
+
+        async def override_get_db():
+            yield MockSession()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        try:
+            resp = client.post("/apps/1/delete", follow_redirects=False)
+            assert resp.status_code == 302
+            mock_remove.assert_called_once_with("example.com")
+        finally:
+            client.app.dependency_overrides.clear()
+
 
 class TestContainersRoute:
     def test_containers_list_authenticated_with_data(self, client, monkeypatch):
@@ -507,3 +612,113 @@ class TestContainersRoute:
         resp = client.get("/containers", follow_redirects=False)
         assert resp.status_code == 302
         assert resp.headers["location"] == "/login"
+
+
+class TestSubdomainFiltering:
+    def test_subdomains_list_excludes_main_domain(self, client, monkeypatch):
+        from pit_panel.db.session import get_db
+
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.subdomains.get_user", mock_get_user)
+
+        queried = []
+
+        class MockResult:
+            def scalars(self):
+                return self
+
+            def all(self):
+                return []
+
+        class MockSession:
+            async def execute(self, query, **kwargs):
+                queried.append(str(query))
+                return MockResult()
+
+        async def override_get_db():
+            yield MockSession()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        try:
+            resp = client.get("/subdomains", follow_redirects=False)
+            assert resp.status_code == 200
+            assert any("is_main_domain" in q for q in queried), (
+                f"Expected is_main_domain filter in query, got: {queried}"
+            )
+        finally:
+            client.app.dependency_overrides.clear()
+
+    def test_subdomain_edit_blocks_main_domain(self, client, monkeypatch):
+        from pit_panel.db.session import get_db
+
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.subdomains.get_user", mock_get_user)
+
+        class MockSD:
+            id = 1
+            subdomain = "_main_"
+            base_domain = "example.com"
+            is_main_domain = True
+
+        class MockResult:
+            def scalar_one_or_none(self):
+                return MockSD()
+
+        class MockSession:
+            async def execute(self, *args, **kwargs):
+                return MockResult()
+
+        async def override_get_db():
+            yield MockSession()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        try:
+            resp = client.post(
+                "/subdomains/1/edit",
+                data={"subdomain": "_main_", "app_type": "none"},
+                follow_redirects=False,
+            )
+            assert resp.status_code == 302
+            assert resp.headers["location"] == "/subdomains"
+        finally:
+            client.app.dependency_overrides.clear()
+
+    def test_subdomain_delete_blocks_main_domain(self, client, monkeypatch):
+        from pit_panel.db.session import get_db
+
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.subdomains.get_user", mock_get_user)
+
+        class MockSD:
+            id = 1
+            subdomain = "_main_"
+            base_domain = "example.com"
+            is_main_domain = True
+
+        class MockResult:
+            def scalar_one_or_none(self):
+                return MockSD()
+
+        class MockSession:
+            async def execute(self, *args, **kwargs):
+                return MockResult()
+
+        async def override_get_db():
+            yield MockSession()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        try:
+            resp = client.post("/subdomains/1/delete", follow_redirects=False)
+            assert resp.status_code == 302
+            assert resp.headers["location"] == "/subdomains"
+        finally:
+            client.app.dependency_overrides.clear()

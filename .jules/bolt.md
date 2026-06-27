@@ -17,3 +17,6 @@
 ## 2024-05-18 - Optimized Settings Hydration & Blocklist Fetch
 **Learning:** We observed that querying all configurations to filter manually during FastAPI startup/request lifecycle introduces unnecessary overhead and latency when only a subset of keys (`base_domain`, `panel_subdomain`, `host`) is required. Additionally, repetitive network requests for the same blocklist URLs across multiple app components block threads, causing massive latency. By caching network requests for the blocklist and querying for the keys needed, we prevent excessive hydration and request duplication.
 **Action:** Use a `where(key.in_(...))` query and `__dict__.update()` for batch updating settings object from the database result. In the case of retrieving blocklists, employ a time-to-live caching mechanism `_BLOCKLIST_CACHE` to avoid repeated and expensive network hits during blocklist syncing.
+## 2024-06-27 - Test Improvement: Logs Route Partials
+**Learning:** Adding test coverage for basic HTML response routes requires testing both the response generation and potential side effects or required mocks for the system endpoints.
+**Action:** Always ensure that simple UI components are correctly tested and mock side-effects correctly (like log reading commands).
