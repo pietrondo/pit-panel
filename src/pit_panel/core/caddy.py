@@ -215,8 +215,12 @@ class CaddyManager:
                     })
                 except Exception as e:
                     logger.warning(f"Failed to parse certificate metadata: {e}")
-            if not certs and dir_path.is_dir():
-                certs = self._scan_via_openssl_client(certs_dir)
+            if not certs:
+                try:
+                    if dir_path.is_dir():
+                        certs = self._scan_via_openssl_client(certs_dir)
+                except PermissionError:
+                    pass
             if certs:
                 break
         return certs
