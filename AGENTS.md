@@ -32,6 +32,14 @@
 - Data at `/var/lib/pit-panel/`
 - Apps at `/opt/pit-panel/apps/<subdomain>/`
 
+## Debug API (token-protected)
+
+- `GET /api/debug/logs?lines=50&priority=info|error|warning` — journal logs
+- `GET /api/debug/certs` — certificati Caddy
+- `GET /api/debug/system` — info sistema
+- Richiede header `X-Debug-Token: <token>`
+- Token letto da `/etc/pit-panel/debug_token` (creato manualmente sul server, NON in git)
+
 ## Testing
 - `uv run pytest` for all tests
 - Integration tests use testcontainers

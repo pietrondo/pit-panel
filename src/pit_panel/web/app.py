@@ -117,6 +117,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         auth_router,
         containers_router,
         dashboard_router,
+        debug_api_router,
         debug_router,
         logs_router,
         security_router,
@@ -131,6 +132,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(containers_router)
     app.include_router(dashboard_router)
     app.include_router(debug_router)
+    app.include_router(debug_api_router)
     app.include_router(logs_router)
     app.include_router(security_router)
     app.include_router(settings_router)

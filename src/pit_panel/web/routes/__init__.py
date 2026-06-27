@@ -3,6 +3,7 @@ from .auth_routes import router as auth_router
 from .containers import router as containers_router
 from .dashboard import router as dashboard_router
 from .debug import router as debug_router
+from .debug_api import router as debug_api_router
 from .logs import router as logs_router
 from .security import router as security_router
 from .settings import router as settings_router
@@ -16,6 +17,7 @@ __all__ = [
     "containers_router",
     "dashboard_router",
     "debug_router",
+    "debug_api_router",
     "logs_router",
     "security_router",
     "settings_router",
