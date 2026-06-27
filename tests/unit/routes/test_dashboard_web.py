@@ -1,16 +1,20 @@
-import pytest
-from httpx import AsyncClient, ASGITransport
-from pit_panel.web.routes.dashboard import router
-from pit_panel.config import Settings, init_settings
-from pit_panel.web.app import create_app
-from pit_panel.db.models import User, Subdomain, Base
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from pit_panel.db.session import get_db
 import pathlib
-from typing import AsyncGenerator, Any, Sequence
+from collections.abc import AsyncGenerator, Sequence
+from typing import Any
+
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from pit_panel.config import Settings, init_settings
+from pit_panel.db.models import Base, Subdomain, User
+from pit_panel.web.app import create_app
+
 
 @pytest.fixture
-async def async_client(monkeypatch: Any, tmp_path: pathlib.Path) -> AsyncGenerator[AsyncClient, None]:
+async def async_client(
+    monkeypatch: Any, tmp_path: pathlib.Path
+) -> AsyncGenerator[AsyncClient, None]:
     db_path = tmp_path / "test.db"
     s = Settings(
         secret_key="test-secret-key-32chars!!",
@@ -57,7 +61,9 @@ async def test_dashboard_authenticated(async_client: AsyncClient, monkeypatch: A
     assert "admin" in resp.text
 
 @pytest.mark.asyncio
-async def test_dashboard_authenticated_with_data(async_client: AsyncClient, monkeypatch: Any) -> None:
+async def test_dashboard_authenticated_with_data(
+    async_client: AsyncClient, monkeypatch: Any
+) -> None:
     mock_user = User(id=1, username="admin")
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -70,7 +76,9 @@ async def test_dashboard_authenticated_with_data(async_client: AsyncClient, monk
     if sessionmaker is not None:
         async with sessionmaker() as db:
             sd1 = Subdomain(subdomain="test1", base_domain="example.com", owner_user_id=1)
-            sd2 = Subdomain(subdomain="test2", base_domain="example.com", owner_user_id=1, app_type="wordpress")
+            sd2 = Subdomain(
+                subdomain="test2", base_domain="example.com", owner_user_id=1, app_type="wordpress"
+            )
             db.add_all([sd1, sd2])
             await db.commit()
 

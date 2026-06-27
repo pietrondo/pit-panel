@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -751,8 +753,8 @@ class TestSubdomainFiltering:
     def test_run_success(self):
         from pit_panel.web.routes.debug import _run
 
-        result = _run(["echo", "hello"])
-        assert result == "hello"
+        result = _run([sys.executable, "-c", "print('hello')"])
+        assert result.strip() == "hello"
 
     def test_run_empty_output(self, monkeypatch):
         import subprocess

@@ -104,8 +104,8 @@ class TestSettings:
 
         s.ensure_paths()
 
-        assert "/fake/data" in called_paths
-        assert "/fake/apps" in called_paths
+        assert Path("/fake/data") in [Path(p) for p in called_paths]
+        assert Path("/fake/apps") in [Path(p) for p in called_paths]
         assert len(called_paths) == 2
 
     def test_effective_domain_explicit(self):
