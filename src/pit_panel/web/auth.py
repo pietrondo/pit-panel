@@ -13,6 +13,12 @@ SESSION_COOKIE = "pitpanel_session"
 
 
 def get_serializer(settings: Settings) -> URLSafeTimedSerializer:
+    """
+    Creates and returns a URLSafeTimedSerializer using the application settings.
+
+    This serializer is used for securely signing and unsigning session tokens
+    to prevent tampering and verify expiration.
+    """
     return URLSafeTimedSerializer(
         settings.secret_key,
         salt="pitpanel-session",
@@ -22,6 +28,12 @@ def get_serializer(settings: Settings) -> URLSafeTimedSerializer:
 def create_session_token(
     settings: Settings, user_id: int, session_id: int, raw: str | None = None
 ) -> tuple[str, str]:
+    """
+    Generates a new raw session token and its signed counterpart.
+
+    The signed token encodes the user ID, session ID, and a hash of the raw token.
+    This ensures that the token is bound to a specific session and user.
+    """
     serializer = get_serializer(settings)
     if raw is None:
         raw = secrets.token_urlsafe(64)

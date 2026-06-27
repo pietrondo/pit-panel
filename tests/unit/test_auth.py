@@ -40,10 +40,24 @@ class TestSessionAuth:
         with pytest.raises(BadSignature):
             different_serializer.loads(signed_data)
 
+    def test_get_serializer_returns_new_instance(self, settings):
+        from pit_panel.web.auth import get_serializer
+
+        serializer1 = get_serializer(settings)
+        serializer2 = get_serializer(settings)
+
+        # Ensure it returns independent instances
+        assert serializer1 is not serializer2
+
+        # Verify it uses the correct salt and secret
+        assert serializer1.salt == b"pitpanel-session" or serializer1.salt == "pitpanel-session"
+        assert serializer1.secret_key == settings.secret_key or serializer1.secret_key == settings.secret_key.encode()
+
     def test_get_serializer_empty_secret(self, settings):
         from itsdangerous import URLSafeTimedSerializer
 
         from pit_panel.web.auth import get_serializer
+
         settings.secret_key = ""
         serializer = get_serializer(settings)
         assert isinstance(serializer, URLSafeTimedSerializer)
