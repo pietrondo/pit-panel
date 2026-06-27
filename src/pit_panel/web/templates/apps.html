@@ -27,6 +27,31 @@
 </div>
 {% endif %}
 
+<!-- Deploy from GitHub -->
+<div class="card mb-8">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy from GitHub</h2>
+    </div>
+    <div class="p-6">
+        <div class="flex gap-3">
+            <input type="url" name="repo_url" id="repo-url" placeholder="https://github.com/user/repo"
+                   class="input flex-1" required>
+            <button class="btn-ghost text-indigo-700 dark:text-indigo-400"
+                    hx-post="/apps/analyze-repo"
+                    hx-include="[name='repo_url']"
+                    hx-target="#repo-result"
+                    hx-indicator="#repo-spinner">
+                Analyze
+            </button>
+            <span id="repo-spinner" class="htmx-indicator self-center">
+                <span class="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
+            </span>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">Inserisci URL GitHub per analisi automatica dello stack e deploy一键</p>
+        <div id="repo-result" class="mt-4"></div>
+    </div>
+</div>
+
 <!-- Template Cards -->
 <div class="mb-8">
     <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
