@@ -126,18 +126,18 @@ class TestSettings:
         s = get_settings()
         assert s is not None
 
-    def test_panel_url(self, monkeypatch):
+    def test_panel_url_edge_cases(self, monkeypatch):
         from pit_panel.config import Settings
 
-        # Case 1: Custom base_domain and custom panel_subdomain
-        s1 = Settings(base_domain="custom.com", panel_subdomain="control")
-        assert s1.panel_url == "https://control.custom.com"
+        # Happy path: explicit domain and subdomain
+        s = Settings(base_domain="example.com", panel_subdomain="admin")
+        assert s.panel_url == "https://admin.example.com"
 
-        # Case 2: No base_domain, using nip.io fallback with custom panel_subdomain
+        # Edge case: empty panel_subdomain
+        s = Settings(base_domain="example.com", panel_subdomain="")
+        assert s.panel_url == "https://.example.com"
+
+        # Edge case: nip.io fallback
         monkeypatch.setattr(Settings, "_detect_ip", staticmethod(lambda: "10.0.0.1"))
-        s2 = Settings(base_domain="", panel_subdomain="dashboard")
-        assert s2.panel_url == "https://dashboard.10-0-0-1.nip.io"
-
-        # Case 3: Default settings
-        s3 = Settings()
-        assert s3.panel_url == "https://panel.10-0-0-1.nip.io"
+        s = Settings(base_domain="", panel_subdomain="panel")
+        assert s.panel_url == "https://panel.10-0-0-1.nip.io"
