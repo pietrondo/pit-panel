@@ -745,8 +745,8 @@ async def app_wp_flush_cache(request: Request, sd_id: int, db: AsyncSession = De
         err = str(e)
         return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {err}</span>")
 
-    return HTMLResponse(
-        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Cache flushed successfully!</span>"
+    return HTMLResponse(  # noqa: E501
+        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Cache flushed successfully!</span>"  # noqa: E501
     )
 
 
@@ -790,8 +790,8 @@ async def app_wp_update_plugins(request: Request, sd_id: int, db: AsyncSession =
         err = str(e)
         return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {err}</span>")
 
-    return HTMLResponse(
-        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Plugins updated successfully!</span>"
+    return HTMLResponse(  # noqa: E501
+        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Plugins updated successfully!</span>"  # noqa: E501
     )
 
 
@@ -834,6 +834,6 @@ async def app_wp_update_core(request: Request, sd_id: int, db: AsyncSession = De
         err = str(e)
         return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {err}</span>")
 
-    return HTMLResponse(
-        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Core updated successfully!</span>"
+    return HTMLResponse(  # noqa: E501
+        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Core updated successfully!</span>"  # noqa: E501
     )

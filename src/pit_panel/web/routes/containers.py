@@ -55,8 +55,8 @@ async def containers_fragment(request: Request, db: AsyncSession = Depends(get_d
         else:
             orphan_containers.append(c)
 
-    return HTMLResponse(
-        '<div id="containers-list-wrapper" hx-get="/containers/fragment" hx-trigger="every 15s" hx-swap="outerHTML">'
+    return HTMLResponse(  # noqa: E501
+        '<div id="containers-list-wrapper" hx-get="/containers/fragment" hx-trigger="every 15s" hx-swap="outerHTML">'  # noqa: E501
         + render(
             "tabs/_containers_list.html",
             request=request,
