@@ -722,3 +722,64 @@ class TestSubdomainFiltering:
             assert resp.headers["location"] == "/subdomains"
         finally:
             client.app.dependency_overrides.clear()
+
+    def test_run_success(self):
+        from pit_panel.web.routes.debug import _run
+
+        result = _run(["echo", "hello"])
+        assert result == "hello"
+
+    def test_run_empty_output(self, monkeypatch):
+        import subprocess
+
+        from pit_panel.web.routes.debug import _run
+
+        class MockResult:
+            stdout = ""
+            stderr = ""
+
+        def mock_run(*args, **kwargs):
+            return MockResult()
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        result = _run(["echo"])
+        assert result == "(empty)"
+
+    def test_run_exception(self, monkeypatch):
+        import subprocess
+
+        from pit_panel.web.routes.debug import _run
+
+        def mock_run(*args, **kwargs):
+            raise Exception("subprocess failed")
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        result = _run(["git", "init"])
+        assert result == "ERROR: subprocess failed"
+
+    def test_file_checksum_success(self):
+        import os
+        import tempfile
+
+        from pit_panel.web.routes.debug import _file_checksum
+
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.write(b"hello")
+            temp_name = f.name
+        try:
+            result = _file_checksum(temp_name)
+            assert result == "2cf24dba5fb0a30e"  # sha256("hello")[:16]
+        finally:
+            os.remove(temp_name)
+
+    def test_file_checksum_exception(self, monkeypatch):
+        import builtins
+
+        from pit_panel.web.routes.debug import _file_checksum
+
+        def mock_open(*args, **kwargs):
+            raise Exception("file not found")
+
+        monkeypatch.setattr(builtins, "open", mock_open)
+        result = _file_checksum("/nonexistent")
+        assert result == "file not found"

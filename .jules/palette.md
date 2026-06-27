@@ -4,3 +4,7 @@
 ## 2024-06-27 - Refactor FastAPI Routes with Large Form Signatures
 **Learning:** FastAPI endpoints that take numerous individual `Form()` parameters are difficult to maintain and read. Furthermore, inline sub-process calls inside async route handlers can be problematic.
 **Action:** Encapsulate large form inputs using a `@dataclass` equipped with a `@classmethod def as_form(...)` for use with `Depends()`. When interacting with subprocesses like systemctl in async context, extract them to a dedicated manager and use `asyncio.create_subprocess_exec` instead of blocking `subprocess.run`.
+
+## 2023-11-20 - Ensure Subprocess Call Wrappers Are Fully Tested
+**Learning:** Utility functions that wrap native modules like `subprocess.run` often lack proper testing, reducing the reliability of debug/diagnostic endpoints. Ensure mock implementations return appropriate stand-in objects and handle exception paths gracefully.
+**Action:** When adding tests for simple wrappers, create isolated mock paths for both standard behavior (e.g., successful process execution, empty stdouts) and error scenarios (e.g., exceptions raised inside the try-block). Always aim for 100% test coverage on these small utility files to prevent masking system-level faults.
