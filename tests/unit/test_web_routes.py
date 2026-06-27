@@ -193,16 +193,37 @@ class TestSecurityRoutes:
 
             def request(self, method, url, *a, **kw):
                 self.url = url
+                self.headers = kw.get("headers", {})
 
             def getresponse(self):
                 return MockResponse()
 
         monkeypatch.setattr("http.client.HTTPSConnection", MockConnection)
 
-        malicious_ip = "127.0.0.1\r\nInjected-Header: true"
-        result = await _abuseipdb_check(malicious_ip, "fake_key")
+        # Keep a reference to the latest created connection
+        created_connection = None
+        original_init = MockConnection.__init__
 
-        assert result["ip"] == malicious_ip
+        def capturing_init(self, *a, **kw):
+            nonlocal created_connection
+            original_init(self, *a, **kw)
+            created_connection = self
+
+        MockConnection.__init__ = capturing_init
+
+        malicious_ip = "127.0.0.1\r\nInjected-Header: true"
+        malicious_key = "fake_key\r\nEvil: true"
+        result = await _abuseipdb_check(malicious_ip, malicious_key)
+
+        assert "\r" not in created_connection.url
+        assert "\n" not in created_connection.url
+        assert "127.0.0.1Injected-Header: true" in created_connection.url
+
+        assert "\r" not in created_connection.headers.get("Key", "")
+        assert "\n" not in created_connection.headers.get("Key", "")
+        assert created_connection.headers.get("Key") == "fake_keyEvil: true"
+
+        assert result["ip"] == "127.0.0.1Injected-Header: true"
         assert result["score"] == 0
 
     def test_security_overview_authenticated(self, client, monkeypatch):
