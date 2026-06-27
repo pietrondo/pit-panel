@@ -20,6 +20,10 @@
 - `%Z` in `strptime` fallisce con timezone testuali (GMT, UTC, etc.)
 - **Fix**: strip ultima parola (timezone) prima del parsing: `" ".join(not_after.rsplit(None, 1)[:-1])` + formato `%b %d %H:%M:%S %Y`
 
+## Always use Context7 MCP
+- Per QUALSIASI dubbio su librerie, framework, API, CLI tools: chiama `context7_resolve-library-id` + `context7_query-docs` PRIMA di scrivere codice.
+- Non fidarti dei dati di training — le API cambiano. Context7 ha docs live.
+
 ## Conventions
 - Use `uv` for all Python operations
 - Async SQLAlchemy throughout
