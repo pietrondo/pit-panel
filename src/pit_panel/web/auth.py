@@ -61,18 +61,15 @@ async def validate_session(
     session_id = data.get("sid")
 
     result = await db_session.execute(
-        select(DBSession).where(
+        select(User)
+        .join(DBSession, User.id == DBSession.user_id)
+        .where(
             DBSession.id == session_id,
             DBSession.token_hash == token_hash,
             DBSession.user_id == user_id,
             DBSession.expires_at > datetime.datetime.now(datetime.UTC),
         )
     )
-    db_sess = result.scalar_one_or_none()
-    if db_sess is None:
-        return None
-
-    result = await db_session.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
 
 

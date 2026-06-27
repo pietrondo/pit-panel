@@ -20,3 +20,6 @@
 ## 2024-06-27 - Test Improvement: Logs Route Partials
 **Learning:** Adding test coverage for basic HTML response routes requires testing both the response generation and potential side effects or required mocks for the system endpoints.
 **Action:** Always ensure that simple UI components are correctly tested and mock side-effects correctly (like log reading commands).
+## 2025-02-18 - Optimize Session Validation Query
+**Learning:** Found an unoptimized sequence of queries in `validate_session` where it fetched the `Session` model first, and then conditionally fetched the associated `User` model via a second query. This sequential fetching increases database network latency.
+**Action:** Always combine dependent entity fetches into a single query using SQLAlchemy's `join()` when the primary purpose is to retrieve the related entity and the foreign key relationship is well-defined. By doing a single `select(User).join(Session, ...)`, we reduce network round-trips and improve authentication performance.
