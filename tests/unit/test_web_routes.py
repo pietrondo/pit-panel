@@ -503,13 +503,9 @@ class TestMainDomain:
         monkeypatch.setattr("pit_panel.web.routes.apps.get_user", mock_get_user)
 
         mock_remove = AsyncMock(return_value={})
-        monkeypatch.setattr(
-            "pit_panel.core.caddy.CaddyManager.remove_main_domain", mock_remove
-        )
+        monkeypatch.setattr("pit_panel.core.caddy.CaddyManager.remove_main_domain", mock_remove)
 
-        monkeypatch.setattr(
-            "pit_panel.core.docker_ops.DockerManager.compose_down", AsyncMock()
-        )
+        monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.compose_down", AsyncMock())
 
         class MockSD:
             id = 1
@@ -683,9 +679,11 @@ class TestSubdomainFiltering:
         client.app.dependency_overrides[get_db] = override_get_db
 
         try:
-            resp = client.post("/subdomains/1/edit", data={
-                "subdomain": "_main_", "app_type": "none"
-            }, follow_redirects=False)
+            resp = client.post(
+                "/subdomains/1/edit",
+                data={"subdomain": "_main_", "app_type": "none"},
+                follow_redirects=False,
+            )
             assert resp.status_code == 302
             assert resp.headers["location"] == "/subdomains"
         finally:
