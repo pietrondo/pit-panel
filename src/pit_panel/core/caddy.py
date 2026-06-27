@@ -282,24 +282,30 @@ class CaddyManager:
                     domain = domain_dir.name
                     try:
                         result = subprocess.run(
-                            ["openssl", "s_client", "-connect", f"{domain}:443",
-                             "-servername", domain, "-tlsextdebug"],
-                            input=b"",
-                            capture_output=True, text=True, timeout=10,
+                            ["openssl", "s_client", "-connect", f"{domain}:443", "-servername", domain],  # noqa: E501
+                            input=b"\n", capture_output=True, text=True, timeout=10,
                         )
-                        for line in result.stdout.split("\n"):
-                            if line.startswith("notAfter="):
-                                not_after = line.split("=", 1)[1]
-                                certs.append({
-                                    "serial": "?",
-                                    "domains": domain,
-                                    "not_before": "",
-                                    "not_after": not_after[:10] if not_after else "",
-                                    "expires_in_days": 0,
-                                    "issuer": "Let's Encrypt",
-                                })
                     except Exception:
-                        pass
+                        continue
+                    for line in result.stdout.split("\n"):
+                        if "NotAfter:" not in line:
+                            continue
+                        not_after = line.split("NotAfter:")[1].split(";")[0].strip()
+                        try:
+                            cleaned = " ".join(not_after.rsplit(None, 1)[:-1])
+                            expiry = dt.datetime.strptime(cleaned, "%b %d %H:%M:%S %Y")
+                            days = (expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)).days
+                        except (ValueError, OSError):
+                            days = None
+                        certs.append({
+                            "serial": "?",
+                            "domains": domain,
+                            "not_before": "",
+                            "not_after": not_after[:10] if not_after else "",
+                            "expires_in_days": days,
+                            "issuer": "Let's Encrypt",
+                        })
+                        break
         except Exception:
             pass
         return certs
