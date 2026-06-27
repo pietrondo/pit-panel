@@ -5,7 +5,7 @@
 <div class="mb-8 flex items-center justify-between">
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Logs</h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Systemd journal and application logs — auto-refresh every 10s</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Systemd journal and application logs</p>
     </div>
     <a href="/debug" class="btn-ghost text-xs">Debug & Diagnostics</a>
 </div>
@@ -23,7 +23,6 @@
             class="btn text-xs">Systemd Journal</button>
     <button @click="tab = 'app'" :class="tab === 'app' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'"
             class="btn text-xs">App Log</button>
-    <span class="text-xs text-gray-400 ml-auto">Auto-refresh: 10s</span>
 </div>
 
 <!-- Journal -->
@@ -32,11 +31,11 @@
         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">pit-panel journal</h2>
         <div class="flex gap-2">
             <button onclick="copyLog('journal-box')" class="btn-ghost text-xs">Copy</button>
+            <button hx-get="/logs/journal" hx-target="#journal-box" hx-swap="outerHTML" class="btn-ghost text-xs">Refresh</button>
             <a href="/debug/raw" class="btn-ghost text-xs">Full Report</a>
         </div>
     </div>
-    <div class="p-4 bg-gray-950 rounded-b-xl max-h-[600px] overflow-y-auto"
-         hx-get="/logs/journal" hx-trigger="every 10s" hx-swap="innerHTML">
+    <div class="p-4 bg-gray-950 rounded-b-xl max-h-[600px] overflow-y-auto">
         <pre id="journal-box" class="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">{{ journal }}</pre>
     </div>
 </div>
@@ -45,10 +44,12 @@
 <div x-show="tab === 'app'" class="card">
     <div class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Application log</h2>
-        <button onclick="copyLog('applog-box')" class="btn-ghost text-xs">Copy</button>
+        <div class="flex gap-2">
+            <button onclick="copyLog('applog-box')" class="btn-ghost text-xs">Copy</button>
+            <button hx-get="/logs/applog" hx-target="#applog-box" hx-swap="outerHTML" class="btn-ghost text-xs">Refresh</button>
+        </div>
     </div>
-    <div class="p-4 bg-gray-950 rounded-b-xl max-h-[600px] overflow-y-auto"
-         hx-get="/logs/applog" hx-trigger="every 10s" hx-swap="innerHTML">
+    <div class="p-4 bg-gray-950 rounded-b-xl max-h-[600px] overflow-y-auto">
         <pre id="applog-box" class="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">{{ app_log }}</pre>
     </div>
 </div>
@@ -63,7 +64,6 @@ function copyLog(id) {
         btn.textContent = 'Copied!';
         setTimeout(() => btn.textContent = orig, 1500);
     }).catch(() => {
-        // Fallback for non-HTTPS
         const range = document.createRange();
         range.selectNode(el);
         window.getSelection().removeAllRanges();
