@@ -1,6 +1,7 @@
 """Caddy reverse proxy integration via admin API."""
 
 import datetime as dt
+import json
 import logging
 import re
 import subprocess
@@ -82,27 +83,64 @@ class CaddyManager:
         return await self._delete_route(f"main-{base_domain}")
 
     async def get_certificates(self) -> list[dict[str, Any]]:
-        async with httpx.AsyncClient() as client:
-            certs = self._parse_caddy_storage_certs(client)
-            if certs:
-                return certs
+        domains = await self._get_managed_domains()
+        if not domains:
+            return []
+        return self._check_certs_via_openssl(domains)
+
+    async def _get_managed_domains(self) -> list[str]:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(f"{self.admin_url}/config/apps/http/servers", timeout=5)
+                if resp.status_code != 200:
+                    return []
+                servers = resp.json() or {}
+                domains = set()
+                for srv in servers.values():
+                    for route in srv.get("routes", []):
+                        for match in route.get("match", []):
+                            for host in match.get("host", []):
+                                domains.add(host)
+                return sorted(domains)
+        except Exception as e:
+            logger.warning(f"Failed to get managed domains from Caddy config: {e}")
+            return []
+
+    def _check_certs_via_openssl(self, domains: list[str]) -> list[dict[str, Any]]:
+        certs = []
+        for domain in domains:
             try:
-                resp = await client.get(
-                    f"{self.admin_url}/pki/ca/local/certificates",
-                    headers={"Accept": "application/json"},
-                    timeout=5,
+                r = subprocess.run(
+                    ["openssl", "s_client", "-connect", "127.0.0.1:443",
+                     "-servername", domain, "-showcerts", "-brief"],  # noqa: E501
+                    input=b"", capture_output=True, text=True, timeout=10,
                 )
-                if resp.status_code == 200:
-                    if resp.headers.get("content-type", "").startswith("application/json"):
-                        for c in resp.json() or []:
-                            parsed = self._parse_cert(c)
-                            if parsed.get("issuer", "") not in ("Caddy Local CA", "?"):
-                                certs.append(parsed)
-                    else:
-                        certs.extend(self._parse_pem_certs(resp.text))
-            except Exception as e:
-                logger.warning(f"Failed to get certificates from Caddy API: {e}")
-            return certs
+                not_after = ""
+                issuer = ""
+                for line in (r.stdout + r.stderr).split("\n"):
+                    if "notAfter=" in line:
+                        not_after = line.split("notAfter=")[1].strip()
+                    elif "issuer=" in line:
+                        issuer = line.split("issuer=")[1].strip()
+                if not not_after:
+                    continue
+                try:
+                    cleaned = " ".join(not_after.rsplit(None, 1)[:-1])
+                    expiry = dt.datetime.strptime(cleaned, "%b %d %H:%M:%S %Y")
+                    days = (expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)).days
+                except (ValueError, OSError):
+                    days = None
+                certs.append({
+                    "serial": "?",
+                    "domains": domain,
+                    "not_before": "",
+                    "not_after": not_after[:10] if not_after else "",
+                    "expires_in_days": days,
+                    "issuer": issuer or "Unknown",
+                })
+            except Exception:
+                pass
+        return certs
 
     def _parse_cert(self, c: dict) -> dict[str, Any]:
         not_after = c.get("not_after", "")
@@ -161,7 +199,6 @@ class CaddyManager:
         return certs
 
     def _parse_caddy_storage_certs(self, client: httpx.AsyncClient) -> list[dict[str, Any]]:
-        import json
         from pathlib import Path
 
         certs = []

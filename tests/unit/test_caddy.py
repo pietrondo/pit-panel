@@ -142,27 +142,13 @@ def _parse_certs(root):
 
 @pytest.mark.asyncio
 async def test_get_certificates_api_success():
-    mock_resp = AsyncMock()
-    mock_resp.status_code = 200
-    mock_resp.headers = {"content-type": "application/json"}
-    mock_resp.json = lambda: [
-        {
-            "serial_number": "abc123",
-            "sans": ["panel.example.com"],
-            "not_before": "2025-01-01T00:00:00Z",
-            "not_after": "2026-01-01T00:00:00Z",
-            "issuer": {"common_name": "Test CA"},
-        }
-    ]
-
-    mock_client = AsyncMock()
-    mock_client.__aenter__.return_value.get = AsyncMock(return_value=mock_resp)
-
+    mgr = CaddyManager()
     with (
-        patch("httpx.AsyncClient", return_value=mock_client),
-        patch.object(CaddyManager, "_parse_caddy_storage_certs", return_value=[]),
+        patch.object(mgr, "_get_managed_domains", AsyncMock(return_value=["panel.example.com"])),
+        patch.object(mgr, "_check_certs_via_openssl", return_value=[
+            {"serial": "abc", "domains": "panel.example.com", "issuer": "Let's Encrypt"}
+        ]),
     ):
-        mgr = CaddyManager()
         certs = await mgr.get_certificates()
         assert len(certs) == 1
         assert certs[0]["domains"] == "panel.example.com"
@@ -173,10 +159,7 @@ async def test_get_certificates_handles_api_error():
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value.get.side_effect = Exception("timeout")
 
-    with (
-        patch("httpx.AsyncClient", return_value=mock_client),
-        patch.object(CaddyManager, "_parse_caddy_storage_certs", return_value=[]),
-    ):
+    with patch("httpx.AsyncClient", return_value=mock_client):
         mgr = CaddyManager()
         certs = await mgr.get_certificates()
         assert certs == []

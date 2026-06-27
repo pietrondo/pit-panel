@@ -11,14 +11,8 @@ async def test_get_certificates_api_exception():
     with patch("httpx.AsyncClient") as mock_client:
         client = mock_client.return_value.__aenter__.return_value
         client.get = AsyncMock(side_effect=Exception("API failure"))
-        with patch.object(
-            mgr, "_parse_caddy_storage_certs", return_value=[{"domains": "local"}]
-        ) as mock_parse:
-            certs = await mgr.get_certificates()
-            # The exception should be caught, and it should fallback to storage certs
-            assert len(certs) == 1
-            assert certs[0]["domains"] == "local"
-            mock_parse.assert_called_once()
+        certs = await mgr.get_certificates()
+        assert certs == []
 
 @pytest.mark.asyncio
 async def test_renew_certificate_timeout():
