@@ -170,6 +170,7 @@ async def security_unban(
     ip: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
+    """Unban a previously banned IP address."""
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -187,6 +188,7 @@ async def security_revoke_session(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    """Revoke an active user session."""
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -204,6 +206,7 @@ async def security_ban_ip(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    """Ban an IP address manually."""
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
