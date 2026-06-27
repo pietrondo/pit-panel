@@ -1,36 +1,45 @@
 """Core security services."""
 
+import asyncio
 import contextlib
-import subprocess
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.security.ipban import ban_ip
 
 
-def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) -> str:
+async def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) -> str:
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, input=input)
-        return result.stdout.strip() or result.stderr.strip()
+        input_bytes = input.encode() if input is not None else None
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdin=asyncio.subprocess.PIPE if input is not None else None,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(input=input_bytes), timeout=timeout
+        )
+        return stdout.decode().strip() or stderr.decode().strip()
     except Exception:
         return "unavailable"
 
 
 async def _firewall_status() -> dict:
-    ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
+    ufw = await _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
     if "not found" in ufw.lower() or "command not found" in ufw.lower():
-        install = _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "ufw"], timeout=60)
+        install = await _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "ufw"], timeout=60)
         if "Setting up ufw" in install or "ufw is already" in install:
-            _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
+            await _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
             for port in ["22/tcp", "80/tcp", "443/tcp", "8080/tcp"]:
-                _run_cmd(["sudo", "-n", "ufw", "allow", port])
-            ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
+                await _run_cmd(["sudo", "-n", "ufw", "allow", port])
+            ufw = await _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
     active = "Status: active" in ufw
     if not active and "Status: inactive" in ufw:
-        _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
+        await _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
         for port in ["22/tcp", "80/tcp", "443/tcp", "8080/tcp"]:
-            _run_cmd(["sudo", "-n", "ufw", "allow", port])
-        ufw = _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
+            await _run_cmd(["sudo", "-n", "ufw", "allow", port])
+        ufw = await _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
         active = "Status: active" in ufw
     rules = []
     for line in ufw.split("\n"):
@@ -41,12 +50,12 @@ async def _firewall_status() -> dict:
 
 
 async def _fail2ban_status() -> dict:
-    status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
+    status = await _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
     if "not found" in status.lower() or "command not found" in status.lower():
-        install = _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=60)
+        install = await _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=60)
         if "Setting up fail2ban" in install or "fail2ban is already" in install:
-            _ensure_fail2ban_jails()
-            status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
+            await _ensure_fail2ban_jails()
+            status = await _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
     jails = []
     active = "|- Number of jail:" in status
     if "sudo:" in status and "|- Number of jail:" not in status:
@@ -56,8 +65,8 @@ async def _fail2ban_status() -> dict:
         if stripped.startswith("- ") and "Jail list:" not in stripped:
             jails.append(stripped.lstrip("- "))
     if active and not jails:
-        _ensure_fail2ban_jails()
-        status = _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
+        await _ensure_fail2ban_jails()
+        status = await _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
         for line in status.split("\n"):
             stripped = line.strip().lstrip("`")
             if stripped.startswith("- ") and "Jail list:" not in stripped:
@@ -104,7 +113,7 @@ JAIL_DEFAULTS = {
 }
 
 
-def _ensure_fail2ban_jails():
+async def _ensure_fail2ban_jails():
     lines = []
     for jail, cfg in JAIL_DEFAULTS.items():
         lines.append(f"[{jail}]")
@@ -112,12 +121,12 @@ def _ensure_fail2ban_jails():
             lines.append(f"{k} = {v}")
         lines.append("")
     content = "\n".join(lines)
-    _run_cmd(
+    await _run_cmd(
         ["sudo", "-n", "tee", "/etc/fail2ban/jail.local"],
         timeout=10,
         input=content,
     )
-    _run_cmd(["sudo", "-n", "systemctl", "restart", "fail2ban"])
+    await _run_cmd(["sudo", "-n", "systemctl", "restart", "fail2ban"])
 
 
 async def ban_ip_address(
@@ -126,7 +135,7 @@ async def ban_ip_address(
     """Ban an IP address at both the database and system (UFW) level."""
     # System level ban
     with contextlib.suppress(Exception):
-        _run_cmd(["sudo", "-n", "ufw", "deny", "from", ip])
+        await _run_cmd(["sudo", "-n", "ufw", "deny", "from", ip])
 
     # Database level ban
     return await ban_ip(db, ip, reason, duration_minutes)
@@ -138,7 +147,7 @@ async def unban_ip_address(db: AsyncSession, ip: str, user_id: int | None = None
 
     # System level unban
     with contextlib.suppress(Exception):
-        _run_cmd(["sudo", "-n", "ufw", "delete", "deny", "from", ip])
+        await _run_cmd(["sudo", "-n", "ufw", "delete", "deny", "from", ip])
 
     # Database level unban
     return await unban_ip(db, ip, user_id)

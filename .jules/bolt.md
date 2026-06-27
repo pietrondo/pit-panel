@@ -23,3 +23,6 @@
 ## 2025-02-18 - Optimize Session Validation Query
 **Learning:** Found an unoptimized sequence of queries in `validate_session` where it fetched the `Session` model first, and then conditionally fetched the associated `User` model via a second query. This sequential fetching increases database network latency.
 **Action:** Always combine dependent entity fetches into a single query using SQLAlchemy's `join()` when the primary purpose is to retrieve the related entity and the foreign key relationship is well-defined. By doing a single `select(User).join(Session, ...)`, we reduce network round-trips and improve authentication performance.
+## 2024-11-20 - Non-blocking I/O in Async Python
+**Learning:** Using synchronous `subprocess.run()` inside an `async def` function blocks the Python event loop, causing poor concurrent performance in ASGI/FastAPI applications.
+**Action:** Always replace `subprocess.run()` with `asyncio.create_subprocess_exec()` and await its completion via `process.communicate()` wrapped in `asyncio.wait_for` when executing external shell commands in async contexts.
