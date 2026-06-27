@@ -85,3 +85,25 @@ class TestSettings:
 
         monkeypatch.setattr("httpx.get", mock_get)
         assert Settings._detect_ip() == "127.0.0.1"
+
+    def test_ensure_paths(self, monkeypatch):
+        from pathlib import Path
+
+        from pit_panel.config import Settings
+
+        s = Settings(data_dir="/fake/data", apps_dir="/fake/apps")
+
+        called_paths = []
+
+        def mock_mkdir(self_path, parents=False, exist_ok=False):
+            assert parents is True
+            assert exist_ok is True
+            called_paths.append(str(self_path))
+
+        monkeypatch.setattr(Path, "mkdir", mock_mkdir)
+
+        s.ensure_paths()
+
+        assert "/fake/data" in called_paths
+        assert "/fake/apps" in called_paths
+        assert len(called_paths) == 2
