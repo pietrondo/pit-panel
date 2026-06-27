@@ -324,14 +324,10 @@ class TestMainDomain:
         monkeypatch.setattr("pit_panel.web.routes.apps.get_user", mock_get_user)
 
         mock_compose_up = AsyncMock(return_value={"success": True})
-        monkeypatch.setattr(
-            "pit_panel.core.docker_ops.DockerManager.compose_up", mock_compose_up
-        )
+        monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.compose_up", mock_compose_up)
 
         mock_add_main = AsyncMock(return_value={})
-        monkeypatch.setattr(
-            "pit_panel.core.caddy.CaddyManager.add_main_domain", mock_add_main
-        )
+        monkeypatch.setattr("pit_panel.core.caddy.CaddyManager.add_main_domain", mock_add_main)
 
         class MockResult:
             def scalar_one_or_none(self):
@@ -365,11 +361,15 @@ class TestMainDomain:
         client.app.dependency_overrides[get_db] = override_get_db
 
         try:
-            resp = client.post("/apps/deploy", data={
-                "is_main_domain": "true",
-                "stack_type": "static-nginx",
-                "port": 8082,
-            }, follow_redirects=False)
+            resp = client.post(
+                "/apps/deploy",
+                data={
+                    "is_main_domain": "true",
+                    "stack_type": "static-nginx",
+                    "port": 8082,
+                },
+                follow_redirects=False,
+            )
 
             assert resp.status_code == 302
             mock_compose_up.assert_called_once_with("_main_")
@@ -381,8 +381,9 @@ class TestMainDomain:
         from pit_panel.config import Settings
         from pit_panel.db.session import get_db
 
-        monkeypatch.setattr("pit_panel.core.app_manager.AppManager.get_template_info",
-                            lambda self, t: {"name": t})
+        monkeypatch.setattr(
+            "pit_panel.core.app_manager.AppManager.get_template_info", lambda self, t: {"name": t}
+        )
 
         settings = Settings(secret_key="test-secret-key-32chars!!", base_domain="example.com")
         monkeypatch.setattr("pit_panel.web.routes.apps.get_settings", lambda: settings)
@@ -410,6 +411,7 @@ class TestMainDomain:
                 return []
 
         call_count = [0]
+
         class MockSession:
             async def execute(self, *args, **kwargs):
                 call_count[0] += 1
@@ -427,11 +429,15 @@ class TestMainDomain:
         client.app.dependency_overrides[get_db] = override_get_db
 
         try:
-            resp = client.post("/apps/deploy", data={
-                "is_main_domain": "true",
-                "stack_type": "static-nginx",
-                "port": 8082,
-            }, follow_redirects=False)
+            resp = client.post(
+                "/apps/deploy",
+                data={
+                    "is_main_domain": "true",
+                    "stack_type": "static-nginx",
+                    "port": 8082,
+                },
+                follow_redirects=False,
+            )
 
             assert resp.status_code == 200
             assert "Main domain app already deployed" in resp.text

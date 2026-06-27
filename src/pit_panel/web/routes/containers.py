@@ -1,6 +1,6 @@
 """Container management routes with live state and logs."""
 
-from fastapi import Depends, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +11,8 @@ from pit_panel.db.models import Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
 from pit_panel.web.render import render
-from pit_panel.web.router import router
+
+router = APIRouter()
 
 
 @router.get("/containers", response_class=HTMLResponse)

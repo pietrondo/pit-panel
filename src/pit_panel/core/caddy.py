@@ -69,9 +69,7 @@ class CaddyManager:
         }
         return await self._patch_routes(route)
 
-    async def add_main_domain(
-        self, base_domain: str, port: int = 80
-    ) -> dict[str, Any]:
+    async def add_main_domain(self, base_domain: str, port: int = 80) -> dict[str, Any]:
         route = {
             "@id": f"main-{base_domain}",
             "match": [{"host": [base_domain]}],
