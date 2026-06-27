@@ -264,7 +264,15 @@ class CaddyManager:
                     if pem_file.exists():
                         try:
                             result = subprocess.run(
-                                ["openssl", "x509", "-in", str(pem_file), "-noout", "-enddate", "-issuer"],
+                                [
+                                    "openssl",
+                                    "x509",
+                                    "-in",
+                                    str(pem_file),
+                                    "-noout",
+                                    "-enddate",
+                                    "-issuer",
+                                ],
                                 capture_output=True,
                                 text=True,
                                 timeout=5,
