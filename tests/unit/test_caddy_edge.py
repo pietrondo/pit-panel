@@ -1,14 +1,19 @@
 from unittest.mock import AsyncMock, patch
+
 import pytest
-import datetime
+
 from pit_panel.core.caddy import CaddyManager
+
 
 @pytest.mark.asyncio
 async def test_get_certificates_api_exception():
     mgr = CaddyManager()
     with patch("httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.get = AsyncMock(side_effect=Exception("API failure"))
-        with patch.object(mgr, "_parse_caddy_storage_certs", return_value=[{"domains": "local"}]) as mock_parse:
+        client = mock_client.return_value.__aenter__.return_value
+        client.get = AsyncMock(side_effect=Exception("API failure"))
+        with patch.object(
+            mgr, "_parse_caddy_storage_certs", return_value=[{"domains": "local"}]
+        ) as mock_parse:
             certs = await mgr.get_certificates()
             # The exception should be caught, and it should fallback to storage certs
             assert len(certs) == 1
@@ -19,7 +24,8 @@ async def test_get_certificates_api_exception():
 async def test_renew_certificate_timeout():
     mgr = CaddyManager()
     with patch("httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.get = AsyncMock(side_effect=Exception("Timeout reading config"))
+        client = mock_client.return_value.__aenter__.return_value
+        client.get = AsyncMock(side_effect=Exception("Timeout reading config"))
         result = await mgr.renew_certificate("example.com")
         assert result["success"] is False
         assert result["domain"] == "example.com"
@@ -32,8 +38,9 @@ async def test_renew_certificate_post_exception():
         mock_get_resp = AsyncMock()
         mock_get_resp.status_code = 200
         mock_get_resp.json.return_value = {"config": "val"}
-        mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_get_resp)
-        mock_client.return_value.__aenter__.return_value.post = AsyncMock(side_effect=Exception("POST failure"))
+        client = mock_client.return_value.__aenter__.return_value
+        client.get = AsyncMock(return_value=mock_get_resp)
+        client.post = AsyncMock(side_effect=Exception("POST failure"))
 
         result = await mgr.renew_certificate("example.com")
         assert result["success"] is False
@@ -47,12 +54,13 @@ async def test_renew_certificate_post_raise_for_status():
         mock_get_resp = AsyncMock()
         mock_get_resp.status_code = 200
         mock_get_resp.json.return_value = {"config": "val"}
-        mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_get_resp)
+        client = mock_client.return_value.__aenter__.return_value
+        client.get = AsyncMock(return_value=mock_get_resp)
 
         from unittest.mock import Mock
         mock_post_resp = Mock()
         mock_post_resp.raise_for_status.side_effect = Exception("HTTP 500")
-        mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_post_resp)
+        client.post = AsyncMock(return_value=mock_post_resp)
 
         result = await mgr.renew_certificate("example.com")
         assert result["success"] is False
@@ -74,10 +82,11 @@ def test_parse_caddy_storage_certs_subprocess_exception(tmp_path):
     (certs_dir / "example.com.json").write_text(json.dumps(meta))
     (certs_dir / "example.com.crt").write_text("fake crt")
 
-    with patch("pathlib.Path.rglob", return_value=[certs_dir / "example.com.json"]):
-        with patch("subprocess.run", side_effect=Exception("openssl command failed")):
-            certs = mgr._parse_caddy_storage_certs(None)
-            assert len(certs) == 1
-            assert certs[0]["domains"] == "example.com"
-            # It should gracefully fallback to metadata if subprocess fails
-            assert certs[0]["not_after"] == ""
+    with patch("pathlib.Path.rglob", return_value=[certs_dir / "example.com.json"]), patch(
+        "subprocess.run", side_effect=Exception("openssl command failed")
+    ):
+        certs = mgr._parse_caddy_storage_certs(None)
+        assert len(certs) == 1
+        assert certs[0]["domains"] == "example.com"
+        # It should gracefully fallback to metadata if subprocess fails
+        assert certs[0]["not_after"] == ""
