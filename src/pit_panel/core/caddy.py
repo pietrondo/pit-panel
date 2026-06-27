@@ -112,10 +112,7 @@ class CaddyManager:
             try:
                 # 🛡️ Sentinel: Removed shell=True to prevent command injection
                 r1 = subprocess.run(
-                    [
-                        "openssl", "s_client", "-connect", "127.0.0.1:443",
-                        "-servername", domain
-                    ],
+                    ["openssl", "s_client", "-connect", "127.0.0.1:443", "-servername", domain],
                     input="\n",
                     capture_output=True,
                     text=True,
@@ -264,7 +261,15 @@ class CaddyManager:
                     if pem_file.exists():
                         try:
                             result = subprocess.run(
-                                ["openssl", "x509", "-in", str(pem_file), "-noout", "-enddate", "-issuer"],
+                                [
+                                    "openssl",
+                                    "x509",
+                                    "-in",
+                                    str(pem_file),
+                                    "-noout",
+                                    "-enddate",
+                                    "-issuer",
+                                ],
                                 capture_output=True,
                                 text=True,
                                 timeout=5,

@@ -12,7 +12,7 @@ from pit_panel.core.blocklist import BLOCKLIST_SOURCES, fetch_blocklist
 from pit_panel.db.models import LoginAttempt, MalwareScan, SystemSettings, User
 from pit_panel.db.models import Session as DBSession
 from pit_panel.db.session import get_db
-from pit_panel.security.ipban import ban_ip, get_banned_ips, unban_ip
+from pit_panel.security.ipban import ban_ip, ban_ips_bulk, get_banned_ips, unban_ip
 from pit_panel.security.malware_scanner import (
     SCAN_DEFAULT_INTERVAL_HOURS,
     THREAT_CATEGORIES,
@@ -512,14 +512,10 @@ async def security_blocklist_import(request: Request, db: AsyncSession = Depends
     if not ips:
         return HTMLResponse("<p class='text-yellow-500'>No IPs found</p>")
 
-    count = 0
-    for ip in ips:
-        try:
-            ok = await ban_ip(db, ip, f"blocklist:{source}", 10080)
-            if ok:
-                count += 1
-        except Exception:
-            pass
+    try:
+        count = await ban_ips_bulk(db, ips, f"blocklist:{source}", 10080)
+    except Exception:
+        count = 0
 
     return HTMLResponse(
         f"<p class='text-green-500'>Imported {count}/{len(ips)} IPs from {info['name']}</p>"

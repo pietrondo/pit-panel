@@ -20,9 +20,7 @@ async def test_verify_token_missing():
 async def test_verify_token_not_configured(monkeypatch, tmp_path):
     mock_settings = MagicMock()
     mock_settings.debug_token_path = str(tmp_path / "missing_token")
-    monkeypatch.setattr(
-        "pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings)
 
     with pytest.raises(HTTPException) as exc:
         _verify_token("sometoken")
@@ -36,9 +34,7 @@ async def test_verify_token_invalid(monkeypatch, tmp_path):
     token_file.write_text("expected_token\n")
     mock_settings = MagicMock()
     mock_settings.debug_token_path = str(token_file)
-    monkeypatch.setattr(
-        "pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings)
 
     with pytest.raises(HTTPException) as exc:
         _verify_token("invalid_token")
@@ -52,9 +48,7 @@ async def test_verify_token_success(monkeypatch, tmp_path):
     token_file.write_text("expected_token\n")
     mock_settings = MagicMock()
     mock_settings.debug_token_path = str(token_file)
-    monkeypatch.setattr(
-        "pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings)
 
     token = _verify_token("expected_token")
     assert token == "expected_token"
@@ -131,15 +125,11 @@ async def test_debug_certs(monkeypatch):
     mock_caddy_manager_instance = AsyncMock()
     mock_caddy_manager_instance.get_certificates.return_value = {"cert": "data"}
     mock_caddy_manager = MagicMock(return_value=mock_caddy_manager_instance)
-    monkeypatch.setattr(
-        "pit_panel.web.routes.debug_api.CaddyManager", mock_caddy_manager
-    )
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.CaddyManager", mock_caddy_manager)
 
     mock_settings = MagicMock()
     mock_settings.caddy_admin_url = "http://caddy"
-    monkeypatch.setattr(
-        "pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings)
 
     from pit_panel.web.routes.debug_api import debug_certs
 
@@ -163,9 +153,7 @@ async def test_debug_system(monkeypatch, tmp_path):
     mock_settings.effective_domain = "domain"
     mock_settings.git_remote = "remote"
     mock_settings.git_branch = "branch"
-    monkeypatch.setattr(
-        "pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings)
 
     mock_run = MagicMock(return_value="cmd_out")
     monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)

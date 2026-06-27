@@ -36,11 +36,9 @@ async def async_client(
 
     app = create_app(s)
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
+
 
 @pytest.mark.asyncio
 async def test_dashboard_redirects_to_login(async_client: AsyncClient) -> None:
@@ -48,9 +46,11 @@ async def test_dashboard_redirects_to_login(async_client: AsyncClient) -> None:
     assert resp.status_code == 302
     assert resp.headers["location"] == "/login"
 
+
 @pytest.mark.asyncio
 async def test_dashboard_authenticated(async_client: AsyncClient, monkeypatch: Any) -> None:
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
 
@@ -60,17 +60,20 @@ async def test_dashboard_authenticated(async_client: AsyncClient, monkeypatch: A
     assert resp.status_code == 200
     assert "admin" in resp.text
 
+
 @pytest.mark.asyncio
 async def test_dashboard_authenticated_with_data(
     async_client: AsyncClient, monkeypatch: Any
 ) -> None:
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
 
     monkeypatch.setattr("pit_panel.web.routes.dashboard.get_user", mock_get_user)
 
     import pit_panel.db.session
+
     sessionmaker = pit_panel.db.session._sessionmaker
 
     if sessionmaker is not None:
@@ -86,15 +89,18 @@ async def test_dashboard_authenticated_with_data(
     assert resp.status_code == 200
     assert "admin" in resp.text
 
+
 @pytest.mark.asyncio
 async def test_dashboard_no_user(async_client: AsyncClient) -> None:
     resp = await async_client.get("/", follow_redirects=False)
     assert resp.status_code == 302
     assert resp.headers["location"] == "/login"
 
+
 @pytest.mark.asyncio
 async def test_dashboard_with_db_mock(async_client: AsyncClient, monkeypatch: Any) -> None:
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
 
@@ -107,8 +113,10 @@ async def test_dashboard_with_db_mock(async_client: AsyncClient, monkeypatch: An
     class MockResult:
         def first(self) -> MockRow:
             return MockRow()
-        def scalars(self) -> 'MockResult':
+
+        def scalars(self) -> "MockResult":
             return self
+
         def all(self) -> Sequence[Any]:
             return []
 
