@@ -14,10 +14,10 @@ def mock_proc():
 
 
 @pytest.mark.asyncio
-async def test_compose_up_oserror():
+async def test_run_compose_command_oserror():
     manager = DockerManager()
     with patch("asyncio.create_subprocess_exec", side_effect=OSError("Docker not found")):
-        result = await manager.compose_up("test_app")
+        result = await manager.run_compose_command("test_app", ["up", "-d"])
         assert result["success"] is False
         assert "Docker not found" in result["error"]
 

@@ -186,7 +186,7 @@ async def app_deploy(
     # Docker compose up
     compose_ok = False
     try:
-        result = await docker_mgr.compose_up(sd.subdomain)
+        result = await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
         compose_ok = result.get("success", False)
         if not compose_ok:
             error = f"Docker compose failed: {result.get('stderr', '')[:300]}"
@@ -304,7 +304,7 @@ async def app_restart(request: Request, sd_id: int, db: AsyncSession = Depends(g
     if sd:
         settings = get_settings()
         docker_mgr = DockerManager(settings.apps_dir)
-        await docker_mgr.compose_restart(sd.subdomain)
+        await docker_mgr.run_compose_command(sd.subdomain, ["restart"])
     return RedirectResponse(f"/apps/{sd_id}", status_code=302)
 
 
@@ -318,7 +318,7 @@ async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_
     if sd:
         settings = get_settings()
         docker_mgr = DockerManager(settings.apps_dir)
-        await docker_mgr.compose_down(sd.subdomain)
+        await docker_mgr.run_compose_command(sd.subdomain, ["down"])
         db.add(
             AuditLog(
                 user_id=user.id,
@@ -346,7 +346,7 @@ async def app_delete(request: Request, sd_id: int, db: AsyncSession = Depends(ge
 
         # 1. Stop containers and remove volumes
         docker_mgr = DockerManager(settings.apps_dir)
-        await docker_mgr.compose_down(sd.subdomain, remove_volumes=True)
+        await docker_mgr.run_compose_command(sd.subdomain, ["down", "-v"])
 
         # 2. Delete Caddy route
         if settings.base_domain and sd.app_type:
