@@ -1,5 +1,7 @@
 """Settings and audit log routes."""
 
+import re
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -51,6 +53,11 @@ async def settings_update(
 
     new_base = base_domain.strip()
     new_panel = panel_subdomain.strip() or "panel"
+
+    if new_base and not re.match(r"^[a-zA-Z0-9.-]+$", new_base):
+        return HTMLResponse("Invalid base domain", status_code=400)
+    if new_panel and not re.match(r"^[a-zA-Z0-9.-]+$", new_panel):
+        return HTMLResponse("Invalid panel subdomain", status_code=400)
     new_host = "127.0.0.1" if new_base else "0.0.0.0"
 
     # Store in DB (no filesystem write needed)

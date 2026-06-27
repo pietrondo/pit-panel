@@ -432,6 +432,9 @@ async def app_env_post(
     settings = get_settings()
     env_path = os.path.join(settings.apps_dir, sd.subdomain, ".env")
 
+    if any(c in env_content for c in ['"', "'"]):
+        return HTMLResponse("Quotes are not allowed to prevent quote evasion.", status_code=400)
+
     error = None
     success = None
     try:
