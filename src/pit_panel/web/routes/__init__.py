@@ -1,0 +1,25 @@
+from .apps import router as apps_router
+from .auth_routes import router as auth_router
+from .containers import router as containers_router
+from .dashboard import router as dashboard_router
+from .debug import router as debug_router
+from .logs import router as logs_router
+from .security import router as security_router
+from .settings import router as settings_router
+from .ssl import router as ssl_router
+from .subdomains import router as subdomains_router
+from .system import router as system_router
+
+__all__ = [
+    "apps_router",
+    "auth_router",
+    "containers_router",
+    "dashboard_router",
+    "debug_router",
+    "logs_router",
+    "security_router",
+    "settings_router",
+    "ssl_router",
+    "subdomains_router",
+    "system_router",
+]

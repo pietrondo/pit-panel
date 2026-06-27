@@ -1,8 +1,9 @@
 """Container management routes with live state and logs."""
 
 import re
+from typing import Any
 
-from fastapi import Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,11 +14,12 @@ from pit_panel.db.models import Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
 from pit_panel.web.render import render
-from pit_panel.web.router import router
+
+router = APIRouter()
 
 
 @router.get("/containers", response_class=HTMLResponse)
-async def containers_list(request: Request, db: AsyncSession = Depends(get_db)):
+async def containers_list(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -30,8 +32,8 @@ async def containers_list(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
     subdomains = {sd.subdomain: sd for sd in result.scalars().all()}
 
-    containers_data: dict[int, list[dict]] = {}
-    orphan_containers: list[dict] = []
+    containers_data: dict[int, list[dict[str, Any]]] = {}
+    orphan_containers: list[dict[str, Any]] = []
 
     for c in all_containers:
         if "Name" not in c and "Names" in c:
@@ -61,7 +63,9 @@ async def containers_list(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/containers/{sd_id}/logs", response_class=HTMLResponse)
-async def container_logs(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+async def container_logs(
+    request: Request, sd_id: int, db: AsyncSession = Depends(get_db)
+) -> Response:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -82,7 +86,9 @@ async def container_logs(request: Request, sd_id: int, db: AsyncSession = Depend
 
 
 @router.post("/containers/{sd_id}/restart", response_class=HTMLResponse)
-async def container_restart(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+async def container_restart(
+    request: Request, sd_id: int, db: AsyncSession = Depends(get_db)
+) -> Response:
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -98,8 +104,10 @@ async def container_restart(request: Request, sd_id: int, db: AsyncSession = Dep
 
 
 @router.post("/containers/container/{container_id}/stop")
-async def container_stop(request: Request, container_id: str):
-    user = await get_user(request)
+async def container_stop(
+    request: Request, container_id: str, db: AsyncSession = Depends(get_db)
+) -> Response:
+    user = await get_user(request, db)
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
         return HTMLResponse("Invalid container ID", status_code=400)
     if not user:
@@ -111,8 +119,10 @@ async def container_stop(request: Request, container_id: str):
 
 
 @router.post("/containers/container/{container_id}/start")
-async def container_start(request: Request, container_id: str):
-    user = await get_user(request)
+async def container_start(
+    request: Request, container_id: str, db: AsyncSession = Depends(get_db)
+) -> Response:
+    user = await get_user(request, db)
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
         return HTMLResponse("Invalid container ID", status_code=400)
     if not user:
@@ -126,7 +136,7 @@ async def container_start(request: Request, container_id: str):
 @router.get("/containers/container/{container_id}/logs", response_class=HTMLResponse)
 async def container_logs_live(
     request: Request, container_id: str, db: AsyncSession = Depends(get_db)
-):
+) -> Response:
     user = await get_user(request, db)
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
         return HTMLResponse("Invalid container ID", status_code=400)
@@ -148,8 +158,10 @@ async def container_logs_live(
 
 
 @router.get("/containers/container/{container_id}/stats")
-async def container_stats(request: Request, container_id: str):
-    user = await get_user(request)
+async def container_stats(
+    request: Request, container_id: str, db: AsyncSession = Depends(get_db)
+) -> Response:
+    user = await get_user(request, db)
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
         return HTMLResponse("Invalid container ID", status_code=400)
     if not user:

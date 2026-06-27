@@ -5,14 +5,15 @@ import html
 import os
 import subprocess
 
-from fastapi import Depends, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
 from pit_panel.web.render import render
-from pit_panel.web.router import router
+
+router = APIRouter()
 
 APP_LOG = "/var/log/pit-panel/app.log"
 DOCKER_LOG_DIR = "/var/log/pit-panel/docker"
@@ -108,7 +109,10 @@ async def logs_page(
 async def journal_partial(request: Request) -> HTMLResponse:
     journal = await _read_journal()
     escaped = html.escape(journal)
-    pre = '<pre id="journal-box" class="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">'
+    pre = (
+        '<pre id="journal-box" '
+        'class="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">'
+    )
     return HTMLResponse(f"{pre}{escaped}</pre>")
 
 
@@ -116,5 +120,8 @@ async def journal_partial(request: Request) -> HTMLResponse:
 async def applog_partial(request: Request) -> HTMLResponse:
     app_log = await _read_log(APP_LOG)
     escaped = html.escape(app_log)
-    pre = '<pre id="applog-box" class="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">'
+    pre = (
+        '<pre id="applog-box" '
+        'class="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">'
+    )
     return HTMLResponse(f"{pre}{escaped}</pre>")
