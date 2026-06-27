@@ -94,12 +94,14 @@ async def logs_page(
     app_log = await _read_log(APP_LOG)
     journal = await _read_journal()
 
-    return render(
+    response = render(
         "logs.html",
         user=user,
         app_log=app_log,
         journal=journal,
     )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
 
 
 @router.get("/logs/journal", response_class=HTMLResponse)
