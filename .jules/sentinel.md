@@ -16,3 +16,8 @@
 
 **Learning:** When sanitizing user inputs for configuration file injection (like Caddyfile), ensure to strip backticks (`), single quotes ('), newlines (\n), and carriage returns (\r) in addition to double quotes and braces to fully prevent interpolation breakouts.
 **Action:** Always prefer explicit string replacements (`.replace()`) over regex for config sanitization to maximize strictness and clarity.
+
+## 2026-06-27 - Subprocess Pipe Bug
+**Vulnerability:** Mixing `bytes` and `str` across piped `subprocess.run` commands where `text=True` is set.
+**Learning:** When passing `r1.stdout` as `input` to `r2` where `r2` uses `text=True`, `r1` MUST also use `text=True` (and thus take string inputs instead of byte inputs). Otherwise, Python throws an `AttributeError: 'bytes' object has no attribute 'encode'`.
+**Prevention:** When mocking `|` operators with chained `subprocess.run`, strictly synchronize the `text=True` argument across the entire chain.
