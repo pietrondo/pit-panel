@@ -10,8 +10,8 @@ Group=pit-panel
 WorkingDirectory=/opt/pit-panel
 Environment="PATH=/opt/pit-panel/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="PITPANEL_CONFIG_PATH=/etc/pit-panel/config.toml"
-ExecStartPre=/bin/mkdir -p /var/lib/pit-panel /opt/pit-panel/apps
-ExecStartPre=/bin/chown pit-panel:pit-panel /var/lib/pit-panel /opt/pit-panel/apps
+ExecStartPre=/bin/mkdir -p /var/lib/pit-panel /opt/pit-panel/apps /var/log/pit-panel
+ExecStartPre=/bin/chown pit-panel:pit-panel /var/lib/pit-panel /opt/pit-panel/apps /var/log/pit-panel
 ExecStartPre=-/usr/sbin/usermod -a -G systemd-journal pit-panel
 ExecStart=/opt/pit-panel/.venv/bin/python -c "from pit_panel.main import main; main()"
 Restart=on-failure
@@ -32,7 +32,7 @@ RestrictRealtime=true
 LockPersonality=true
 
 # Filesystem access
-ReadWritePaths=/opt/pit-panel/.venv /opt/pit-panel /etc/systemd/system /var/lib/pit-panel /opt/pit-panel/apps /etc/pit-panel /etc/caddy
+ReadWritePaths=/opt/pit-panel/.venv /opt/pit-panel /etc/systemd/system /var/lib/pit-panel /opt/pit-panel/apps /var/log/pit-panel /etc/pit-panel /etc/caddy
 
 # Capabilities: kept empty intentionally so sudo can operate.
 # CapabilityBoundingSet= empty would block sudo from changing UID/GID.

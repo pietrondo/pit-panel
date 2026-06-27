@@ -1,4 +1,7 @@
 import argparse
+import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 import uvicorn
 
@@ -18,6 +21,14 @@ def main():
     host = args.host or settings.host
     port = args.port or settings.port
     reload = args.reload or settings.debug
+
+    # Ensure /var/log/pit-panel exists
+    log_dir = Path("/var/log/pit-panel")
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    handler = RotatingFileHandler(log_dir / "app.log", maxBytes=5_242_880, backupCount=3)
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    logging.getLogger().addHandler(handler)
 
     # When no domain configured, bind to all interfaces for direct IP access
     if not settings.base_domain and host == "127.0.0.1":

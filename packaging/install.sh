@@ -102,7 +102,7 @@ SUDOERS
 chmod 440 /etc/sudoers.d/pit-panel
 
 # Setup directories + fix permissions (venv created as root, service runs as pit-panel)
-mkdir -p /etc/pit-panel /var/lib/pit-panel /opt/pit-panel/apps
+mkdir -p /etc/pit-panel /var/lib/pit-panel /opt/pit-panel/apps /var/log/pit-panel
 chown -R pit-panel:pit-panel /opt/pit-panel /var/lib/pit-panel
 chmod -R u+rwX /opt/pit-panel/.venv 2>/dev/null || true
 
