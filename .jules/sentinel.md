@@ -12,3 +12,7 @@
 **Vulnerability:** User-controlled inputs (`api_var` and `api_token`) were written directly to `/etc/caddy/.env` without sanitization. This allowed attackers to inject newlines (`\n`) and quotes to escape the intended variable assignment and define arbitrary environment variables or execute commands if the file is sourced by a shell script.
 **Learning:** Even when writing to configuration files rather than executing commands directly, unsanitized input can lead to severe security risks (like command injection or unauthorized configuration) when those files are parsed by other tools (like Caddy or bash).
 **Prevention:** Always explicitly block and remove control characters (`\n`, `\r`) and quotes (`"`, `'`) from user inputs before interpolating them into environment variable configuration files (e.g., using explicit `.replace()` chains).
+## 2024-05-30 - Caddyfile Directive Injection
+
+**Learning:** When sanitizing user inputs for configuration file injection (like Caddyfile), ensure to strip backticks (`), single quotes ('), newlines (\n), and carriage returns (\r) in addition to double quotes and braces to fully prevent interpolation breakouts.
+**Action:** Always prefer explicit string replacements (`.replace()`) over regex for config sanitization to maximize strictness and clarity.
