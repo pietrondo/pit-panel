@@ -45,15 +45,7 @@ def _sanitize(val: str) -> str:
     if not val:
         return ""
     # Strip dangerous characters that could break out of a Caddyfile value
-    return (
-        val.replace("\r", "")
-        .replace("\n", "")
-        .replace('"', "")
-        .replace("{", "")
-        .replace("}", "")
-        .replace("'", "")
-        .replace("`", "")
-    )
+    return re.sub(r"[\r\n\"\'{}\`\\]", "", val)
 
 
 def _get_acme_config(
