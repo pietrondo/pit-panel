@@ -5,7 +5,7 @@ import pytest
 
 class TestSessionAuth:
     def test_get_serializer(self, settings):
-        from itsdangerous import URLSafeTimedSerializer
+        from itsdangerous import BadSignature, URLSafeTimedSerializer
 
         from pit_panel.web.auth import get_serializer
 
@@ -24,6 +24,21 @@ class TestSessionAuth:
             b"pitpanel-session" if isinstance(serializer.salt, bytes) else "pitpanel-session"
         )
         assert serializer.salt == expected_salt
+
+        # Test serialization/deserialization behavior
+        test_data = {"test": "data", "id": 123}
+        signed_data = serializer.dumps(test_data)
+
+        # Verify it can be loaded correctly
+        loaded_data = serializer.loads(signed_data)
+        assert loaded_data == test_data
+
+        # Verify failure with a different secret key
+        settings.secret_key = "different_secret_key"
+        different_serializer = get_serializer(settings)
+
+        with pytest.raises(BadSignature):
+            different_serializer.loads(signed_data)
 
     def test_create_and_verify_token(self, settings):
         from pit_panel.web.auth import create_session_token, unsign_session_token
