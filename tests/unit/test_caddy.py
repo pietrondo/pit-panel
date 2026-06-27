@@ -6,6 +6,42 @@ import pytest
 from pit_panel.core.caddy import CaddyManager
 
 
+class TestMainDomain:
+    @pytest.mark.asyncio
+    async def test_add_main_domain(self):
+        mgr = CaddyManager("http://127.0.0.1:2019")
+        mock_resp = AsyncMock()
+        mock_resp.text = ""
+        mock_resp.json.return_value = {}
+
+        with patch.object(mgr, "_patch_routes", AsyncMock(return_value={})) as mock_patch:
+            await mgr.add_main_domain("example.com", port=8080)
+
+            mock_patch.assert_called_once()
+            route = mock_patch.call_args[0][0]
+            assert route["@id"] == "main-example.com"
+            assert route["match"] == [{"host": ["example.com"]}]
+            assert route["handle"][0]["handler"] == "reverse_proxy"
+            assert route["handle"][0]["upstreams"] == [{"dial": "127.0.0.1:8080"}]
+
+    @pytest.mark.asyncio
+    async def test_add_main_domain_default_port(self):
+        mgr = CaddyManager("http://127.0.0.1:2019")
+
+        with patch.object(mgr, "_patch_routes", AsyncMock(return_value={})) as mock_patch:
+            await mgr.add_main_domain("example.com")
+            route = mock_patch.call_args[0][0]
+            assert route["handle"][0]["upstreams"] == [{"dial": "127.0.0.1:80"}]
+
+    @pytest.mark.asyncio
+    async def test_remove_main_domain(self):
+        mgr = CaddyManager("http://127.0.0.1:2019")
+
+        with patch.object(mgr, "_delete_route", AsyncMock(return_value={})) as mock_delete:
+            await mgr.remove_main_domain("example.com")
+            mock_delete.assert_called_once_with("main-example.com")
+
+
 class TestParsePemCerts:
     def test_parses_valid_pem(self):
         pem = """-----BEGIN CERTIFICATE-----
