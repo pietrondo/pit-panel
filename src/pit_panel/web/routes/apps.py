@@ -2,6 +2,7 @@
 
 import contextlib
 import datetime
+import logging
 import os
 import re
 
@@ -21,6 +22,8 @@ from pit_panel.web.render import render
 
 router = APIRouter()
 
+logger = logging.getLogger(__name__)
+
 
 def _get_db_password(settings, subdomain: str) -> str | None:
     env_path = os.path.join(settings.apps_dir, subdomain, ".env")
@@ -29,8 +32,8 @@ def _get_db_password(settings, subdomain: str) -> str | None:
             for line in f:
                 if line.startswith("WORDPRESS_DB_PASSWORD=") or line.startswith("DB_PASSWORD="):
                     return line.split("=", 1)[1].strip().strip('"').strip("'")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to read db password from {env_path}: {e}")
     return None
 
 
@@ -40,7 +43,8 @@ def _has_db_container(settings, subdomain: str) -> bool:
         with open(compose_path) as f:
             content = f.read().lower()
         return "mysql" in content or "mariadb" in content or "postgres" in content
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Failed to read docker-compose for {subdomain}: {e}")
         return False
 
 
@@ -198,6 +202,7 @@ async def app_deploy(
             elif sd.app_type != stack_type:
                 await caddy.add_subdomain(sd.subdomain, settings.base_domain)
         except Exception as e:
+            logger.error(f"Caddy route error for {sd.subdomain}: {e}")
             error = (error or "") + f" | Caddy route error: {e}"
 
     sd.app_type = stack_type
@@ -264,7 +269,8 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     logs = ""
     try:
         logs = await docker_mgr.compose_logs(sd.subdomain, tail=50)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to fetch logs for {sd.subdomain}: {e}")
         logs = "Error fetching logs"
 
     mgr = AppManager()
@@ -350,8 +356,8 @@ async def app_delete(request: Request, sd_id: int, db: AsyncSession = Depends(ge
                     await caddy.remove_main_domain(settings.base_domain)
                 else:
                     await caddy.remove_subdomain(sd.subdomain, settings.base_domain)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to remove Caddy route for {sd.subdomain}: {e}")
 
         # 3. Delete app files
         mgr = AppManager(settings.apps_dir)
@@ -399,7 +405,8 @@ async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(g
         try:
             with open(env_path) as f:
                 env_content = f.read()
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to read .env file at {env_path}: {e}")
             env_content = "# Error reading .env file"
     else:
         env_content = "# No .env file found"
@@ -450,6 +457,7 @@ async def app_env_post(
         )
         await db.commit()
     except Exception as e:
+        logger.error(f"Failed to save .env file for {sd.subdomain}: {e}")
         error = f"Error saving .env file: {e}"
 
     return render(
