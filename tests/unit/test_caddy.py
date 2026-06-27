@@ -145,9 +145,13 @@ async def test_get_certificates_api_success():
     mgr = CaddyManager()
     with (
         patch.object(mgr, "_get_managed_domains", AsyncMock(return_value=["panel.example.com"])),
-        patch.object(mgr, "_check_certs_via_openssl", return_value=[
-            {"serial": "abc", "domains": "panel.example.com", "issuer": "Let's Encrypt"}
-        ]),
+        patch.object(
+            mgr,
+            "_check_certs_via_openssl",
+            return_value=[
+                {"serial": "abc", "domains": "panel.example.com", "issuer": "Let's Encrypt"}
+            ],
+        ),
     ):
         certs = await mgr.get_certificates()
         assert len(certs) == 1

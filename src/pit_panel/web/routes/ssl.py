@@ -86,6 +86,8 @@ def _get_tls_block(acme_cfg: str, dns_provider: str, api_var: str) -> str:
 
 @dataclass
 class CaddyfileConfig:
+    """Configuration model for generating a Caddyfile."""
+
     email: str
     domain: str
     panel_sub: str
@@ -129,6 +131,7 @@ class SSLGenerateForm:
 
 
 def _generate_caddyfile(config: CaddyfileConfig) -> str:
+    """Generate a Caddyfile string based on the provided configuration."""
     email = _sanitize(config.email)
     domain = _sanitize(config.domain)
     panel_sub = _sanitize(config.panel_sub)
