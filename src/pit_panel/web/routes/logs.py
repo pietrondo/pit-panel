@@ -3,7 +3,6 @@
 import asyncio
 import html
 import os
-import subprocess
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -52,36 +51,60 @@ async def _read_log(path: str, tail: int = 500) -> str:
     return await asyncio.to_thread(_read_log_sync, path, tail)
 
 
-def _read_journal_sync(n: int) -> str:
+async def _read_journal_async(n: int) -> str:
     # Try direct access first (pit-panel in systemd-journal group)
     try:
-        result = subprocess.run(
-            ["journalctl", "-u", "pit-panel.service", "-n", str(n), "--no-pager"],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        process = await asyncio.create_subprocess_exec(
+            "journalctl",
+            "-u",
+            "pit-panel.service",
+            "-n",
+            str(n),
+            "--no-pager",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        if result.stdout.strip():
-            return result.stdout
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
+        except TimeoutError:
+            process.kill()
+            await process.wait()
+            raise
+        out = stdout.decode().strip()
+        if out:
+            return out
     except Exception:
         pass
     # Fallback: try with sudo
     try:
-        result = subprocess.run(
-            ["sudo", "-n", "journalctl", "-u", "pit-panel.service", "-n", str(n), "--no-pager"],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        process = await asyncio.create_subprocess_exec(
+            "sudo",
+            "-n",
+            "journalctl",
+            "-u",
+            "pit-panel.service",
+            "-n",
+            str(n),
+            "--no-pager",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        if result.stdout.strip():
-            return result.stdout
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
+        except TimeoutError:
+            process.kill()
+            await process.wait()
+            raise
+        out = stdout.decode().strip()
+        if out:
+            return out
     except Exception:
         pass
     return "[journal unavailable — pit-panel user needs systemd-journal group]"
 
 
 async def _read_journal(n: int = 200) -> str:
-    return await asyncio.to_thread(_read_journal_sync, n)
+    return await _read_journal_async(n)
 
 
 @router.get("/logs", response_class=HTMLResponse, response_model=None)
