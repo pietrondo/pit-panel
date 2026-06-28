@@ -37,13 +37,13 @@ def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str:
         return f"ERROR: {e}"
 
 
-@router.get("/api/debug/logs")
+@router.get("/api/debug/logs")  # type: ignore[untyped-decorator]
 async def debug_logs(
     request: Request,
     lines: int = 50,
     priority: str = "info",
     token: str = Depends(_verify_token),
-):
+) -> PlainTextResponse:
     priority_flag = {"error": "-p", "warning": "-p", "info": ""}
     flag = priority_flag.get(priority, "")
     args = ["journalctl", "-u", "pit-panel.service", "-n", str(lines), "--no-pager"]
@@ -52,21 +52,21 @@ async def debug_logs(
     return PlainTextResponse(_run(args))
 
 
-@router.get("/api/debug/certs")
+@router.get("/api/debug/certs")  # type: ignore[untyped-decorator]
 async def debug_certs(
     request: Request,
     token: str = Depends(_verify_token),
-):
+) -> JSONResponse:
     caddy = CaddyManager(get_settings().caddy_admin_url)
     certs = await caddy.get_certificates()
     return JSONResponse(certs)
 
 
-@router.get("/api/debug/system")
+@router.get("/api/debug/system")  # type: ignore[untyped-decorator]
 async def debug_system(
     request: Request,
     token: str = Depends(_verify_token),
-):
+) -> JSONResponse:
     s = get_settings()
     return JSONResponse(
         {
