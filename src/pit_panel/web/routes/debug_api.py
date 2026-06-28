@@ -17,13 +17,14 @@ router = APIRouter()
 
 
 def _verify_token(x_debug_token: str | None = Header(None)) -> str:
+    import secrets
     if not x_debug_token:
         raise HTTPException(status_code=401, detail="Missing X-Debug-Token header")
     token_path = Path(get_settings().debug_token_path)
     if not token_path.exists():
         raise HTTPException(status_code=503, detail="Debug token not configured on this server")
     expected = token_path.read_text().strip()
-    if x_debug_token != expected:
+    if not secrets.compare_digest(x_debug_token.encode("utf-8"), expected.encode("utf-8")):
         raise HTTPException(status_code=403, detail="Invalid debug token")
     return x_debug_token
 
