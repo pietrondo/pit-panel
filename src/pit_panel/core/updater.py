@@ -1,8 +1,9 @@
 """Self-update mechanism with healthcheck and rollback."""
 
 import asyncio
+import contextlib
 import datetime
-import subprocess
+from dataclasses import dataclass
 
 import httpx
 
@@ -11,13 +12,42 @@ from pit_panel.db.models import UpdateHistory
 from pit_panel.db.session import get_sessionmaker
 
 
+@dataclass
+class _CmdResult:
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+async def _run_cmd(cmd: list[str], timeout: int, cwd: str | None = None) -> _CmdResult:
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        return _CmdResult(
+            returncode=proc.returncode or 0,
+            stdout=stdout.decode(errors="replace"),
+            stderr=stderr.decode(errors="replace"),
+        )
+    except TimeoutError:
+        with contextlib.suppress(Exception):
+            proc.kill()
+        return _CmdResult(returncode=-1, stdout="", stderr="Timeout")
+    except Exception as e:
+        return _CmdResult(returncode=-1, stdout="", stderr=str(e))
+
+
 class Updater:
     def __init__(self, settings: Settings):
         self.settings = settings
 
     async def check_for_updates(self) -> str | None:
         try:
-            result = subprocess.run(
+            result = await _run_cmd(
                 [
                     "sudo",
                     "-n",
@@ -28,16 +58,12 @@ class Updater:
                     "origin",
                     self.settings.git_branch,
                 ],
-                capture_output=True,
-                text=True,
                 timeout=30,
             )
             if result.returncode != 0:
                 return None
-            result = subprocess.run(
+            result = await _run_cmd(
                 ["git", "rev-parse", f"origin/{self.settings.git_branch}"],
-                capture_output=True,
-                text=True,
                 timeout=10,
                 cwd="/opt/pit-panel",
             )
@@ -45,10 +71,8 @@ class Updater:
             if not remote_sha:
                 return None
 
-            result = subprocess.run(
+            result = await _run_cmd(
                 ["git", "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
                 timeout=10,
                 cwd="/opt/pit-panel",
             )
@@ -63,10 +87,8 @@ class Updater:
     async def apply_update(self, target_sha: str) -> bool:
         sessionmaker = get_sessionmaker()
         async with sessionmaker() as db:
-            current_result = subprocess.run(
+            current_result = await _run_cmd(
                 ["git", "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
                 timeout=10,
                 cwd="/opt/pit-panel",
             )
@@ -86,10 +108,8 @@ class Updater:
                 (["uv", "run", "alembic", "upgrade", "head"], 60),
             ]
             for cmd, timeout in steps:
-                result = subprocess.run(
+                result = await _run_cmd(
                     cmd,
-                    capture_output=True,
-                    text=True,
                     timeout=timeout,
                     cwd="/opt/pit-panel",
                 )
@@ -105,18 +125,14 @@ class Updater:
             return True
 
     async def rollback(self) -> bool:
-        result = subprocess.run(
+        result = await _run_cmd(
             ["sudo", "-n", "git", "-C", "/opt/pit-panel", "reset", "--hard", "HEAD~1"],
-            capture_output=True,
-            text=True,
             timeout=10,
         )
         if result.returncode != 0:
             return False
-        result = subprocess.run(
+        result = await _run_cmd(
             ["sudo", "-n", "uv", "--directory", "/opt/pit-panel", "sync"],
-            capture_output=True,
-            text=True,
             timeout=120,
         )
         return result.returncode == 0

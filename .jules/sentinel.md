@@ -21,3 +21,7 @@
 **Vulnerability:** Mixing `bytes` and `str` across piped `subprocess.run` commands where `text=True` is set.
 **Learning:** When passing `r1.stdout` as `input` to `r2` where `r2` uses `text=True`, `r1` MUST also use `text=True` (and thus take string inputs instead of byte inputs). Otherwise, Python throws an `AttributeError: 'bytes' object has no attribute 'encode'`.
 **Prevention:** When mocking `|` operators with chained `subprocess.run`, strictly synchronize the `text=True` argument across the entire chain.
+## 2024-05-18 - [Sentinel] Fixed CRLF Injection and Timing Attack
+**Vulnerability:** CRLF injection in HTTP Headers and Timing Attack in Debug Token
+**Learning:** Input going to `http.client` should be sanitized (newlines stripped) and string comparison against sensitive tokens should use `secrets.compare_digest` with properly encoded byte-strings.
+**Prevention:** Ensure inputs to HTTP headers are stripped of CRLF, and use constant-time comparisons for token checks.

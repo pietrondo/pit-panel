@@ -37,3 +37,10 @@ def test_generate_caddyfile_prevents_injection():
     )
     assert "\n" not in _sanitize(malicious_eab)
     assert 'eab "keyother_directive " "hmac"' in caddyfile2
+
+
+def test_sanitize_removes_backslashes():
+    assert _sanitize("test\\test") == "testtest"
+    assert _sanitize("test\rtest") == "testtest"
+    assert _sanitize("test\ntest") == "testtest"
+    assert _sanitize('a\\b\\c"d{e}f`') == "abcdef"

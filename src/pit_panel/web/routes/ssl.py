@@ -45,15 +45,7 @@ def _sanitize(val: str) -> str:
     if not val:
         return ""
     # Strip dangerous characters that could break out of a Caddyfile value
-    return (
-        val.replace("\r", "")
-        .replace("\n", "")
-        .replace('"', "")
-        .replace("{", "")
-        .replace("}", "")
-        .replace("'", "")
-        .replace("`", "")
-    )
+    return re.sub(r"[\r\n\"\'{}\`\\]", "", val)
 
 
 def _get_acme_config(
@@ -92,6 +84,8 @@ def _get_tls_block(acme_cfg: str, dns_provider: str, api_var: str) -> str:
 
 @dataclass
 class CaddyfileConfig:
+    """Configuration model for generating a Caddyfile."""
+
     email: str
     domain: str
     panel_sub: str
@@ -135,6 +129,7 @@ class SSLGenerateForm:
 
 
 def _generate_caddyfile(config: CaddyfileConfig) -> str:
+    """Generate a Caddyfile string based on the provided configuration."""
     email = _sanitize(config.email)
     domain = _sanitize(config.domain)
     panel_sub = _sanitize(config.panel_sub)

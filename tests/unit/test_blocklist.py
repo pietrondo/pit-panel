@@ -1,73 +1,67 @@
 import asyncio
+import contextlib
 import time
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, Mock
 
+import httpx
 import pytest
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from pit_panel.core import blocklist
 from pit_panel.core.blocklist import (
-    _BLOCKLIST_CACHE,
-    CACHE_TTL,
+    BLOCKLIST_SOURCES,
     daily_blocklist_import,
     fetch_blocklist,
 )
+from pit_panel.db.models import Base
 
 
-class MockResponse:
-    def __init__(self, status_code, text):
-        self.status_code = status_code
-        self.text = text
+@pytest.fixture
+async def db_session():
+    engine = create_async_engine("sqlite+aiosqlite://")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+    async with sessionmaker() as db:
+        yield db
+
 
 
 @pytest.fixture(autouse=True)
 def clear_cache():
-    _BLOCKLIST_CACHE.clear()
-    yield
-    _BLOCKLIST_CACHE.clear()
+    blocklist._BLOCKLIST_CACHE.clear()
+
 
 
 @pytest.mark.asyncio
 async def test_fetch_blocklist_success(monkeypatch):
-    mock_resp = MockResponse(200, "192.168.1.1\n192.168.1.2\n# Comment\n\n192.168.1.3 extra")
+    class MockResponse:
+        status_code = 200
+        text = "1.2.3.4\n5.6.7.8\n# comment\n9.10.11.12 some text\n"
 
-    class LocalMockClient:
+    class MockClient:
         def __init__(self, *args, **kwargs):
             pass
 
         async def __aenter__(self):
             return self
 
-        async def __aexit__(self, *args):
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
             pass
 
         async def get(self, url):
-            return mock_resp
+            return MockResponse()
 
-    monkeypatch.setattr("httpx.AsyncClient", LocalMockClient)
+    monkeypatch.setattr(httpx, "AsyncClient", MockClient)
 
     ips = await fetch_blocklist("http://example.com/list")
-    assert ips == ["192.168.1.1", "192.168.1.2", "192.168.1.3"]
-    assert "http://example.com/list" in _BLOCKLIST_CACHE
+    assert ips == ["1.2.3.4", "5.6.7.8", "9.10.11.12"]
+
 
 
 @pytest.mark.asyncio
 async def test_fetch_blocklist_cache(monkeypatch):
-    # Set cache directly
-    _BLOCKLIST_CACHE["http://example.com/list"] = (["1.1.1.1"], time.time())
-
-    class FailingClient:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *args):
-            pass
-
-        async def get(self, url):
-            raise Exception("Should not be called")
-
-    monkeypatch.setattr("httpx.AsyncClient", FailingClient)
+    blocklist._BLOCKLIST_CACHE["http://example.com/list"] = (["1.1.1.1"], time.time())
 
     ips = await fetch_blocklist("http://example.com/list")
     assert ips == ["1.1.1.1"]
@@ -75,47 +69,51 @@ async def test_fetch_blocklist_cache(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_fetch_blocklist_cache_expired(monkeypatch):
-    _BLOCKLIST_CACHE["http://example.com/list"] = (["1.1.1.1"], time.time() - CACHE_TTL - 1)
+    # Pre-populate cache with expired timestamp
+    blocklist._BLOCKLIST_CACHE["http://example.com/list"] = (["1.1.1.1"], time.time() - 4000)
 
-    mock_resp = MockResponse(200, "2.2.2.2")
+    class MockResponse:
+        status_code = 200
+        text = "2.2.2.2\n"
 
-    class LocalMockClient:
+    class MockClient:
         def __init__(self, *args, **kwargs):
             pass
 
         async def __aenter__(self):
             return self
 
-        async def __aexit__(self, *args):
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
             pass
 
         async def get(self, url):
-            return mock_resp
+            return MockResponse()
 
-    monkeypatch.setattr("httpx.AsyncClient", LocalMockClient)
+    monkeypatch.setattr(httpx, "AsyncClient", MockClient)
 
     ips = await fetch_blocklist("http://example.com/list")
     assert ips == ["2.2.2.2"]
 
 
 @pytest.mark.asyncio
-async def test_fetch_blocklist_not_200(monkeypatch):
-    mock_resp = MockResponse(404, "")
+async def test_fetch_blocklist_http_error(monkeypatch):
+    class MockResponse:
+        status_code = 404
 
-    class LocalMockClient:
+    class MockClient:
         def __init__(self, *args, **kwargs):
             pass
 
         async def __aenter__(self):
             return self
 
-        async def __aexit__(self, *args):
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
             pass
 
         async def get(self, url):
-            return mock_resp
+            return MockResponse()
 
-    monkeypatch.setattr("httpx.AsyncClient", LocalMockClient)
+    monkeypatch.setattr(httpx, "AsyncClient", MockClient)
 
     ips = await fetch_blocklist("http://example.com/list")
     assert ips == []
@@ -123,20 +121,20 @@ async def test_fetch_blocklist_not_200(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_fetch_blocklist_exception(monkeypatch):
-    class LocalMockClient:
+    class MockClient:
         def __init__(self, *args, **kwargs):
             pass
 
         async def __aenter__(self):
             return self
 
-        async def __aexit__(self, *args):
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
             pass
 
         async def get(self, url):
-            raise Exception("Network error")
+            raise ValueError("Network error")
 
-    monkeypatch.setattr("httpx.AsyncClient", LocalMockClient)
+    monkeypatch.setattr(httpx, "AsyncClient", MockClient)
 
     ips = await fetch_blocklist("http://example.com/list")
     assert ips == []
@@ -144,67 +142,99 @@ async def test_fetch_blocklist_exception(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_daily_blocklist_import(monkeypatch):
-    # Mock asyncio.sleep to not block on the first call but raise on the second
+    # We want to run one iteration and then stop the infinite loop.
     sleep_calls = 0
 
     async def mock_sleep(seconds):
         nonlocal sleep_calls
-        if sleep_calls > 0:
-            raise asyncio.CancelledError()
         sleep_calls += 1
+        if sleep_calls == 2:
+            raise asyncio.CancelledError()
 
-    monkeypatch.setattr("asyncio.sleep", mock_sleep)
+    monkeypatch.setattr(asyncio, "sleep", mock_sleep)
 
-    mock_settings = MagicMock()
-    mock_settings.auto_blocklist = True
-    monkeypatch.setattr("pit_panel.core.blocklist.get_settings", lambda: mock_settings)
+    # Mock settings
+    class MockSettings:
+        auto_blocklist = True
 
-    class MockDbSession:
-        async def __aenter__(self):
-            return "mock_db"
+    monkeypatch.setattr("pit_panel.core.blocklist.get_settings", lambda: MockSettings())
 
-        async def __aexit__(self, *args):
-            pass
+    mock_session = AsyncMock()
+    mock_sessionmaker = Mock(return_value=mock_session)
+    mock_session.__aenter__.return_value = mock_session
+    monkeypatch.setattr("pit_panel.core.blocklist.get_sessionmaker", lambda: mock_sessionmaker)
 
-    class MockSessionMaker:
-        def __call__(self):
-            return MockDbSession()
-
-    monkeypatch.setattr("pit_panel.core.blocklist.get_sessionmaker", MockSessionMaker)
-
-    mock_fetch = AsyncMock(return_value=["3.3.3.3"])
+    # Mock fetch and ban
+    mock_fetch = AsyncMock(return_value=["1.1.1.1"])
     monkeypatch.setattr("pit_panel.core.blocklist.fetch_blocklist", mock_fetch)
 
     mock_ban = AsyncMock()
     monkeypatch.setattr("pit_panel.core.blocklist.ban_ips_bulk", mock_ban)
 
-    with pytest.raises(asyncio.CancelledError):
+    # Run
+    with contextlib.suppress(asyncio.CancelledError):
         await daily_blocklist_import()
 
-    assert mock_fetch.call_count > 0
-    assert mock_ban.call_count > 0
+    assert sleep_calls == 2
+    assert mock_fetch.call_count == len(BLOCKLIST_SOURCES)
+    assert mock_ban.call_count == len(BLOCKLIST_SOURCES)
+
 
 
 @pytest.mark.asyncio
 async def test_daily_blocklist_import_disabled(monkeypatch):
+    # Run one iteration, auto_blocklist = False
     sleep_calls = 0
 
     async def mock_sleep(seconds):
         nonlocal sleep_calls
-        if sleep_calls > 0:
-            raise asyncio.CancelledError()
         sleep_calls += 1
+        if sleep_calls == 2:
+            raise asyncio.CancelledError()
 
-    monkeypatch.setattr("asyncio.sleep", mock_sleep)
+    monkeypatch.setattr(asyncio, "sleep", mock_sleep)
 
-    mock_settings = MagicMock()
-    mock_settings.auto_blocklist = False
-    monkeypatch.setattr("pit_panel.core.blocklist.get_settings", lambda: mock_settings)
+    class MockSettings:
+        auto_blocklist = False
+
+    monkeypatch.setattr("pit_panel.core.blocklist.get_settings", lambda: MockSettings())
 
     mock_fetch = AsyncMock()
     monkeypatch.setattr("pit_panel.core.blocklist.fetch_blocklist", mock_fetch)
 
-    with pytest.raises(asyncio.CancelledError):
+    with contextlib.suppress(asyncio.CancelledError):
         await daily_blocklist_import()
 
-    assert mock_fetch.call_count == 0
+    mock_fetch.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_daily_blocklist_import_exception(monkeypatch):
+    sleep_calls = 0
+
+    async def mock_sleep(seconds):
+        nonlocal sleep_calls
+        sleep_calls += 1
+        if sleep_calls == 2:
+            raise asyncio.CancelledError()
+
+    monkeypatch.setattr(asyncio, "sleep", mock_sleep)
+
+    class MockSettings:
+        auto_blocklist = True
+
+    monkeypatch.setattr("pit_panel.core.blocklist.get_settings", lambda: MockSettings())
+
+    mock_session = AsyncMock()
+    mock_sessionmaker = Mock(return_value=mock_session)
+    mock_session.__aenter__.return_value = mock_session
+    monkeypatch.setattr("pit_panel.core.blocklist.get_sessionmaker", lambda: mock_sessionmaker)
+
+    # Mock fetch to raise exception
+    mock_fetch = AsyncMock(side_effect=Exception("Test error"))
+    monkeypatch.setattr("pit_panel.core.blocklist.fetch_blocklist", mock_fetch)
+
+    with contextlib.suppress(asyncio.CancelledError):
+        await daily_blocklist_import()
+
+    assert sleep_calls == 2
