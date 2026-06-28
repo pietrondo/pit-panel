@@ -57,6 +57,7 @@ async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict]:
     import json
 
     try:
+        api_key = api_key.replace("\r", "").replace("\n", "")
         conn = http.client.HTTPSConnection("api.abuseipdb.com", timeout=15)
         headers = {"Key": api_key, "Accept": "application/json"}
         conn.request(
