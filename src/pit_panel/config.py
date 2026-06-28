@@ -1,6 +1,6 @@
+import tomllib as tomli
 from pathlib import Path
 
-import tomli
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

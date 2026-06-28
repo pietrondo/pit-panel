@@ -16,11 +16,6 @@ from pit_panel.web.render import render
 router = APIRouter()
 
 
-async def _load_db_settings(db: AsyncSession) -> dict:
-    result = await db.execute(select(SystemSettings))
-    return {row.key: row.value for row in result.scalars().all()}
-
-
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)

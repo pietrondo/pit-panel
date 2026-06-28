@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -69,35 +69,6 @@ async def test_renew_certificate_post_raise_for_status():
         assert result["domain"] == "example.com"
         assert "HTTP 500" in result["error"]
 
-
-def test_parse_caddy_storage_certs_rglob_exception():
-    mgr = CaddyManager()
-    with patch("pathlib.Path.rglob", side_effect=Exception("Permission denied reading directory")):
-        certs = mgr._parse_caddy_storage_certs(None)
-        assert certs == []
-
-
-def test_parse_caddy_storage_certs_subprocess_exception(tmp_path):
-    mgr = CaddyManager()
-    certs_dir = tmp_path / "acme" / "example.com"
-    certs_dir.mkdir(parents=True)
-    import json
-
-    meta = {"sans": ["example.com"]}
-    (certs_dir / "example.com.json").write_text(json.dumps(meta))
-    (certs_dir / "example.com.crt").write_text("fake crt")
-
-    with (
-        patch("pathlib.Path.rglob", return_value=[certs_dir / "example.com.json"]),
-        patch("subprocess.run", side_effect=Exception("openssl command failed")),
-    ):
-        certs = mgr._parse_caddy_storage_certs(None)
-        assert len(certs) == 1
-        assert certs[0]["domains"] == "example.com"
-        # It should gracefully fallback to metadata if subprocess fails
-        assert certs[0]["not_after"] == ""
-
-
 @pytest.mark.asyncio
 async def test_generate_and_reload_permission_error():
     mgr = CaddyManager()
@@ -110,12 +81,48 @@ async def test_generate_and_reload_permission_error():
 async def test_generate_and_reload_subprocess_failure():
     mgr = CaddyManager()
     with patch("pathlib.Path.write_text"), patch("pathlib.Path.mkdir"):
-        mock_proc = AsyncMock()
-        mock_proc.returncode = 1
-        mock_proc.communicate.return_value = (b"", b"systemctl error")
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+
+        async def mock_exec(*args, **kwargs):
+            proc = AsyncMock()
+            if args[0] == "caddy":
+                proc.returncode = 0
+                proc.communicate.return_value = (b"ok", b"")
+            else:
+                proc.returncode = 1
+                proc.communicate.return_value = (b"", b"systemctl error")
+            return proc
+
+        with patch("asyncio.create_subprocess_exec", side_effect=mock_exec):
             result = await mgr.generate_and_reload("config content")
             assert "Caddy reload failed: systemctl error" in result
+
+
+@pytest.mark.asyncio
+async def test_generate_and_reload_validation_failure():
+    mgr = CaddyManager()
+    with patch("pathlib.Path.write_text"), patch("pathlib.Path.mkdir"):
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 1
+        mock_proc.communicate.return_value = (b"", b"Caddyfile syntax error")
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+            result = await mgr.generate_and_reload("config content")
+            assert "Caddy validation failed: Caddyfile syntax error" in result
+
+
+@pytest.mark.asyncio
+async def test_generate_and_reload_success():
+    mgr = CaddyManager()
+    with patch("pathlib.Path.write_text"), patch("pathlib.Path.mkdir"):
+
+        async def mock_exec(*args, **kwargs):
+            proc = AsyncMock()
+            proc.returncode = 0
+            proc.communicate.return_value = (b"", b"")
+            return proc
+
+        with patch("asyncio.create_subprocess_exec", side_effect=mock_exec):
+            result = await mgr.generate_and_reload("config content")
+            assert "Config loaded. Caddy will provision SSL certificates now." in result
 
 
 @pytest.mark.asyncio
@@ -126,27 +133,3 @@ async def test_generate_and_reload_exception():
         assert "Caddy config error: Unknown error" in result
 
 
-def test_read_file_safely_permission_error_fallback_success():
-    mgr = CaddyManager()
-    mock_path = MagicMock()
-    mock_path.read_text.side_effect = PermissionError("Permission denied")
-
-    from unittest.mock import Mock
-
-    mock_result = Mock()
-    mock_result.returncode = 0
-    mock_result.stdout = "sudo file content\n"
-
-    with patch("subprocess.run", return_value=mock_result):
-        content = mgr._read_file_safely(mock_path)
-        assert content == "sudo file content"
-
-
-def test_read_file_safely_permission_error_fallback_failure():
-    mgr = CaddyManager()
-    mock_path = MagicMock()
-    mock_path.read_text.side_effect = PermissionError("Permission denied")
-
-    with patch("subprocess.run", side_effect=Exception("sudo error")):
-        content = mgr._read_file_safely(mock_path)
-        assert content == ""

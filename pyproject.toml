@@ -19,10 +19,7 @@ dependencies = [
     "pyotp>=2.9.0",
     "itsdangerous>=2.2.0",
     "pydantic-settings>=2.7.0",
-    "python-dotenv>=1.0.0",
     "slowapi>=0.1.9",
-    "cryptography>=44.0.0",
-    "tomli>=2.2.0",
     "qrcode[pil]>=8.0",
     "httpx>=0.28.0",
 ]

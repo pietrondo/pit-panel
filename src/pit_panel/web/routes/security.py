@@ -2,7 +2,7 @@
 
 import ipaddress
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -111,19 +111,10 @@ async def _render_security_page(request: Request, db: AsyncSession, user: User, 
     fw = await _firewall_status()
     f2b = await _fail2ban_status()
 
-    try:
-        scan_result = await db.execute(
-            select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(5)
-        )
-        scan_history = scan_result.scalars().all()
-    except Exception:
-        from pit_panel.db.models import Base
-        from pit_panel.db.session import get_engine
-
-        engine = get_engine()
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        scan_history = []
+    scan_result = await db.execute(
+        select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(5)
+    )
+    scan_history = scan_result.scalars().all()
 
     settings = get_settings()
     abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
@@ -239,13 +230,51 @@ async def security_ban_ip(
     return await _render_security_page(request, db, user, ban_result=result)
 
 
+async def run_malware_scan_bg(scan_id: int, target: str, scan_path: str = None) -> None:
+    from datetime import datetime
+
+    from pit_panel.db.session import get_sessionmaker
+
+    sessionmaker = get_sessionmaker()
+    async with sessionmaker() as db:
+        scan = await db.get(MalwareScan, scan_id)
+        if not scan:
+            return
+
+        try:
+            settings = get_settings()
+            scanner = MalwareScanner(settings.apps_dir)
+            if target == "all":
+                results = await scanner.scan_all()
+                total_infected = sum(r.get("infected_total", 0) for r in results)
+                total_scanned = sum(r.get("scanned_total", 0) for r in results)
+                scan.status = "completed"
+                scan.infected_count = total_infected
+                scan.scanned_count = total_scanned
+                scan.details = {"apps": results}
+            else:
+                result = await scanner.scan_path(scan_path or "/")
+                scan.status = "completed"
+                scan.infected_count = result.get("infected_total", 0)
+                scan.scanned_count = result.get("scanned_total", 0)
+                scan.details = {"apps": [result]}
+        except Exception as e:
+            scan.status = "failed"
+            scan.details = {"error": str(e)}
+
+        scan.completed_at = datetime.utcnow()
+        await db.commit()
+
+
 @router.post("/security/malware/scan", response_class=HTMLResponse)
-async def security_malware_scan(request: Request, db: AsyncSession = Depends(get_db)):
+async def security_malware_scan(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("Unauthorized")
-
-    from datetime import datetime
 
     settings = get_settings()
     scanner = MalwareScanner(settings.apps_dir)
@@ -266,46 +295,27 @@ async def security_malware_scan(request: Request, db: AsyncSession = Depends(get
     db.add(scan)
     await db.commit()
 
-    try:
-        results = await scanner.scan_all()
-        total_infected = sum(r.get("infected_total", 0) for r in results)
-        total_scanned = sum(r.get("scanned_total", 0) for r in results)
-        scan.status = "completed"
-        scan.infected_count = total_infected
-        scan.scanned_count = total_scanned
-        scan.details = {"apps": results}
-    except Exception as e:
-        scan.status = "failed"
-        scan.details = {"error": str(e)}
-
-    scan.completed_at = datetime.utcnow()
-    await db.commit()
+    background_tasks.add_task(run_malware_scan_bg, scan.id, "all")
 
     return await security_overview(request, db)
 
 
 @router.post("/security/malware/scan-full", response_class=HTMLResponse)
-async def security_malware_scan_full(request: Request, db: AsyncSession = Depends(get_db)):
+async def security_malware_scan_full(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("Unauthorized")
-    from datetime import datetime
 
-    scanner = MalwareScanner(get_settings().apps_dir)
     scan = MalwareScan(target="system (full)", scan_type="full", status="running")
     db.add(scan)
     await db.commit()
-    try:
-        result = await scanner.scan_path("/")
-        scan.status = "completed"
-        scan.infected_count = result["infected_total"]
-        scan.scanned_count = result["scanned_total"]
-        scan.details = {"apps": [result]}
-    except Exception as e:
-        scan.status = "failed"
-        scan.details = {"error": str(e)}
-    scan.completed_at = datetime.utcnow()
-    await db.commit()
+
+    background_tasks.add_task(run_malware_scan_bg, scan.id, "system", "/")
+
     return await security_overview(request, db)
 
 

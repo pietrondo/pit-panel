@@ -130,33 +130,6 @@ class TestIPBanLogic:
         bans = await get_banned_ips(db_session)
         assert len(bans) == 2
 
-    @pytest.mark.asyncio
-    async def test_cleanup_expired_bans(self, db_session):
-        from pit_panel.security.ipban import cleanup_expired_bans, is_ip_banned
-
-        past = dt.datetime.now(dt.UTC) - dt.timedelta(hours=1)
-        ban = IPBan(ip_address="10.0.0.50", reason="old", expires_at=past)
-        db_session.add(ban)
-        await db_session.commit()
-
-        removed = await cleanup_expired_bans(db_session)
-        assert removed >= 1
-        assert not await is_ip_banned(db_session, "10.0.0.50")
-
-    @pytest.mark.asyncio
-    async def test_cleanup_old_attempts(self, db_session):
-        from pit_panel.security.ipban import cleanup_old_attempts
-
-        old = dt.datetime.now(dt.UTC) - dt.timedelta(days=60)
-        attempt = LoginAttempt(ip_address="1.1.1.1", username="x", success=False)
-        attempt.attempted_at = old
-        db_session.add(attempt)
-        await db_session.commit()
-
-        removed = await cleanup_old_attempts(db_session, days=30)
-        assert removed >= 1
-
-
 class TestSecurityApp:
     def test_security_routes_registered(self, settings):
         from pit_panel.web.app import create_app

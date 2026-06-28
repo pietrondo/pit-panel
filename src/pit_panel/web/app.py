@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
 from pit_panel.config import Settings, init_settings
-from pit_panel.db.session import get_sessionmaker, init_db
+from pit_panel.db.session import get_sessionmaker
 from pit_panel.security.ipban import is_ip_banned
 from pit_panel.web.limiter import limiter
 
@@ -55,40 +55,6 @@ async def _security_headers_middleware(request: Request, call_next):
             "max-age=63072000; includeSubDomains; preload"
         )
     return response
-
-
-@contextlib.asynccontextmanager
-async def lifespan(app: FastAPI):
-    await init_db(app.state.settings)
-    s = app.state.settings
-
-    # Load runtime settings from DB (overrides from web GUI)
-    sessionmaker = get_sessionmaker()
-    async with sessionmaker() as db:
-        from sqlalchemy import select  # noqa: E402
-
-        from pit_panel.db.models import SystemSettings  # noqa: E402
-
-        result = await db.execute(
-            select(SystemSettings).where(
-                SystemSettings.key.in_(("base_domain", "panel_subdomain", "host"))
-            )
-        )
-        updates = {
-            row.key: row.value.get("v", "") if isinstance(row.value, dict) else row.value
-            for row in result.scalars().all()
-        }
-        if updates:
-            s.__dict__.update(updates)
-
-    if s.effective_domain and s.panel_subdomain:
-        from pit_panel.core.caddy import CaddyManager
-
-        caddy = CaddyManager(s.caddy_admin_url)
-        with contextlib.suppress(Exception):
-            await caddy.setup_panel_route(s.panel_subdomain, s.effective_domain, s.port)
-    yield
-
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     if settings is None:

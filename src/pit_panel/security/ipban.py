@@ -2,7 +2,7 @@
 
 import datetime as dt
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.db.models import IPBan, LoginAttempt
@@ -89,34 +89,6 @@ async def ban_ip(db: AsyncSession, ip: str, reason: str, duration_minutes: int =
 async def get_banned_ips(db: AsyncSession) -> list[IPBan]:
     result = await db.execute(select(IPBan).order_by(IPBan.banned_at.desc()))
     return result.scalars().all()
-
-
-async def get_recent_attempts(db: AsyncSession, limit: int = 50) -> list[LoginAttempt]:
-    result = await db.execute(
-        select(LoginAttempt).order_by(LoginAttempt.attempted_at.desc()).limit(limit)
-    )
-    return result.scalars().all()
-
-
-async def cleanup_expired_bans(db: AsyncSession) -> int:
-
-    result = await db.execute(
-        delete(IPBan).where(
-            IPBan.expires_at.isnot(None),
-            IPBan.expires_at < dt.datetime.now(dt.UTC),
-        )
-    )
-    if result.rowcount > 0:
-        await db.commit()
-    return result.rowcount
-
-
-async def cleanup_old_attempts(db: AsyncSession, days: int = 30) -> int:
-    cutoff = dt.datetime.now(dt.UTC) - dt.timedelta(days=days)
-
-    result = await db.execute(delete(LoginAttempt).where(LoginAttempt.attempted_at < cutoff))
-    await db.commit()
-    return result.rowcount
 
 
 async def ban_ips_bulk(
