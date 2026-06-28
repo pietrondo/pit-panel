@@ -100,6 +100,13 @@ pit-panel ALL=(root) NOPASSWD: /bin/cp /opt/pit-panel/packaging/*.service /etc/s
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/usermod -a -G systemd-journal pit-panel
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/usermod -a -G docker pit-panel
 pit-panel ALL=(root) NOPASSWD: /usr/bin/journalctl -u pit-panel.service *
+# System management commands requiring password authentication
+pit-panel ALL=(root) PASSWD: /usr/bin/systemctl restart caddy
+pit-panel ALL=(root) PASSWD: /usr/bin/systemctl restart pit-panel
+pit-panel ALL=(root) PASSWD: /usr/bin/apt-get update
+pit-panel ALL=(root) PASSWD: /usr/bin/journalctl -u pit-panel -n 50 --no-pager
+pit-panel ALL=(root) PASSWD: /sbin/reboot
+pit-panel ALL=(root) PASSWD: /usr/sbin/reboot
 SUDOERS
 chmod 440 /etc/sudoers.d/pit-panel
 
