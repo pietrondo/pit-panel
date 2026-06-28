@@ -27,170 +27,199 @@
 </div>
 {% endif %}
 
-<!-- Deploy from GitHub -->
-<div class="card mb-8">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy from GitHub</h2>
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('appsTabs', () => ({
+            active: 'deployed'
+        }));
+    });
+</script>
+
+<div x-data="appsTabs">
+    <div class="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-6">
+        <button class="px-4 py-2 text-sm font-medium transition-colors"
+                x-bind:class="active === 'deployed' ? 'text-indigo-600 border-b-2 border-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'"
+                @click="active = 'deployed'">
+            <span class="mr-1">📋</span> Deployed Apps
+        </button>
+        <button class="px-4 py-2 text-sm font-medium transition-colors"
+                x-bind:class="active === 'new' ? 'text-indigo-600 border-b-2 border-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'"
+                @click="active = 'new'">
+            <span class="mr-1">➕</span> New App
+        </button>
     </div>
-    <div class="p-6">
-        <div class="flex gap-3">
-            <input type="url" name="repo_url" id="repo-url" placeholder="https://github.com/user/repo"
-                   class="input flex-1" required>
-            <button class="btn-ghost text-indigo-700 dark:text-indigo-400"
-                    hx-post="/apps/analyze-repo"
-                    hx-include="[name='repo_url']"
-                    hx-target="#repo-result"
-                    hx-indicator="#repo-spinner">
-                Analyze
-            </button>
-            <span id="repo-spinner" class="htmx-indicator self-center">
-                <span class="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
-            </span>
-        </div>
-        <p class="text-xs text-gray-500 mt-2">Inserisci URL GitHub per analisi automatica dello stack e deploy一键</p>
-        <div id="repo-result" class="mt-4"></div>
-    </div>
-</div>
 
-<!-- Template Cards -->
-<div class="mb-8">
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" x-data="stackSelector">
-        {% for tpl in template_infos %}
-        <div class="card p-5 cursor-pointer transition-all"
-             x-bind:class="selected === '{{ tpl.name }}' ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : 'hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400'"
-             x-on:click="selectStack('{{ tpl.name }}', '{{ tpl.meta.get('default_port', 8000) }}')">
-            <div class="flex items-center gap-3 mb-2">
-                <span class="text-2xl">{{ tpl.meta.get('icon', '📦') }}</span>
-                <div>
-                    <h3 class="font-semibold text-gray-900 dark:text-white">{{ tpl.meta.get('display_name', tpl.name) }}</h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ tpl.meta.get('version', '') }}</p>
-                </div>
+    <!-- Deployed Apps Tab -->
+    <div x-show="active === 'deployed'" x-transition:enter.duration.200ms>
+        <!-- Deployed apps -->
+        <div class="card">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deployed Apps</h2>
             </div>
-            <p class="text-sm text-gray-600 dark:text-gray-400">{{ tpl.meta.get('description', '') }}</p>
-            <div class="flex gap-2 mt-3">
-                {% if tpl.meta.get('requires_db') %}
-                <span class="badge badge-blue">DB</span>
-                {% endif %}
-                <span class="badge badge-gray">Port {{ tpl.meta.get('default_port', '—') }}</span>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-
-<!-- Deploy Form -->
-<div class="card mb-8">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
-    </div>
-    <div class="p-6">
-        <form method="POST" action="/apps/deploy" class="space-y-4" x-data="{ isMain: false }">
-
-            <div class="form-control">
-                <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox" name="is_main_domain" class="checkbox checkbox-primary"
-                           x-model="isMain">
-                    <span class="label-text">Deploy on main domain <code class="text-indigo-600">{{ settings.base_domain or '—' }}</code></span>
-                </label>
-            </div>
-
-            <div x-show="!isMain" x-transition.duration.200ms>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="label">Subdomain</label>
-                        <select name="subdomain_id" class="input" x-ref="sdSelect"
-                                @change="$refs.newSd.disabled = $event.target.value > 0; if($event.target.value > 0) $refs.newSd.value = ''">
-                            <option value="-1" selected>Create new...</option>
-                            {% for sd in subdomains %}
-                            <option value="{{ sd.id }}">{{ sd.subdomain }}.{{ sd.base_domain }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="label">New subdomain name</label>
-                        <input type="text" name="new_subdomain" x-ref="newSd" class="input"
-                               placeholder="myapp" pattern="[a-z0-9-]+"
-                               @input="$refs.sdSelect.value = '-1'">
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="label">Stack</label>
-                    <select class="input" x-ref="stackType" name="stack_type" required>
-                        <option value="">Select a stack...</option>
-                        {% for tpl in template_infos %}
-                        <option value="{{ tpl.name }}">{{ tpl.meta.get('display_name', tpl.name) }}</option>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subdomain</th>
+                            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stack</th>
+                            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Deployed</th>
+                            <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for sd in subdomains %}
+                        {% if sd.app_type %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                            <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white">
+                                <a href="/apps/{{ sd.id }}" class="hover:text-indigo-600">{% if sd.is_main_domain %}{{ sd.base_domain }}{% else %}{{ sd.subdomain }}.{{ sd.base_domain or '?' }}{% endif %}</a>
+                                {% if sd.is_main_domain %}<span class="badge badge-accent ml-2">Main Domain</span>{% endif %}
+                            </td>
+                            <td class="px-6 py-3">
+                                <span class="badge badge-blue">{{ sd.app_type }}</span>
+                            </td>
+                            <td class="px-6 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                {{ sd.last_deployed.strftime('%Y-%m-%d %H:%M') if sd.last_deployed else 'just now' }}
+                            </td>
+                            <td class="px-6 py-3 text-right space-x-1">
+                                <a href="/apps/{{ sd.id }}" class="btn-ghost text-xs">Manage</a>
+                                <form method="POST" action="/apps/{{ sd.id }}/stop" class="inline">
+                                    <button type="submit" class="btn-ghost text-xs text-orange-600">Stop</button>
+                                </form>
+                                <form method="POST" action="/apps/{{ sd.id }}/delete" class="inline" onsubmit="return confirm('Are you sure you want to completely delete this app and its data? This cannot be undone.')">
+                                    <button type="submit" class="btn-ghost text-xs text-red-600 font-bold">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endif %}
                         {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="label">Port</label>
-                    <input type="number" name="port" x-ref="port" value="8000" class="input w-32">
-                </div>
+                        {% set deployed = subdomains|selectattr('app_type')|list|length %}
+                        {% if deployed == 0 %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                                No apps deployed yet. Select a stack and deploy above.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
+        </div>
+    </div>
 
-            <div class="flex items-center gap-3 pt-2">
-                <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400">Deploy</button>
-                <p class="text-xs text-gray-500">Creates subdomain, Caddy route, and starts containers</p>
+    <!-- New App Tab -->
+    <div x-show="active === 'new'" x-transition:enter.duration.200ms>
+        <!-- Deploy from GitHub -->
+        <div class="card mb-8">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy from GitHub</h2>
             </div>
-        </form>
-    </div>
-</div>
+            <div class="p-6">
+                <div class="flex gap-3">
+                    <input type="url" name="repo_url" id="repo-url" placeholder="https://github.com/user/repo"
+                           class="input flex-1" required>
+                    <button class="btn-ghost text-indigo-700 dark:text-indigo-400"
+                            hx-post="/apps/analyze-repo"
+                            hx-include="[name='repo_url']"
+                            hx-target="#repo-result"
+                            hx-indicator="#repo-spinner">
+                        Analyze
+                    </button>
+                    <span id="repo-spinner" class="htmx-indicator self-center">
+                        <span class="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
+                    </span>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Inserisci URL GitHub per analisi automatica dello stack e deploy一键</p>
+                <div id="repo-result" class="mt-4"></div>
+            </div>
+        </div>
 
-<!-- Deployed apps -->
-<div class="card">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deployed Apps</h2>
-    </div>
-    <div class="overflow-x-auto">
-        <table class="w-full">
-            <thead>
-                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subdomain</th>
-                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stack</th>
-                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Deployed</th>
-                    <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                {% for sd in subdomains %}
-                {% if sd.app_type %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <td class="px-6 py-3 text-sm font-mono text-gray-900 dark:text-white">
-                        <a href="/apps/{{ sd.id }}" class="hover:text-indigo-600">{% if sd.is_main_domain %}{{ sd.base_domain }}{% else %}{{ sd.subdomain }}.{{ sd.base_domain or '?' }}{% endif %}</a>
-                        {% if sd.is_main_domain %}<span class="badge badge-accent ml-2">Main Domain</span>{% endif %}
-                    </td>
-                    <td class="px-6 py-3">
-                        <span class="badge badge-blue">{{ sd.app_type }}</span>
-                    </td>
-                    <td class="px-6 py-3 text-sm text-gray-500 dark:text-gray-400">
-                        {{ sd.last_deployed.strftime('%Y-%m-%d %H:%M') if sd.last_deployed else 'just now' }}
-                    </td>
-                    <td class="px-6 py-3 text-right space-x-1">
-                        <a href="/apps/{{ sd.id }}" class="btn-ghost text-xs">Manage</a>
-                        <form method="POST" action="/apps/{{ sd.id }}/stop" class="inline">
-                            <button type="submit" class="btn-ghost text-xs text-orange-600">Stop</button>
-                        </form>
-                        <form method="POST" action="/apps/{{ sd.id }}/delete" class="inline" onsubmit="return confirm('Are you sure you want to completely delete this app and its data? This cannot be undone.')">
-                            <button type="submit" class="btn-ghost text-xs text-red-600 font-bold">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endif %}
+        <!-- Template Cards -->
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" x-data="stackSelector">
+                {% for tpl in template_infos %}
+                <div class="card p-5 cursor-pointer transition-all"
+                     x-bind:class="selected === '{{ tpl.name }}' ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : 'hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400'"
+                     x-on:click="selectStack('{{ tpl.name }}', '{{ tpl.meta.get('default_port', 8000) }}')">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="text-2xl">{{ tpl.meta.get('icon', '📦') }}</span>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ tpl.meta.get('display_name', tpl.name) }}</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ tpl.meta.get('version', '') }}</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ tpl.meta.get('description', '') }}</p>
+                    <div class="flex gap-2 mt-3">
+                        {% if tpl.meta.get('requires_db') %}
+                        <span class="badge badge-blue">DB</span>
+                        {% endif %}
+                        <span class="badge badge-gray">Port {{ tpl.meta.get('default_port', '—') }}</span>
+                    </div>
+                </div>
                 {% endfor %}
-                {% set deployed = subdomains|selectattr('app_type')|list|length %}
-                {% if deployed == 0 %}
-                <tr>
-                    <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                        No apps deployed yet. Select a stack and deploy above.
-                    </td>
-                </tr>
-                {% endif %}
-            </tbody>
-        </table>
+            </div>
+        </div>
+
+        <!-- Deploy Form -->
+        <div class="card mb-8">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
+            </div>
+            <div class="p-6">
+                <form method="POST" action="/apps/deploy" class="space-y-4" x-data="{ isMain: false }">
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-3">
+                            <input type="checkbox" name="is_main_domain" class="checkbox checkbox-primary"
+                                   x-model="isMain">
+                            <span class="label-text">Deploy on main domain <code class="text-indigo-600">{{ settings.base_domain or '—' }}</code></span>
+                        </label>
+                    </div>
+
+                    <div x-show="!isMain" x-transition.duration.200ms>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="label">Subdomain</label>
+                                <select name="subdomain_id" class="input" x-ref="sdSelect"
+                                        @change="$refs.newSd.disabled = $event.target.value > 0; if($event.target.value > 0) $refs.newSd.value = ''">
+                                    <option value="-1" selected>Create new...</option>
+                                    {% for sd in subdomains %}
+                                    <option value="{{ sd.id }}">{{ sd.subdomain }}.{{ sd.base_domain }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="label">New subdomain name</label>
+                                <input type="text" name="new_subdomain" x-ref="newSd" class="input"
+                                       placeholder="myapp" pattern="[a-z0-9-]+"
+                                       @input="$refs.sdSelect.value = '-1'">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="label">Stack</label>
+                            <select class="input" x-ref="stackType" name="stack_type" required>
+                                <option value="">Select a stack...</option>
+                                {% for tpl in template_infos %}
+                                <option value="{{ tpl.name }}">{{ tpl.meta.get('display_name', tpl.name) }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label">Port</label>
+                            <input type="number" name="port" x-ref="port" value="8000" class="input w-32">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 pt-2">
+                        <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400">Deploy</button>
+                        <p class="text-xs text-gray-500">Creates subdomain, Caddy route, and starts containers</p>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
