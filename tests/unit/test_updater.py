@@ -21,7 +21,7 @@ def updater(mock_settings):
 
 @pytest.mark.asyncio
 async def test_check_for_updates_new_version(updater):
-    with patch("subprocess.run") as mock_run:
+    with patch("pit_panel.core.updater._run_cmd", new_callable=AsyncMock) as mock_run:
         # fetch, rev-parse remote, rev-parse local
         mock_run.side_effect = [
             MagicMock(returncode=0),
@@ -37,7 +37,7 @@ async def test_check_for_updates_new_version(updater):
 
 @pytest.mark.asyncio
 async def test_check_for_updates_up_to_date(updater):
-    with patch("subprocess.run") as mock_run:
+    with patch("pit_panel.core.updater._run_cmd", new_callable=AsyncMock) as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0),
             MagicMock(stdout="same_sha\n"),
@@ -51,7 +51,7 @@ async def test_check_for_updates_up_to_date(updater):
 
 @pytest.mark.asyncio
 async def test_check_for_updates_fetch_fails(updater):
-    with patch("subprocess.run") as mock_run:
+    with patch("pit_panel.core.updater._run_cmd", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = MagicMock(returncode=1)
 
         result = await updater.check_for_updates()
@@ -62,7 +62,7 @@ async def test_check_for_updates_fetch_fails(updater):
 
 @pytest.mark.asyncio
 async def test_check_for_updates_no_remote_sha(updater):
-    with patch("subprocess.run") as mock_run:
+    with patch("pit_panel.core.updater._run_cmd", new_callable=AsyncMock) as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0),
             MagicMock(stdout="\n"),
@@ -75,7 +75,9 @@ async def test_check_for_updates_no_remote_sha(updater):
 
 @pytest.mark.asyncio
 async def test_check_for_updates_exception(updater):
-    with patch("subprocess.run", side_effect=Exception("error")):
+    with patch(
+        "pit_panel.core.updater._run_cmd", side_effect=Exception("error"), new_callable=AsyncMock
+    ):
         result = await updater.check_for_updates()
 
         assert result is None
@@ -90,7 +92,7 @@ async def test_apply_update_success(updater):
 
     with (
         patch("pit_panel.core.updater.get_sessionmaker", return_value=mock_sessionmaker),
-        patch("subprocess.run") as mock_run,
+        patch("pit_panel.core.updater._run_cmd", new_callable=AsyncMock) as mock_run,
     ):
         # git rev-parse HEAD
         # git reset
@@ -125,7 +127,7 @@ async def test_apply_update_failure(updater):
 
     with (
         patch("pit_panel.core.updater.get_sessionmaker", return_value=mock_sessionmaker),
-        patch("subprocess.run") as mock_run,
+        patch("pit_panel.core.updater._run_cmd", new_callable=AsyncMock) as mock_run,
     ):
         # git rev-parse HEAD
         # git reset (fails)
@@ -146,7 +148,7 @@ async def test_apply_update_failure(updater):
 
 @pytest.mark.asyncio
 async def test_rollback_success(updater):
-    with patch("subprocess.run") as mock_run:
+    with patch("pit_panel.core.updater._run_cmd", new_callable=AsyncMock) as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0),
             MagicMock(returncode=0),
@@ -160,7 +162,7 @@ async def test_rollback_success(updater):
 
 @pytest.mark.asyncio
 async def test_rollback_git_fails(updater):
-    with patch("subprocess.run") as mock_run:
+    with patch("pit_panel.core.updater._run_cmd", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = MagicMock(returncode=1)
 
         result = await updater.rollback()
