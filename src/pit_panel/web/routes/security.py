@@ -17,7 +17,7 @@ from pit_panel.core.security import (
 from pit_panel.db.models import LoginAttempt, MalwareScan, SystemSettings, User
 from pit_panel.db.models import Session as DBSession
 from pit_panel.db.session import get_db
-from pit_panel.security.ipban import get_banned_ips
+from pit_panel.security.ipban import ban_ip, ban_ips_bulk, get_banned_ips, unban_ip
 from pit_panel.security.malware_scanner import (
     SCAN_DEFAULT_INTERVAL_HOURS,
     THREAT_CATEGORIES,
