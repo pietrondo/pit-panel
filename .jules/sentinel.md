@@ -21,3 +21,6 @@
 **Vulnerability:** Mixing `bytes` and `str` across piped `subprocess.run` commands where `text=True` is set.
 **Learning:** When passing `r1.stdout` as `input` to `r2` where `r2` uses `text=True`, `r1` MUST also use `text=True` (and thus take string inputs instead of byte inputs). Otherwise, Python throws an `AttributeError: 'bytes' object has no attribute 'encode'`.
 **Prevention:** When mocking `|` operators with chained `subprocess.run`, strictly synchronize the `text=True` argument across the entire chain.
+## 2026-06-27 - CRLF Injection Mitigation
+**Learning:** When mitigating CRLF vulnerabilities in HTTP client libraries (like `http.client` which is vulnerable), inputs must be sanitized by stripping `\r` and `\n` characters before they are interpolated into headers or URLs.
+**Action:** When patching a specific snippet pointed out in a vulnerability report, ensure the inline patch exactly targets the reported vulnerable sink to satisfy rigorous review checks, even if there are variable assignments before the sink.

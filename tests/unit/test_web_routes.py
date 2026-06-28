@@ -810,3 +810,43 @@ class TestSubdomainFiltering:
         monkeypatch.setattr(builtins, "open", mock_open)
         result = _file_checksum("/nonexistent")
         assert result == "file not found"
+
+    async def test_abuseipdb_blacklist_crlf_mitigation(self, monkeypatch):
+        from pit_panel.web.routes.security import _abuseipdb_blacklist
+
+        class MockResponse:
+            status = 200
+
+            def read(self):
+                return b'{"data": []}'
+
+        class MockConnection:
+            def __init__(self, *a, **kw):
+                pass
+
+            def request(self, method, url, *a, **kw):
+                self.url = url
+                self.headers = kw.get("headers", {})
+
+            def getresponse(self):
+                return MockResponse()
+
+        monkeypatch.setattr("http.client.HTTPSConnection", MockConnection)
+
+        # Keep a reference to the latest created connection
+        created_connection = None
+        original_init = MockConnection.__init__
+
+        def capturing_init(self, *a, **kw):
+            nonlocal created_connection
+            original_init(self, *a, **kw)
+            created_connection = self
+
+        MockConnection.__init__ = capturing_init
+
+        malicious_key = "fake_key\r\nEvil: true"
+        result = await _abuseipdb_blacklist(malicious_key)
+
+        assert "\r" not in created_connection.headers.get("Key", "")
+        assert "\n" not in created_connection.headers.get("Key", "")
+        assert created_connection.headers.get("Key") == "fake_keyEvil: true"

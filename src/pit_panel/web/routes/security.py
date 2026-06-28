@@ -154,8 +154,12 @@ async def _abuseipdb_check(ip: str, api_key: str) -> dict:
         ip = ip.replace("\r", "").replace("\n", "")
         api_key = api_key.replace("\r", "").replace("\n", "")
         conn = http.client.HTTPSConnection("api.abuseipdb.com", timeout=10)
-        headers = {"Key": api_key, "Accept": "application/json"}
-        conn.request("GET", f"/api/v2/check?ipAddress={ip}&maxAgeInDays=90", headers=headers)
+        headers = {"Key": api_key.replace("\r", "").replace("\n", ""), "Accept": "application/json"}
+        conn.request(
+            "GET",
+            f"/api/v2/check?ipAddress={ip.replace('\r', '').replace('\n', '')}&maxAgeInDays=90",
+            headers=headers,
+        )
         resp = conn.getresponse()
         if resp.status == 200:
             data = json.loads(resp.read().decode())
@@ -176,7 +180,7 @@ async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict]:
 
     try:
         conn = http.client.HTTPSConnection("api.abuseipdb.com", timeout=15)
-        headers = {"Key": api_key, "Accept": "application/json"}
+        headers = {"Key": api_key.replace("\r", "").replace("\n", ""), "Accept": "application/json"}
         conn.request(
             "GET",
             f"/api/v2/blacklist?confidenceMinimum=90&limit={limit}",

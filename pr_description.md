@@ -1,15 +1,7 @@
-## 🧹 Explicitly register web routers
+🔒 Fix CRLF Injection in AbuseIPDB HTTP Client
 
-🎯 **What:**
-Refactored `src/pit_panel/web/app.py` to remove unused imports that relied on side effects. Each route module now defines its own `fastapi.APIRouter()`, and `app.py` explicitly imports and registers each router via `app.include_router()`. The shared rate `limiter` was extracted into `src/pit_panel/web/limiter.py` to prevent circular dependencies.
+🎯 **What:** The `_abuseipdb_check` and `_abuseipdb_blacklist` functions in `src/pit_panel/web/routes/security.py` were vulnerable to CRLF (Carriage Return Line Feed) injection. The inputs `ip` and `api_key` were being interpolated into the HTTP request path and headers without sufficient sanitization at the `conn.request` and `headers` assignment level.
 
-💡 **Why:**
-Relying on import side effects is poor practice because it obfuscates dependencies and makes code harder to maintain and test. Explicit router registration makes the application structure clearer and immediately understandable.
+⚠️ **Risk:** `http.client` is known to be vulnerable to CRLF injection if inputs aren't sanitized. An attacker could inject `\r\n` characters into the `api_key` or `ip` parameter, allowing them to manipulate the HTTP request, inject malicious headers, or potentially influence subsequent responses (HTTP Request Smuggling/Splitting), leading to severe security compromises depending on how the upstream server processes the malformed request.
 
-✅ **Verification:**
-- The refactored code passes `uv run ruff format` and `uv run ruff check`.
-- All tests pass via `uv run pytest`.
-- Manual verification of routers correctly instantiating and appending to FastAPI's instance.
-
-✨ **Result:**
-Cleaner, more maintainable code with no unused imports or side-effect-driven initialization.
+🛡️ **Solution:** The fix implements inline sanitization using `.replace("\r", "").replace("\n", "")` directly where the variables are used in the `headers` dictionary and the `conn.request` URL string for both functions. A unit test `test_abuseipdb_blacklist_crlf_mitigation` was also added to ensure that headers remain clean and `\r\n` characters are properly stripped before the request is dispatched.
