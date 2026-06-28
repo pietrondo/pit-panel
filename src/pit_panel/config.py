@@ -71,7 +71,13 @@ class Settings(BaseSettings):
 
     @classmethod
     def from_config_file(cls, path: str | None = None) -> "Settings":
-        config_file = Path(path or "/etc/pit-panel/config.toml")
+        import os
+        config_path_str = (
+            path
+            or os.environ.get("PITPANEL_CONFIG_PATH")
+            or "/etc/pit-panel/config.toml"
+        )
+        config_file = Path(config_path_str)
         if config_file.exists():
             with open(config_file, "rb") as f:
                 data = tomli.load(f)

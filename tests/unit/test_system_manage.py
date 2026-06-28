@@ -121,3 +121,10 @@ def test_system_manage_action_unauthorized(client: TestClient):
     response = client.post("/system/manage/action", data={"action": "df"})
 
     assert response.status_code == 401
+
+
+def test_system_manage_action_no_sudo_password(client: TestClient, auth_headers: dict, monkeypatch):
+    monkeypatch.setattr(client.app.state.settings, "sudo_password", "")
+    response = client.post("/system/manage/action", data={"action": "df"}, headers=auth_headers)
+    assert response.status_code == 200
+    assert b"sudo_password is not configured" in response.content

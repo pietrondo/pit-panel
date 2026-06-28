@@ -32,6 +32,13 @@ async def system_manage_action(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     sudo_password = request.app.state.settings.sudo_password
+    if not sudo_password:
+        return HTMLResponse(
+            "<span class='text-red-500 font-semibold'>"
+            "Error: sudo_password is not configured in config.toml.<br>"
+            "Please configure the 'sudo_password' field under the root level "
+            "in /etc/pit-panel/config.toml and restart the pit-panel service.</span>"
+        )
 
     # Map actions to commands
     commands = {
