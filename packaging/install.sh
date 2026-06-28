@@ -77,6 +77,7 @@ if ! id pit-panel &>/dev/null; then
     useradd -r -s /bin/false -d /opt/pit-panel pit-panel
 fi
 usermod -a -G systemd-journal pit-panel 2>/dev/null || true
+usermod -a -G docker pit-panel 2>/dev/null || true
 
 # Allow pit-panel to run upgrade + restart without password
 cat > /etc/sudoers.d/pit-panel <<'SUDOERS'
@@ -97,6 +98,7 @@ pit-panel ALL=(root) NOPASSWD: /usr/bin/find /var/lib/caddy -name *.json -type f
 pit-panel ALL=(root) NOPASSWD: /usr/bin/cat /var/lib/caddy/.local/share/caddy/certificates/*
 pit-panel ALL=(root) NOPASSWD: /bin/cp /opt/pit-panel/packaging/*.service /etc/systemd/system/
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/usermod -a -G systemd-journal pit-panel
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/usermod -a -G docker pit-panel
 pit-panel ALL=(root) NOPASSWD: /usr/bin/journalctl -u pit-panel.service *
 SUDOERS
 chmod 440 /etc/sudoers.d/pit-panel

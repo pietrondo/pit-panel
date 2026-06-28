@@ -12,7 +12,8 @@ Environment="PATH=/opt/pit-panel/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/s
 Environment="PITPANEL_CONFIG_PATH=/etc/pit-panel/config.toml"
 ExecStartPre=/bin/mkdir -p /var/lib/pit-panel /opt/pit-panel/apps /var/log/pit-panel
 ExecStartPre=/bin/chown pit-panel:pit-panel /var/lib/pit-panel /opt/pit-panel/apps /var/log/pit-panel
-ExecStartPre=-/usr/sbin/usermod -a -G systemd-journal pit-panel
+ExecStartPre=-/usr/bin/sudo -n /usr/sbin/usermod -a -G systemd-journal pit-panel
+ExecStartPre=-/usr/bin/sudo -n /usr/sbin/usermod -a -G docker pit-panel
 ExecStart=/opt/pit-panel/.venv/bin/python -c "from pit_panel.main import main; main()"
 Restart=on-failure
 RestartSec=10
