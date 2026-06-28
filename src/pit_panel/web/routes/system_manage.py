@@ -58,7 +58,16 @@ async def system_manage_action(
 
     try:
         output = await run_sudo(cmd, sudo_password)
+        if "incorrect password attempt" in output or "no password was provided" in output:
+            import getpass
+            output += (
+                f"\n\n[pit-panel Note] Sudo authentication failed. The panel is currently running "
+                f"as system user '{getpass.getuser()}'.\n"
+                f"Please check that 'sudo_password' in config.toml "
+                f"matches the password of the '{getpass.getuser()}' system user."
+            )
     except Exception as e:
-        output = f"Error: {str(e)}"
+        import getpass
+        output = f"Error running sudo command as user '{getpass.getuser()}': {str(e)}"
 
     return HTMLResponse(output)
