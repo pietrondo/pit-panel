@@ -24,7 +24,7 @@ async def run_sudo(cmd: list[str], sudo_password: str) -> str:
         stderr=asyncio.subprocess.PIPE,
     )
 
-    password_input = (sudo_password + "\n").encode()
+    password_input = (sudo_password.strip() + "\n").encode()
     stdout, stderr = await proc.communicate(input=password_input)
 
     output = ""

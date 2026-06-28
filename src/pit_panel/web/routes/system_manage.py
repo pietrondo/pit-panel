@@ -31,7 +31,7 @@ async def system_manage_action(
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    sudo_password = request.app.state.settings.sudo_password
+    sudo_password = request.app.state.settings.sudo_password.strip()
     if not sudo_password:
         return HTMLResponse(
             "<span class='text-red-500 font-semibold'>"
