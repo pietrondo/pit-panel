@@ -1,5 +1,7 @@
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
+import ipaddress
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -57,6 +59,7 @@ async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict]:
     import json
 
     try:
+        api_key = api_key.replace("\r", "").replace("\n", "")
         conn = http.client.HTTPSConnection("api.abuseipdb.com", timeout=15)
         headers = {"Key": api_key, "Accept": "application/json"}
         conn.request(
@@ -177,6 +180,12 @@ async def security_unban(
 
     result = None
     if ip:
+        try:
+            ipaddress.ip_network(ip, strict=False)
+        except ValueError:
+            return HTMLResponse(
+                "<span class='text-red-500 text-xs'>Invalid IP address</span>", status_code=400
+            )
         ok = await unban_ip_address(db, ip, user.id)
         result = {"ip": ip, "success": ok}
 
@@ -218,6 +227,12 @@ async def security_ban_ip(
 
     result = None
     if ip:
+        try:
+            ipaddress.ip_network(ip, strict=False)
+        except ValueError:
+            return HTMLResponse(
+                "<span class='text-red-500 text-xs'>Invalid IP address</span>", status_code=400
+            )
         ok = await ban_ip_address(db, ip, reason, duration)
         result = {"ip": ip, "ok": ok}
 
