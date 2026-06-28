@@ -130,6 +130,7 @@ class TestIPBanLogic:
         bans = await get_banned_ips(db_session)
         assert len(bans) == 2
 
+
 class TestSecurityApp:
     def test_security_routes_registered(self, settings):
         from pit_panel.web.app import create_app

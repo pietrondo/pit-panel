@@ -40,6 +40,7 @@ class TestMainDomain:
             await mgr.remove_main_domain("example.com")
             mock_delete.assert_called_once_with("main-example.com")
 
+
 @pytest.mark.asyncio
 async def test_get_certificates_api_success():
     mgr = CaddyManager()

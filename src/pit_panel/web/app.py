@@ -56,6 +56,7 @@ async def _security_headers_middleware(request: Request, call_next):
         )
     return response
 
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     if settings is None:
         settings = init_settings()
@@ -90,6 +91,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         settings_router,
         ssl_router,
         subdomains_router,
+        system_manage_router,
         system_router,
     )
 
@@ -105,6 +107,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(ssl_router)
     app.include_router(subdomains_router)
     app.include_router(system_router)
+    app.include_router(system_manage_router)
 
     @app.get("/health")
     async def health():

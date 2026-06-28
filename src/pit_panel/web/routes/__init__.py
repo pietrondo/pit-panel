@@ -10,6 +10,7 @@ from .settings import router as settings_router
 from .ssl import router as ssl_router
 from .subdomains import router as subdomains_router
 from .system import router as system_router
+from .system_manage import router as system_manage_router
 
 __all__ = [
     "apps_router",
@@ -24,4 +25,5 @@ __all__ = [
     "ssl_router",
     "subdomains_router",
     "system_router",
+    "system_manage_router",
 ]

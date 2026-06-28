@@ -69,6 +69,7 @@ async def test_renew_certificate_post_raise_for_status():
         assert result["domain"] == "example.com"
         assert "HTTP 500" in result["error"]
 
+
 @pytest.mark.asyncio
 async def test_generate_and_reload_permission_error():
     mgr = CaddyManager()
@@ -131,5 +132,3 @@ async def test_generate_and_reload_exception():
     with patch("pathlib.Path.mkdir", side_effect=Exception("Unknown error")):
         result = await mgr.generate_and_reload("config content")
         assert "Caddy config error: Unknown error" in result
-
-

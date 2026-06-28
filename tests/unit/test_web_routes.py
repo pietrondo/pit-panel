@@ -810,3 +810,61 @@ class TestSubdomainFiltering:
         monkeypatch.setattr(builtins, "open", mock_open)
         result = _file_checksum("/nonexistent")
         assert result == "file not found"
+
+
+class TestAppStatusRoute:
+    def test_status_redirects_unauthenticated(self, client):
+        resp = client.get("/apps/1/status", follow_redirects=False)
+        assert resp.status_code == 200
+        assert resp.headers.get("HX-Redirect") == "/login"
+
+    def test_status_authenticated_active(self, client, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        from pit_panel.db.session import get_db
+
+        async def mock_get_user(*args, **kwargs):
+            return User(id=1, username="admin", is_admin=True)
+
+        monkeypatch.setattr("pit_panel.web.routes.apps.get_user", mock_get_user)
+
+        class MockSD:
+            id = 1
+            subdomain = "app1"
+            base_domain = "example.com"
+            app_type = "docker"
+            is_main_domain = False
+
+        class MockResult:
+            def scalar_one_or_none(self):
+                return MockSD()
+
+        class MockSession:
+            async def execute(self, *args, **kwargs):
+                return MockResult()
+
+            async def close(self):
+                pass
+
+        async def override_get_db():
+            yield MockSession()
+
+        client.app.dependency_overrides[get_db] = override_get_db
+
+        mock_docker_mgr = AsyncMock()
+        mock_docker_mgr.compose_ps.return_value = [
+            {"Name": "app1-web", "State": "running", "Status": "Up 2 hours"},
+            {"Name": "app1-db", "State": "exited", "Status": "Exited (0)"},
+        ]
+
+        monkeypatch.setattr(
+            "pit_panel.web.routes.apps.DockerManager", lambda *args: mock_docker_mgr
+        )
+
+        try:
+            resp = client.get("/apps/1/status")
+            assert resp.status_code == 200
+            assert "Active" in resp.text
+            assert "1/2 running" in resp.text
+        finally:
+            client.app.dependency_overrides.clear()

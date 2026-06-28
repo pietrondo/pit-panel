@@ -26,11 +26,9 @@ async def db_session():
         yield db
 
 
-
 @pytest.fixture(autouse=True)
 def clear_cache():
     blocklist._BLOCKLIST_CACHE.clear()
-
 
 
 @pytest.mark.asyncio
@@ -56,7 +54,6 @@ async def test_fetch_blocklist_success(monkeypatch):
 
     ips = await fetch_blocklist("http://example.com/list")
     assert ips == ["1.2.3.4", "5.6.7.8", "9.10.11.12"]
-
 
 
 @pytest.mark.asyncio
@@ -178,7 +175,6 @@ async def test_daily_blocklist_import(monkeypatch):
     assert sleep_calls == 2
     assert mock_fetch.call_count == len(BLOCKLIST_SOURCES)
     assert mock_ban.call_count == len(BLOCKLIST_SOURCES)
-
 
 
 @pytest.mark.asyncio

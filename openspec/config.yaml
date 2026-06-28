@@ -1,0 +1,40 @@
+project: pit-panel
+schema: spec-driven
+context: |
+  Tech Stack:
+    - Python 3.11+
+    - FastAPI
+    - Jinja2, HTMX 2, Alpine.js 3.14+, Tailwind CSS (CDN-based)
+    - SQLite + SQLAlchemy 2.0 (asyncio) + Alembic
+    - Service management via systemd
+    - Reverse proxy via Caddy
+    - App isolation via Docker Compose
+  Conventions:
+    - Use `uv` for all Python operations
+    - Async SQLAlchemy throughout using AsyncSession
+    - itsdangerous for session cookies
+    - Configuration file at /etc/pit-panel/config.toml
+    - Data stored at /var/lib/pit-panel/
+    - Applications located at /opt/pit-panel/apps/<subdomain>/
+    - Run tests prior to committing: `uv run pytest -q`
+    - Run linter prior to committing: `uv run ruff check src/ tests/`
+linting:
+  linter: ruff
+  command: uv run ruff check src/ tests/
+formatting:
+  formatter: ruff
+  command: uv run ruff format
+testing:
+  runner: pytest
+  command: uv run pytest
+  strict_tdd: false
+  capabilities:
+    unit:
+      command: uv run pytest tests/unit
+      path: tests/unit
+    integration:
+      command: uv run pytest tests/integration
+      path: tests/integration
+    e2e:
+      command: uv run pytest tests/e2e
+      path: tests/e2e

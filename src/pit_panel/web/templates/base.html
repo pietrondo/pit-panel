@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>pit-panel{% if title %} - {{ title }}{% endif %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/@alpinejs/collapse@3.14.1/dist/cdn.min.js" defer></script>
@@ -30,6 +33,18 @@
             }));
         });
 
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                const path = link.getAttribute('data-path');
+                if (path === '/' && currentPath === '/') {
+                    link.classList.add('active');
+                } else if (path !== '/' && (currentPath === path || currentPath.startsWith(path + '/'))) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -41,6 +56,11 @@
                             600: '#475569',  700: '#334155',  800: '#1e293b',
                             850: '#172033',  900: '#0f172a',  950: '#020617',
                         }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        heading: ['Outfit', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
                     }
                 }
             }
@@ -199,6 +219,12 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 0015 0m-15 0a7.5 7.5 0 1115 0m-15 0H3m16.5 0H21m-1.5 0H12m-8.457 3.077l1.41-.513m14.095-5.13l1.41-.513M5.106 17.785l1.15-.964m11.49-9.642l1.149-.964M7.501 19.795l.75-1.3m7.5-12.99l.75-1.3m-6.063 16.658l.26-1.477m2.605-14.772l.26-1.477m0 17.726l-.26-1.477M10.698 4.614l-.26-1.477M16.5 19.794l-.75-1.3M7.5 4.205L12 12m6.894 5.785l-1.149-.964M6.256 7.178l-1.15-.964m15.352 8.864l-1.41-.513M4.954 9.435l-1.41-.514M12.002 12l-3.75 6.495"/>
                     </svg>
                     System
+                </a>
+                <a href="/system/manage" class="sidebar-link" data-path="/system/manage">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.054-2.076.012a4.98 4.98 0 01-3.424-1.614c-1.127-1.258-1.597-2.92-1.393-4.58.204-1.66 1.158-3.13 2.72-4.102 1.562-.973 3.447-1.328 5.257-1.026a4.98 4.98 0 014.28 3.52c.16.595.215 1.206.16 1.802-.055.596-.216 1.176-.47 1.714m-10.74 3.7c-1.205-1.04-1.92-2.52-2.025-4.085-.105-1.565.37-3.09 1.34-4.275a5.552 5.552 0 013.79-1.785 5.55 5.55 0 014.28 1.14 5.55 5.55 0 011.785 3.79c.105 1.565-.37 3.09-1.34 4.275m-6.42.27c1.472.937 3.193 1.416 4.945 1.378 1.75-.038 3.443-.585 4.86-1.57a6.398 6.398 0 002.325-3.695c.29-1.233.24-2.518-.15-3.722"/>
+                    </svg>
+                    SysManage
                 </a>
                 <a href="/debug" class="sidebar-link" data-path="/debug">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">

@@ -49,3 +49,5 @@ pr_body.txt
 scratch*.py
 test_cve*.py
 trivy_*.json
+# Local AI runtime state
+.atl/

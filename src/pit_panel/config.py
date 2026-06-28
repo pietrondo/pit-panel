@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     session_duration_hours: int = 24
     bcrypt_cost: int = 12
     abuseipdb_api_key: str = ""
+    sudo_password: str = ""
 
     # Server
     host: str = "127.0.0.1"

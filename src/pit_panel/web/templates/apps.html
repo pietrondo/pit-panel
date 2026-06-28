@@ -62,6 +62,7 @@
                         <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                             <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subdomain</th>
                             <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stack</th>
+                            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
                             <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Deployed</th>
                             <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                         </tr>
@@ -76,6 +77,12 @@
                             </td>
                             <td class="px-6 py-3">
                                 <span class="badge badge-blue">{{ sd.app_type }}</span>
+                            </td>
+                            <td class="px-6 py-3">
+                                <div hx-get="/apps/{{ sd.id }}/status" hx-trigger="load" hx-swap="outerHTML" class="flex items-center gap-2">
+                                    <span class="inline-block w-2.5 h-2.5 border border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
+                                    <span class="text-xs text-gray-400 font-mono">Loading...</span>
+                                </div>
                             </td>
                             <td class="px-6 py-3 text-sm text-gray-500 dark:text-gray-400">
                                 {{ sd.last_deployed.strftime('%Y-%m-%d %H:%M') if sd.last_deployed else 'just now' }}
@@ -95,7 +102,7 @@
                         {% set deployed = subdomains|selectattr('app_type')|list|length %}
                         {% if deployed == 0 %}
                         <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                            <td colspan="5" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
                                 No apps deployed yet. Select a stack and deploy above.
                             </td>
                         </tr>
@@ -138,7 +145,7 @@
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" x-data="stackSelector">
                 {% for tpl in template_infos %}
-                <div class="card p-5 cursor-pointer transition-all"
+                <div class="card p-5 cursor-pointer transition-all duration-200 transform hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-lg"
                      x-bind:class="selected === '{{ tpl.name }}' ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : 'hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400'"
                      x-on:click="selectStack('{{ tpl.name }}', '{{ tpl.meta.get('default_port', 8000) }}')">
                     <div class="flex items-center gap-3 mb-2">
@@ -171,7 +178,7 @@
                     <div class="form-control">
                         <label class="label cursor-pointer justify-start gap-3">
                             <input type="checkbox" name="is_main_domain" class="checkbox checkbox-primary"
-                                   x-model="isMain">
+                                   x-model="isMain" :disabled="isSubmitting">
                             <span class="label-text">Deploy on main domain <code class="text-indigo-600">{{ settings.base_domain or '—' }}</code></span>
                         </label>
                     </div>
@@ -180,8 +187,8 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="label">Subdomain</label>
-                                <select name="subdomain_id" class="input" x-ref="sdSelect"
-                                        @change="$refs.newSd.disabled = $event.target.value > 0; if($event.target.value > 0) $refs.newSd.value = ''">
+                                <select name="subdomain_id" class="input" x-ref="sdSelect" :disabled="isSubmitting"
+                                        @change="$refs.newSd.disabled = $event.target.value > 0 || isSubmitting; if($event.target.value > 0) $refs.newSd.value = ''">
                                     <option value="-1" selected>Create new...</option>
                                     {% for sd in subdomains %}
                                     <option value="{{ sd.id }}">{{ sd.subdomain }}.{{ sd.base_domain }}</option>
@@ -190,7 +197,7 @@
                             </div>
                             <div>
                                 <label class="label">New subdomain name</label>
-                                <input type="text" name="new_subdomain" x-ref="newSd" class="input"
+                                <input type="text" name="new_subdomain" x-ref="newSd" class="input" :disabled="isSubmitting"
                                        placeholder="myapp" pattern="[a-z0-9-]+"
                                        @input="$refs.sdSelect.value = '-1'">
                             </div>
@@ -200,7 +207,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="label">Stack</label>
-                            <select class="input" x-ref="stackType" name="stack_type" required>
+                            <select class="input" x-ref="stackType" name="stack_type" :disabled="isSubmitting" required>
                                 <option value="">Select a stack...</option>
                                 {% for tpl in template_infos %}
                                 <option value="{{ tpl.name }}">{{ tpl.meta.get('display_name', tpl.name) }}</option>
@@ -209,7 +216,7 @@
                         </div>
                         <div>
                             <label class="label">Port</label>
-                            <input type="number" name="port" x-ref="port" value="8000" class="input w-32">
+                            <input type="number" name="port" x-ref="port" value="8000" class="input w-32" :disabled="isSubmitting">
                         </div>
                     </div>
 

@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block content %}
+{% set title = "System Management" %}
+
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">System Management</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Administer services, logs, and system state</p>
+</div>
+
+<div x-data="{ activeTab: 'services' }" class="mb-6">
+    <div class="border-b border-gray-200 dark:border-gray-700">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button @click="activeTab = 'services'"
+                    :class="activeTab === 'services' ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-150">
+                Services
+            </button>
+            <button @click="activeTab = 'updates'"
+                    :class="activeTab === 'updates' ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-150">
+                Updates
+            </button>
+            <button @click="activeTab = 'resources'"
+                    :class="activeTab === 'resources' ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-150">
+                Resources
+            </button>
+            <button @click="activeTab = 'logs'"
+                    :class="activeTab === 'logs' ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-150">
+                Logs
+            </button>
+            <button @click="activeTab = 'reboot'"
+                    :class="activeTab === 'reboot' ? 'border-red-500 text-red-600 dark:border-red-400 dark:text-red-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-150">
+                Reboot
+            </button>
+        </nav>
+    </div>
+
+    <div class="mt-6">
+        <!-- Services Tab -->
+        <div x-show="activeTab === 'services'" class="grid gap-4">
+            <div class="card p-6">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Restart Services</h3>
+                <div class="flex gap-4">
+                    <button hx-post="/system/manage/action" hx-vals='{"action": "restart_caddy"}' hx-target="#result"
+                            class="btn btn-primary">
+                        Restart Caddy
+                    </button>
+                    <button hx-post="/system/manage/action" hx-vals='{"action": "restart_panel"}' hx-target="#result"
+                            class="btn btn-primary">
+                        Restart Pit-Panel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Updates Tab -->
+        <div x-show="activeTab === 'updates'" style="display: none;" class="grid gap-4">
+            <div class="card p-6">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Package Management</h3>
+                <button hx-post="/system/manage/action" hx-vals='{"action": "apt_update"}' hx-target="#result"
+                        class="btn btn-primary">
+                    Run apt-get update
+                </button>
+            </div>
+        </div>
+
+        <!-- Resources Tab -->
+        <div x-show="activeTab === 'resources'" style="display: none;" class="grid gap-4">
+            <div class="card p-6">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">System Resources</h3>
+                <div class="flex gap-4">
+                    <button hx-post="/system/manage/action" hx-vals='{"action": "df"}' hx-target="#result"
+                            class="btn btn-primary">
+                        Disk Usage (df -h)
+                    </button>
+                    <button hx-post="/system/manage/action" hx-vals='{"action": "free"}' hx-target="#result"
+                            class="btn btn-primary">
+                        Memory (free -m)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Tab -->
+        <div x-show="activeTab === 'logs'" style="display: none;" class="grid gap-4">
+            <div class="card p-6">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">System Logs</h3>
+                <button hx-post="/system/manage/action" hx-vals='{"action": "journal_panel"}' hx-target="#result"
+                        class="btn btn-primary">
+                    View Pit-Panel Journal
+                </button>
+            </div>
+        </div>
+
+        <!-- Reboot Tab -->
+        <div x-show="activeTab === 'reboot'" style="display: none;" class="grid gap-4">
+            <div class="card p-6 border-red-500 border">
+                <h3 class="text-lg font-medium text-red-600 dark:text-red-400 mb-4">Danger Zone</h3>
+                <div x-data="{ armed: false }">
+                    <button type="button" x-show="!armed" @click="armed = true" class="btn btn-danger bg-red-600 text-white font-bold">
+                        Reboot System
+                    </button>
+                    <form x-show="armed" hx-post="/system/manage/action" hx-target="#result" class="flex items-center gap-3 inline-block">
+                        <input type="hidden" name="action" value="reboot">
+                        <button type="submit" class="btn btn-danger bg-red-700 font-bold text-white">
+                            CONFIRM REBOOT NOW
+                        </button>
+                        <button type="button" @click="armed = false" class="btn btn-ghost">
+                            Cancel
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-8">
+    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Command Output</h3>
+    <div class="bg-slate-950 border border-slate-800 rounded-lg shadow-2xl overflow-hidden mt-4">
+        <div class="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between">
+            <div class="flex gap-1.5">
+                <span class="w-3 h-3 bg-red-500 rounded-full"></span>
+                <span class="w-3 h-3 bg-yellow-500 rounded-full"></span>
+                <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+            </div>
+            <span class="text-xs text-slate-500 font-mono">bash (systemctl)</span>
+            <div class="w-12"></div>
+        </div>
+        <div class="p-4 h-96 overflow-y-auto font-mono text-sm text-emerald-400" style="scrollbar-color: #334155 #020617; scrollbar-width: thin;">
+            <pre id="result" class="whitespace-pre-wrap">Results will appear here...</pre>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

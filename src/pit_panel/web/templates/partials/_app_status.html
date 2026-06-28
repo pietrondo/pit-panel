@@ -1,0 +1,8 @@
+<div class="flex items-center gap-2">
+    {% if running_count > 0 %}
+    <span class="badge badge-green">Active</span>
+    {% else %}
+    <span class="badge badge-red">Inactive</span>
+    {% endif %}
+    <span class="text-xs font-mono text-gray-500 dark:text-gray-400">{{ running_count }}/{{ total_count }} running</span>
+</div>

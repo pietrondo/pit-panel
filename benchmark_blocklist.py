@@ -5,14 +5,14 @@ from sqlalchemy.orm import sessionmaker
 from pit_panel.db.models import Base
 from pit_panel.security.ipban import ban_ip, ban_ips_bulk
 
+
 async def setup_db():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    SessionLocal = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     return engine, SessionLocal
+
 
 async def run_benchmark():
     engine, SessionLocal = await setup_db()
@@ -41,6 +41,7 @@ async def run_benchmark():
 
     print(f"Bulk approach (ban_ips_bulk): {bulk_time:.4f} seconds")
     print(f"Improvement: {n1_time / bulk_time:.2f}x faster")
+
 
 if __name__ == "__main__":
     asyncio.run(run_benchmark())
