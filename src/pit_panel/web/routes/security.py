@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
+from pit_panel.core.blocklist import BLOCKLIST_SOURCES, fetch_blocklist
 from pit_panel.core.security import (
     _fail2ban_status,
     _firewall_status,
@@ -17,7 +18,7 @@ from pit_panel.core.security import (
 from pit_panel.db.models import LoginAttempt, MalwareScan, SystemSettings, User
 from pit_panel.db.models import Session as DBSession
 from pit_panel.db.session import get_db
-from pit_panel.security.ipban import get_banned_ips
+from pit_panel.security.ipban import ban_ips_bulk, get_banned_ips
 from pit_panel.security.malware_scanner import (
     SCAN_DEFAULT_INTERVAL_HOURS,
     THREAT_CATEGORIES,
@@ -352,4 +353,53 @@ async def security_malware_update_defs(request: Request, db: AsyncSession = Depe
         )
     return HTMLResponse(
         f'<span class="text-red-600">Update failed: {result.get("error", "unknown")[:200]}</span>'
+    )
+
+
+@router.get("/security/blocklist", response_class=HTMLResponse)
+async def security_blocklist_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    html = "<div class='space-y-2'>"
+    for key, info in BLOCKLIST_SOURCES.items():
+        html += (
+            f"<div class='flex items-center justify-between p-2 "
+            f"bg-gray-50 dark:bg-gray-800 rounded'>"
+            f"<div>"
+            f"<span class='font-medium text-sm'>{info['name']}</span>"
+            f"<p class='text-xs text-gray-500'>{info['desc']}</p>"
+            f"</div>"
+            f"<button class='btn-ghost text-xs' "
+            f"hx-post='/security/blocklist/import' "
+            f'hx-vals=\'{{"source":"{key}"}}\' '
+            f"hx-target='#blocklist-result' "
+            f"hx-swap='innerHTML'>Import</button>"
+            f"</div>"
+        )
+    html += "</div><div id='blocklist-result' class='mt-2 text-xs'></div>"
+    return HTMLResponse(html)
+
+
+@router.post("/security/blocklist/import", response_class=HTMLResponse)
+async def security_blocklist_import(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
+
+    form = await request.form()
+    source = str(form.get("source", ""))
+    info = BLOCKLIST_SOURCES.get(source)
+    if not info:
+        return HTMLResponse("<p class='text-red-500'>Invalid source</p>")
+
+    ips = await fetch_blocklist(info["url"])
+    if not ips:
+        return HTMLResponse("<p class='text-yellow-500'>No IPs found</p>")
+
+    count = await ban_ips_bulk(db, ips, f"blocklist:{source}", 10080)
+
+    return HTMLResponse(
+        f"<p class='text-green-500'>Imported {count}/{len(ips)} IPs from {info['name']}</p>"
     )
