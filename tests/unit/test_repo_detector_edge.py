@@ -45,9 +45,10 @@ async def test_clone_repo_nonzero_exit(mock_proc):
 
 
 def test_cleanup_exception():
+    fake_path = Path("/tmp/fake_repo")
     with (
         patch("shutil.rmtree", side_effect=Exception("Permission denied")),
         patch("pit_panel.core.repo_detector.logger.warning") as mock_logger,
     ):
-        cleanup(Path("/tmp/fake_repo"))
-        mock_logger.assert_called_once_with("Failed to cleanup /tmp/fake_repo: Permission denied")
+        cleanup(fake_path)
+        mock_logger.assert_called_once_with(f"Failed to cleanup {fake_path}: Permission denied")
