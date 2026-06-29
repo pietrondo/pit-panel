@@ -34,8 +34,8 @@ async def containers_fragment(request: Request, db: AsyncSession = Depends(get_d
     result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
     subdomains = {sd.subdomain: sd for sd in result.scalars().all()}
 
-    containers_data: dict[int, list[dict]] = {}
-    orphan_containers: list[dict] = []
+    containers_data: dict[int, list[dict[str, Any]]] = {}
+    orphan_containers: list[dict[str, Any]] = []
 
     for c in all_containers:
         if "Name" not in c and "Names" in c:

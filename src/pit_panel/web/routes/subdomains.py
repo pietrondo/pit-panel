@@ -2,6 +2,7 @@
 
 import contextlib
 import re
+from typing import Any
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -24,7 +25,7 @@ async def _log_audit(
     action: str,
     target_type: str,
     target_id: int | None,
-    details: dict | None,
+    details: dict[str, Any] | None,
     request: Request,
 ):
     entry = AuditLog(

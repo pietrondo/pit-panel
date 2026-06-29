@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +26,7 @@ async def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) 
         return "unavailable"
 
 
-async def _firewall_status() -> dict:
+async def _firewall_status() -> dict[str, Any]:
     ufw = await _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
     if "not found" in ufw.lower() or "command not found" in ufw.lower():
         install = await _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "ufw"], timeout=60)
@@ -49,7 +50,7 @@ async def _firewall_status() -> dict:
     return {"active": active, "rules": rules[:20]}
 
 
-async def _fail2ban_status() -> dict:
+async def _fail2ban_status() -> dict[str, Any]:
     status = await _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
     if "not found" in status.lower() or "command not found" in status.lower():
         install = await _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=60)

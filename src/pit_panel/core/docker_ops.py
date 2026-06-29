@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 class DockerManager:
@@ -167,7 +167,7 @@ class DockerManager:
             )
             stdout, _ = await proc.communicate()
             try:
-                return json.loads(stdout.decode().strip())
+                return cast(dict[str, Any], json.loads(stdout.decode().strip()))
             except json.JSONDecodeError:
                 return {}
         except OSError:

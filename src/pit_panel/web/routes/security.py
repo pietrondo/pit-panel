@@ -1,6 +1,7 @@
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
 import ipaddress
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -31,7 +32,7 @@ from pit_panel.web.render import render
 router = APIRouter()
 
 
-async def _abuseipdb_check(ip: str, api_key: str) -> dict:
+async def _abuseipdb_check(ip: str, api_key: str) -> dict[str, Any]:
     import http.client
     import json
 
@@ -55,7 +56,7 @@ async def _abuseipdb_check(ip: str, api_key: str) -> dict:
         return {"ip": ip, "error": str(e)}
 
 
-async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict]:
+async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict[str, Any]]:
     import http.client
     import json
 

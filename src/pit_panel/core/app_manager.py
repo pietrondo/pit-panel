@@ -4,6 +4,7 @@ import json
 import shutil
 from pathlib import Path
 from string import Template
+from typing import Any, cast
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates-app"
 
@@ -54,11 +55,11 @@ class AppManager:
             d.name for d in TEMPLATES_DIR.iterdir() if d.is_dir() and (d / "meta.json").exists()
         ]
 
-    def get_template_info(self, stack_type: str) -> dict:
+    def get_template_info(self, stack_type: str) -> dict[str, Any]:
         meta_path = TEMPLATES_DIR / stack_type / "meta.json"
         if meta_path.exists():
             try:
-                return json.loads(meta_path.read_text(encoding="utf-8"))
+                return cast(dict[Any, Any], json.loads(meta_path.read_text(encoding="utf-8")))
             except json.JSONDecodeError:
                 pass
         return {"name": stack_type, "description": stack_type}

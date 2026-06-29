@@ -3,6 +3,7 @@
 import os
 import platform
 import shutil
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -36,7 +37,7 @@ def _server_hostname() -> str:
         return "unknown"
 
 
-def _cpu_usage() -> dict:
+def _cpu_usage() -> dict[str, Any]:
     try:
         with open("/proc/loadavg") as f:
             load = float(f.read().split()[0])
@@ -47,7 +48,7 @@ def _cpu_usage() -> dict:
         return {"load_1m": 0, "cores": os.cpu_count() or 1, "pct": 0}
 
 
-def _ram_usage() -> dict:
+def _ram_usage() -> dict[str, Any]:
     try:
         if platform.system() == "Linux":
             with open("/proc/meminfo") as f:
@@ -68,7 +69,7 @@ def _ram_usage() -> dict:
         return {"total_gb": 0, "used_gb": 0, "pct": 0}
 
 
-async def _stats_context() -> dict:
+async def _stats_context() -> dict[str, Any]:
     return {
         "subdomain_count": 0,
         "apps_running": 0,

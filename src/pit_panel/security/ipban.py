@@ -1,6 +1,7 @@
 """IP ban management and brute-force protection."""
 
 import datetime as dt
+from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,7 +89,7 @@ async def ban_ip(db: AsyncSession, ip: str, reason: str, duration_minutes: int =
 
 async def get_banned_ips(db: AsyncSession) -> list[IPBan]:
     result = await db.execute(select(IPBan).order_by(IPBan.banned_at.desc()))
-    return result.scalars().all()
+    return cast(list[IPBan], result.scalars().all())
 
 
 async def ban_ips_bulk(

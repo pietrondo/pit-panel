@@ -1,10 +1,11 @@
 import tomllib as tomli
 from pathlib import Path
+from typing import cast
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
+class Settings(BaseSettings):  # type: ignore[misc]
     model_config = SettingsConfigDict(env_prefix="PITPANEL_")
 
     # Paths
@@ -50,7 +51,7 @@ class Settings(BaseSettings):
             import httpx
 
             resp = httpx.get("https://api.ipify.org", timeout=3)
-            return resp.text.strip()
+            return cast(str, resp.text.strip())
         except Exception:
             return "127.0.0.1"
 
