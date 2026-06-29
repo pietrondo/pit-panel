@@ -142,7 +142,7 @@ class TestDebugRoute:
         async def mock_get_admin(*args, **kwargs):
             return User(id=1, username="admin", is_admin=True)
 
-        def mock_run(*args, **kwargs):
+        async def mock_run(*args, **kwargs):
             return "mocked_output"
 
         monkeypatch.setattr("pit_panel.web.routes.debug.get_admin", mock_get_admin)
@@ -156,7 +156,7 @@ class TestDebugRoute:
         async def mock_get_admin(*args, **kwargs):
             return User(id=1, username="admin", is_admin=True)
 
-        def mock_run(*args, **kwargs):
+        async def mock_run(*args, **kwargs):
             return "mocked_output"
 
         monkeypatch.setattr("pit_panel.web.routes.debug.get_admin", mock_get_admin)
@@ -168,13 +168,14 @@ class TestDebugRoute:
 
 
 class TestRunHelper:
-    def test_run_with_cwd(self):
+    @pytest.mark.asyncio
+    async def test_run_with_cwd(self):
         import tempfile
 
         from pit_panel.web.routes.debug import _run
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = _run(["git", "init"], cwd=tmpdir)
+            result = await _run(["git", "init"], cwd=tmpdir)
             assert result == "(empty)" or "Initialized" in result
 
 
@@ -750,38 +751,47 @@ class TestSubdomainFiltering:
         finally:
             client.app.dependency_overrides.clear()
 
-    def test_run_success(self):
+    @pytest.mark.asyncio
+    async def test_run_success(self, monkeypatch):
+        import asyncio
+        from unittest.mock import AsyncMock
+
         from pit_panel.web.routes.debug import _run
 
-        result = _run([sys.executable, "-c", "print('hello')"])
+        mock_proc = AsyncMock()
+        mock_proc.communicate.return_value = (b"hello\n", b"")
+        mock_exec = AsyncMock(return_value=mock_proc)
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", mock_exec)
+
+        result = await _run([sys.executable, "-c", "print('hello')"])
         assert result.strip() == "hello"
 
-    def test_run_empty_output(self, monkeypatch):
-        import subprocess
+    @pytest.mark.asyncio
+    async def test_run_empty_output(self, monkeypatch):
+        import asyncio
+        from unittest.mock import AsyncMock
 
         from pit_panel.web.routes.debug import _run
 
-        class MockResult:
-            stdout = ""
-            stderr = ""
+        mock_proc = AsyncMock()
+        mock_proc.communicate.return_value = (b"", b"")
+        mock_exec = AsyncMock(return_value=mock_proc)
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", mock_exec)
 
-        def mock_run(*args, **kwargs):
-            return MockResult()
-
-        monkeypatch.setattr(subprocess, "run", mock_run)
-        result = _run(["echo"])
+        result = await _run(["echo"])
         assert result == "(empty)"
 
-    def test_run_exception(self, monkeypatch):
-        import subprocess
+    @pytest.mark.asyncio
+    async def test_run_exception(self, monkeypatch):
+        import asyncio
+        from unittest.mock import AsyncMock
 
         from pit_panel.web.routes.debug import _run
 
-        def mock_run(*args, **kwargs):
-            raise Exception("subprocess failed")
+        mock_exec = AsyncMock(side_effect=Exception("subprocess failed"))
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", mock_exec)
 
-        monkeypatch.setattr(subprocess, "run", mock_run)
-        result = _run(["git", "init"])
+        result = await _run(["git", "init"])
         assert result == "ERROR: subprocess failed"
 
     def test_file_checksum_success(self):

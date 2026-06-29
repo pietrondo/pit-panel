@@ -3,7 +3,6 @@
 import os
 import platform
 import shutil
-import subprocess
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
@@ -19,10 +18,20 @@ router = APIRouter()
 INSTALL_DIR = "/opt/pit-panel"
 
 
-def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str:
+async def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str:
+    import asyncio
+
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd)
-        return (r.stdout + r.stderr).strip() or "(empty)"
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+        )
+        stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        stdout = stdout_bytes.decode() if stdout_bytes else ""
+        stderr = stderr_bytes.decode() if stderr_bytes else ""
+        return (stdout + stderr).strip() or "(empty)"
     except Exception as e:
         return f"ERROR: {e}"
 
@@ -45,16 +54,27 @@ async def debug_page(request: Request, db: AsyncSession = Depends(get_db)):
 
     s = get_settings()
 
-    diag = {
-        "python": platform.python_version(),
-        "hostname": platform.node(),
-        "cwd": os.getcwd(),
-        "disk": shutil.disk_usage("/opt").free // (1024**2) if os.path.exists("/opt") else "?",
-        "git_version": _run(["git", "--version"]),
-        "git_remote": _run(["git", "remote", "-v"], cwd=INSTALL_DIR),
-        "git_status": _run(["git", "status", "--short"], cwd=INSTALL_DIR),
-        "git_log": _run(["git", "log", "--oneline", "-5"], cwd=INSTALL_DIR),
-        "git_ls_remote": _run(
+    import asyncio
+
+    (
+        git_version,
+        git_remote,
+        git_status,
+        git_log,
+        git_ls_remote,
+        git_fetch_test,
+        ping_github,
+        curl_api,
+        service_status,
+        caddy_status,
+        docker_status,
+        journal_errors,
+    ) = await asyncio.gather(
+        _run(["git", "--version"]),
+        _run(["git", "remote", "-v"], cwd=INSTALL_DIR),
+        _run(["git", "status", "--short"], cwd=INSTALL_DIR),
+        _run(["git", "log", "--oneline", "-5"], cwd=INSTALL_DIR),
+        _run(
             [
                 "git",
                 "ls-remote",
@@ -63,23 +83,38 @@ async def debug_page(request: Request, db: AsyncSession = Depends(get_db)):
             ],
             timeout=15,
         ),
-        "git_fetch_test": _run(
-            ["git", "fetch", "origin", "--dry-run"], timeout=15, cwd=INSTALL_DIR
-        ),
-        "ping_github": _run(["ping", "-c", "1", "-W", "3", "github.com"]),
-        "curl_api": _run(["curl", "-sI", "--max-time", "5", "https://api.github.com"]),
-        "service_status": _run(["systemctl", "status", "pit-panel.service", "--no-pager", "-l"]),
+        _run(["git", "fetch", "origin", "--dry-run"], timeout=15, cwd=INSTALL_DIR),
+        _run(["ping", "-c", "1", "-W", "3", "github.com"]),
+        _run(["curl", "-sI", "--max-time", "5", "https://api.github.com"]),
+        _run(["systemctl", "status", "pit-panel.service", "--no-pager", "-l"]),
+        _run(["systemctl", "is-active", "caddy"]),
+        _run(["systemctl", "is-active", "docker"]),
+        _run(["journalctl", "-u", "pit-panel.service", "-p", "3", "-n", "20", "--no-pager"]),
+    )
+
+    diag = {
+        "python": platform.python_version(),
+        "hostname": platform.node(),
+        "cwd": os.getcwd(),
+        "disk": shutil.disk_usage("/opt").free // (1024**2) if os.path.exists("/opt") else "?",
+        "git_version": git_version,
+        "git_remote": git_remote,
+        "git_status": git_status,
+        "git_log": git_log,
+        "git_ls_remote": git_ls_remote,
+        "git_fetch_test": git_fetch_test,
+        "ping_github": ping_github,
+        "curl_api": curl_api,
+        "service_status": service_status,
         "service_file": _file_checksum("/etc/systemd/system/pit-panel.service"),
         "repo_service_file": _file_checksum(f"{INSTALL_DIR}/packaging/pit-panel.service"),
         "config_file": _file_checksum("/etc/pit-panel/config.toml"),
         "db_size": os.path.getsize(s.get_database_url().replace("sqlite+aiosqlite:///", ""))
         if os.path.exists(s.get_database_url().replace("sqlite+aiosqlite:///", ""))
         else "?",
-        "caddy_status": _run(["systemctl", "is-active", "caddy"]),
-        "docker_status": _run(["systemctl", "is-active", "docker"]),
-        "journal_errors": _run(
-            ["journalctl", "-u", "pit-panel.service", "-p", "3", "-n", "20", "--no-pager"]
-        ),
+        "caddy_status": caddy_status,
+        "docker_status": docker_status,
+        "journal_errors": journal_errors,
     }
 
     return render("debug.html", user=user, diag=diag)
@@ -110,7 +145,7 @@ async def debug_raw(request: Request, db: AsyncSession = Depends(get_db)):
         ("log", ["git", "log", "--oneline", "-5"], INSTALL_DIR),
     ]:
         lines.append(f"[{label}]")
-        lines.append(_run(cmd_args, cwd=wd or None))
+        lines.append(await _run(cmd_args, cwd=wd or None))
         lines.append("")
     lines.append("--- network ---")
     for label, cmd in [
@@ -118,13 +153,13 @@ async def debug_raw(request: Request, db: AsyncSession = Depends(get_db)):
         ("curl api", ["curl", "-sI", "--max-time", "5", "https://api.github.com"]),
     ]:
         lines.append(f"[{label}]")
-        lines.append(_run(cmd))
+        lines.append(await _run(cmd))
         lines.append("")
     lines.append("--- service ---")
-    lines.append(_run(["systemctl", "status", "pit-panel.service", "--no-pager", "-l"]))
+    lines.append(await _run(["systemctl", "status", "pit-panel.service", "--no-pager", "-l"]))
     lines.append("")
     lines.append("--- errors ---")
     jctl = ["journalctl", "-u", "pit-panel.service", "-p", "3", "-n", "20", "--no-pager"]
-    lines.append(_run(jctl))
+    lines.append(await _run(jctl))
 
     return PlainTextResponse("\n".join(lines))

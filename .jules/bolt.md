@@ -26,3 +26,6 @@
 ## 2024-11-20 - Non-blocking I/O in Async Python
 **Learning:** Using synchronous `subprocess.run()` inside an `async def` function blocks the Python event loop, causing poor concurrent performance in ASGI/FastAPI applications.
 **Action:** Always replace `subprocess.run()` with `asyncio.create_subprocess_exec()` and await its completion via `process.communicate()` wrapped in `asyncio.wait_for` when executing external shell commands in async contexts.
+## 2025-02-18 - Optimized multiple sequential subprocesses
+**Learning:** Found an unoptimized sequence of synchronous `subprocess.run` calls inside an async route handler in `src/pit_panel/web/routes/debug.py`. This blocks the main thread sequentially and increases response times.
+**Action:** Always migrate these to `async def` functions using `asyncio.create_subprocess_exec` and await them concurrently using `asyncio.gather()` when their order does not matter and they don't depend on one another. This provides a significant speed boost to response times by running the subprocesses in parallel.
