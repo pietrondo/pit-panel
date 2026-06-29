@@ -1,7 +1,6 @@
 """WordPress-specific routes: proxy, auto-login, cache/plugin/core management."""
 
 import asyncio
-import contextlib
 import logging
 import os
 
@@ -166,7 +165,7 @@ async def app_wp_auto_login(
     base_domain = sd.base_domain or settings.base_domain
     fqdn = f"{sd.subdomain}.{base_domain}"
 
-    # Step 1: fix site URL + generate magic login link via WP-CLI
+    # Step 1: fix WordPress site URL via WP-CLI (best-effort)
     try:
         docker_mgr = DockerManager(settings.apps_dir)
         await docker_mgr.exec_command(sd.subdomain, "wordpress", [
@@ -181,14 +180,8 @@ async def app_wp_auto_login(
             f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
             f" option update home 'https://{fqdn}'"
         ])
-        with contextlib.suppress(Exception):
-            await docker_mgr.exec_command(sd.subdomain, "wordpress", [
-                "sh", "-c",
-                f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-                f" user one-time-login admin --url=https://{fqdn} 2>/dev/null"
-            ])
     except Exception as e:
-        logger.warning(f"WP-CLI login failed for {sd.subdomain}: {e}")
+        logger.warning(f"WP-CLI fix failed for {sd.subdomain}: {e}")
 
     # Step 2: fallback to password-based auto-login
     port = _get_wp_port(settings, sd.subdomain)
