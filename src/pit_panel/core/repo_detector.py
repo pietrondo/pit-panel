@@ -42,10 +42,10 @@ async def clone_repo(repo_url: str) -> Path:
         _, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
         if proc.returncode != 0:
             raise ValueError(f"Git clone failed: {stderr.decode(errors='replace')[:500]}")
-    except TimeoutError:
-        raise ValueError(f"Git clone timed out for repository: {repo_url}")
+    except TimeoutError as e:
+        raise ValueError(f"Git clone timed out for repository: {repo_url}") from e
     except OSError as e:
-        raise ValueError(f"Git executable not found or inaccessible: {e}")
+        raise ValueError(f"Git executable not found or inaccessible: {e}") from e
     return dest
 
 
