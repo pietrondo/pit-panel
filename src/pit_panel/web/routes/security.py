@@ -360,7 +360,9 @@ async def security_malware_update_defs(request: Request, db: AsyncSession = Depe
 async def security_blocklist_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
 
     html = "<div class='space-y-2'>"
     for key, info in BLOCKLIST_SOURCES.items():
