@@ -13,7 +13,7 @@ class TestMainDomain:
         mock_resp.text = ""
         mock_resp.json.return_value = {}
 
-        with patch.object(mgr, "_patch_routes", AsyncMock(return_value={})) as mock_patch:
+        with patch.object(mgr, "_patch_or_create_route", AsyncMock(return_value={})) as mock_patch:
             await mgr.add_main_domain("example.com", port=8080)
 
             mock_patch.assert_called_once()
@@ -27,7 +27,7 @@ class TestMainDomain:
     async def test_add_main_domain_default_port(self):
         mgr = CaddyManager("http://127.0.0.1:2019")
 
-        with patch.object(mgr, "_patch_routes", AsyncMock(return_value={})) as mock_patch:
+        with patch.object(mgr, "_patch_or_create_route", AsyncMock(return_value={})) as mock_patch:
             await mgr.add_main_domain("example.com")
             route = mock_patch.call_args[0][0]
             assert route["handle"][0]["upstreams"] == [{"dial": "127.0.0.1:80"}]

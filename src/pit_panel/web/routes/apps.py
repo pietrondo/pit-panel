@@ -281,6 +281,8 @@ async def app_deploy(
                 await caddy.add_main_domain(settings.base_domain, port=port)
             elif sd.app_type != stack_type:
                 await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
+                fqdn = f"{sd.subdomain}.{settings.base_domain}"
+                await caddy.renew_certificate(fqdn)
         except Exception as e:
             logger.error(f"Caddy route error for {sd.subdomain}: {e}")
             error = (error or "") + f" | Caddy route error: {e}"
@@ -387,7 +389,9 @@ async def app_deploy_from_repo(
     if settings.base_domain:
         try:
             caddy = CaddyManager(settings.caddy_admin_url)
-            await caddy.add_subdomain(sd.subdomain, settings.base_domain)
+            await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
+            fqdn = f"{sd.subdomain}.{settings.base_domain}"
+            await caddy.renew_certificate(fqdn)
         except Exception as e:
             logger.error(f"Caddy route error for {sd.subdomain}: {e}")
 

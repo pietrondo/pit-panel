@@ -55,13 +55,13 @@ class CaddyManager:
             "match": [{"host": [fqdn]}],
             "handle": [{"handler": "reverse_proxy", "upstreams": [{"dial": f"127.0.0.1:{port}"}]}],
         }
-        return await self._patch_routes(route)
+        return await self._patch_or_create_route(route)
 
     async def remove_subdomain(self, subdomain: str, base_domain: str) -> dict[str, Any]:
         fqdn = f"{subdomain}.{base_domain}"
         return await self._delete_route(fqdn)
 
-    async def _patch_routes(self, route: dict[str, Any]) -> dict[str, Any]:
+    async def _patch_or_create_route(self, route: dict[str, Any]) -> dict[str, Any]:
         route_id = route["@id"]
         async with httpx.AsyncClient() as client:
             resp = await client.patch(
@@ -69,6 +69,14 @@ class CaddyManager:
                 json=route,
                 headers={"Content-Type": "application/json"},
             )
+            if resp.status_code == 404:
+                resp2 = await client.post(
+                    f"{self.admin_url}/config/apps/http/servers/srv0/routes/",
+                    json=route,
+                    headers={"Content-Type": "application/json"},
+                )
+                resp2.raise_for_status()
+                return resp2.json() if resp2.text else {}
             resp.raise_for_status()
             return resp.json() if resp.text else {}
 
@@ -86,7 +94,7 @@ class CaddyManager:
                 }
             ],
         }
-        return await self._patch_routes(route)
+        return await self._patch_or_create_route(route)
 
     async def add_main_domain(self, base_domain: str, port: int = 80) -> dict[str, Any]:
         route = {
@@ -94,7 +102,7 @@ class CaddyManager:
             "match": [{"host": [base_domain]}],
             "handle": [{"handler": "reverse_proxy", "upstreams": [{"dial": f"127.0.0.1:{port}"}]}],
         }
-        return await self._patch_routes(route)
+        return await self._patch_or_create_route(route)
 
     async def remove_main_domain(self, base_domain: str) -> dict[str, Any]:
         return await self._delete_route(f"main-{base_domain}")
