@@ -473,14 +473,18 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
 async def app_restart(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if sd:
         settings = get_settings()
         docker_mgr = DockerManager(settings.apps_dir)
         await docker_mgr.run_compose_command(sd.subdomain, ["restart"])
-    return RedirectResponse(f"/apps/{sd_id}", status_code=302)
+    response = HTMLResponse("")
+    response.headers["HX-Redirect"] = f"/apps/{sd_id}"
+    return response
 
 
 @router.post("/apps/{sd_id}/stop", response_class=HTMLResponse)
@@ -630,7 +634,9 @@ async def app_logs_get(request: Request, sd_id: int, db: AsyncSession = Depends(
 async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
 
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
@@ -661,7 +667,9 @@ async def app_env_post(
 ):
     user = await get_user(request, db)
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
 
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
