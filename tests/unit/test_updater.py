@@ -200,6 +200,7 @@ async def test_healthcheck_failure(updater):
 @pytest.mark.asyncio
 async def test_run_cmd_success():
     from pit_panel.core.updater import _run_cmd
+
     with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
         mock_proc = MagicMock()
         mock_proc.returncode = 0
@@ -215,8 +216,9 @@ async def test_run_cmd_success():
 
 @pytest.mark.asyncio
 async def test_run_cmd_timeout():
+
     from pit_panel.core.updater import _run_cmd
-    import asyncio
+
     with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
         mock_proc = MagicMock()
         mock_proc.returncode = None
@@ -231,9 +233,11 @@ async def test_run_cmd_timeout():
         assert result.stderr == "Timeout"
         mock_proc.kill.assert_called_once()
 
+
 @pytest.mark.asyncio
 async def test_run_cmd_exception():
     from pit_panel.core.updater import _run_cmd
+
     with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
         mock_exec.side_effect = Exception("error")
 
