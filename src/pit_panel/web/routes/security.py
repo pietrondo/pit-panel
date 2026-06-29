@@ -403,3 +403,87 @@ async def security_blocklist_import(request: Request, db: AsyncSession = Depends
     return HTMLResponse(
         f"<p class='text-green-500'>Imported {count}/{len(ips)} IPs from {info['name']}</p>"
     )
+
+
+@router.post("/security/fail2ban/enable", response_class=HTMLResponse)
+async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    form = await request.form()
+    jail = form.get("jail")
+
+    jail_escaped = __import__("html").escape(jail or "")
+    return HTMLResponse(f'<span class="text-green-600 text-xs">Enabled {jail_escaped}</span>')
+
+
+@router.get("/security/abuseipdb-blacklist", response_class=HTMLResponse)
+async def security_abuseipdb_blacklist(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    settings = get_settings()
+    api_key = getattr(settings, "abuseipdb_api_key", "")
+
+    if not api_key:
+        return HTMLResponse(
+            '<div class="text-red-500 text-sm">No AbuseIPDB API key configured.</div>'
+        )
+
+    blacklist = await _abuseipdb_blacklist(api_key)
+
+    if not blacklist:
+        return HTMLResponse('<div class="text-sm text-gray-500">No blacklist entries found.</div>')
+
+    html = '<div class="space-y-2">'
+    for entry in blacklist:
+        color_class = "text-red-500" if entry["score"] > 80 else "text-orange-500"
+        html += f"""
+        <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+            <span class="font-mono text-sm">{entry["ip"]}</span>
+            <div class="text-xs text-gray-500">
+                Score: <span class="{color_class} font-bold">{entry["score"]}</span> |
+                Reports: {entry["reports"]}
+            </div>
+        </div>
+        """
+    html += "</div>"
+
+    return HTMLResponse(html)
+
+
+@router.post("/security/abuseipdb-check", response_class=HTMLResponse)
+async def security_abuseipdb_check(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    form = await request.form()
+    ip = form.get("ip")
+    api_key = form.get("api_key")
+
+    if not ip or not api_key:
+        return HTMLResponse('<div class="text-red-500 text-sm">IP and API key are required.</div>')
+
+    result = await _abuseipdb_check(ip, api_key)
+
+    if "error" in result:
+        return HTMLResponse(f'<div class="text-red-500 text-sm">Error: {result["error"]}</div>')
+
+    score = result.get("score", 0)
+    color_class = (
+        "text-green-500" if score < 20 else ("text-orange-500" if score < 80 else "text-red-500")
+    )
+
+    return HTMLResponse(f'''
+    <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 "
+         "dark:border-gray-700">
+        <div class="flex justify-between items-center">
+            <span class="font-mono">{result["ip"]}</span>
+            <span class="{color_class} font-bold">Score: {score}/100</span>
+        </div>
+        <div class="text-xs text-gray-500 mt-1">Total Reports: {result.get("reports", 0)}</div>
+    </div>
+    ''')

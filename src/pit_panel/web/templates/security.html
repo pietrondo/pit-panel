@@ -23,395 +23,468 @@
 </div>
 {% endif %}
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    <div class="stat-card bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800">
-        <span class="stat-label text-red-600 dark:text-red-400">Banned IPs</span>
-        <p class="stat-value text-red-700 dark:text-red-300">{{ bans|length }}</p>
-    </div>
-    <div class="stat-card bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-800">
-        <span class="stat-label text-yellow-600 dark:text-yellow-400">Failed Logins (recent)</span>
-        {% set failed = attempts|selectattr('success', 'equalto', false)|list %}
-        <p class="stat-value text-yellow-700 dark:text-yellow-300">{{ failed|length }}</p>
-    </div>
-    <div class="stat-card bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800">
-        <span class="stat-label text-green-600 dark:text-green-400">Active Sessions</span>
-        <p class="stat-value text-green-700 dark:text-green-300">{{ sessions|length }}</p>
-    </div>
-</div>
-
-<!-- Firewall & Fail2Ban Status -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-    {% if firewall %}
-    <div class="card">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Firewall (ufw)</h2>
-            <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                {% if firewall.active %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
-                {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
-                {{ 'Active' if firewall.active else 'Inactive' }}
-            </span>
-        </div>
-        <div class="p-4">
-            {% if firewall.rules %}
-            <pre class="text-xs font-mono text-gray-600 dark:text-gray-400 max-h-60 overflow-y-auto">{{ firewall.rules|join('\n') }}</pre>
-            {% else %}
-            <p class="text-sm text-gray-500 dark:text-gray-400">No rules or sudo access missing.</p>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
-
-    {% if fail2ban %}
-    <div class="card">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Fail2Ban</h2>
-            <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                {% if fail2ban.active %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
-                {% else %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% endif %}">
-                {{ 'Running' if fail2ban.active else 'Not running' }}
-            </span>
-        </div>
-        <div class="p-4">
-            {% if fail2ban.jails %}
-            <div class="flex flex-wrap gap-2">
-                {% for jail in fail2ban.jails %}
-                <span class="px-2 py-1 text-xs font-mono bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">{{ jail }}</span>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p class="text-sm text-gray-500 dark:text-gray-400">No jails active</p>
-            {% endif %}
-        </div>
-        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Enable Jail</h3>
-            <div class="flex gap-2 flex-wrap">
-                {% set jail_opts = {"sshd": "SSH", "sshd-ddos": "SSH DDoS", "nginx-http-auth": "Nginx", "apache-auth": "Apache", "postfix": "Postfix"} %}
-                {% for jail, label in jail_opts.items() %}
-                <button class="btn-ghost text-xs" hx-post="/security/fail2ban/enable" hx-vals='{"jail":"{{ jail }}"}' hx-swap="none">{{ label }}</button>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-{% if abuseipdb_key %}
-<!-- AbuseIPDB -->
-<div class="card mb-6">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">AbuseIPDB</h2>
-        <button class="btn-ghost text-xs" hx-get="/security/abuseipdb-blacklist" hx-target="#abuseipdb-blacklist" hx-swap="innerHTML">
-            Load Top Offenders
+<div x-data="{ activeTab: 'overview' }">
+    <!-- Tabs -->
+    <div class="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
+        <button @click="activeTab = 'overview'" class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+            :class="activeTab === 'overview' ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
+            Overview
+        </button>
+        <button @click="activeTab = 'firewall'" class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+            :class="activeTab === 'firewall' ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
+            Firewall & Network
+        </button>
+        <button @click="activeTab = 'malware'" class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+            :class="activeTab === 'malware' ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
+            Malware Scan
+        </button>
+        <button @click="activeTab = 'access'" class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+            :class="activeTab === 'access' ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
+            Access Control
         </button>
     </div>
-    <div class="p-4">
-        <form hx-post="/security/abuseipdb-check" hx-target="#abuseipdb-result" class="flex gap-2 mb-4">
-            <input name="ip" placeholder="IP address" class="input flex-1" required>
-            <input name="api_key" type="password" placeholder="API key" class="input" value="{{ settings.abuseipdb_api_key if settings else '' }}">
-            <button type="submit" class="btn-ghost text-blue-700 dark:text-blue-400">Check</button>
-        </form>
-        <div id="abuseipdb-result" class="mb-2"></div>
-        <div id="abuseipdb-blacklist" class="max-h-80 overflow-y-auto"></div>
-    </div>
-</div>
-{% endif %}
 
-<!-- Public Blocklists -->
-<div class="card mb-6">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Public IP Blocklists</h2>
-    </div>
-    <div class="p-4" hx-get="/security/blocklist" hx-trigger="load">
-        <div class="flex items-center text-sm text-gray-500">
-            <svg class="animate-spin h-5 w-5 text-gray-500 inline-block mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-            <span>Loading...</span>
-        </div>
-    </div>
-</div>
-
-<!-- Malware Scan -->
-<div class="card mb-6" x-data="{ showDetails: {}, showConfig: false, showThreats: false }">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Malware Scan</h2>
-            <div class="flex gap-2 flex-wrap">
-                <button class="btn-ghost text-xs" @click="showConfig = !showConfig">⚙️ Config</button>
-                <button class="btn-ghost text-xs" @click="showThreats = !showThreats">ℹ️ Threats</button>
-                <button class="btn-ghost text-xs"
-                        hx-post="/security/malware/update-defs"
-                        hx-target="#defs-status"
-                        hx-swap="innerHTML"
-                        hx-on::before-request="this.disabled=true;this.innerText='Updating...'">
-                    Update Definitions
-                </button>
-                <button class="btn-ghost text-xs text-green-700 dark:text-green-400"
-                        hx-post="/security/malware/scan-full"
-                        hx-target="body"
-                        hx-swap="innerHTML"
-                        hx-on::before-request="this.disabled=true;this.innerText='🔄 Scanning system...'">
-                    🛡️ Full System Scan
-                </button>
-                <button class="btn-ghost text-xs text-green-700 dark:text-green-400"
-                        hx-post="/security/malware/scan"
-                        hx-target="body"
-                        hx-swap="innerHTML"
-                        hx-on::before-request="this.disabled=true;this.innerText='🔄 Scanning...'">
-                    🔍 Scan Apps
-                </button>
+    <!-- Overview Tab -->
+    <div x-show="activeTab === 'overview'" x-cloak>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="stat-card bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800">
+                <span class="stat-label text-red-600 dark:text-red-400">Banned IPs</span>
+                <p class="stat-value text-red-700 dark:text-red-300">{{ bans|length }}</p>
+            </div>
+            <div class="stat-card bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-800">
+                <span class="stat-label text-yellow-600 dark:text-yellow-400">Failed Logins (recent)</span>
+                {% set failed = attempts|selectattr('success', 'equalto', false)|list %}
+                <p class="stat-value text-yellow-700 dark:text-yellow-300">{{ failed|length }}</p>
+            </div>
+            <div class="stat-card bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800">
+                <span class="stat-label text-green-600 dark:text-green-400">Active Sessions</span>
+                <p class="stat-value text-green-700 dark:text-green-300">{{ sessions|length }}</p>
             </div>
         </div>
 
-        <div id="defs-status" class="text-xs text-gray-500 mt-1"></div>
-
-        <div x-show="showConfig" x-cloak class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded text-sm space-y-2">
-            <div class="flex items-center gap-2">
-                <span class="text-gray-700 dark:text-gray-300">Auto-scan interval:</span>
-                <form hx-post="/security/malware/set-interval" hx-target="#interval-status" class="flex items-center gap-2">
-                    <select name="hours" class="input text-xs py-1 w-20">
-                        <option value="1" {{ 'selected' if scan_interval_hours == 1 else '' }}>1h</option>
-                        <option value="3" {{ 'selected' if scan_interval_hours == 3 else '' }}>3h</option>
-                        <option value="6" {{ 'selected' if scan_interval_hours == 6 else '' }}>6h</option>
-                        <option value="12" {{ 'selected' if scan_interval_hours == 12 else '' }}>12h</option>
-                        <option value="24" {{ 'selected' if scan_interval_hours == 24 else '' }}>24h</option>
-                        <option value="48" {{ 'selected' if scan_interval_hours == 48 else '' }}>48h</option>
-                        <option value="72" {{ 'selected' if scan_interval_hours == 72 else '' }}>72h</option>
-                    </select>
-                    <button type="submit" class="btn-ghost text-xs">Set</button>
-                </form>
-                <span id="interval-status" class="text-xs text-green-600"></span>
+        <div class="card">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Sessions</h2>
+                <span class="text-xs text-gray-500">{{ sessions|length }} active</span>
             </div>
-            <p class="text-xs text-gray-400">Quando l'auto-scan è attivo, esegue una scansione di tutte le app ogni N ore.</p>
-        </div>
-
-        <div x-show="showThreats" x-cloak class="mt-3 grid grid-cols-2 gap-2">
-            {% for cat, desc in threat_categories.items() %}
-            <div class="text-xs p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                <span class="font-medium text-gray-900 dark:text-white">{{ cat }}</span>
-                <p class="text-gray-500 mt-0.5">{{ desc }}</p>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                            <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
+                            <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
+                            <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Since</th>
+                            <th class="text-right px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for sess in sessions[:5] %}
+                        <tr>
+                            <td class="px-6 py-2 text-xs text-gray-900 dark:text-white">{{ sess.username }}</td>
+                            <td class="px-6 py-2 text-xs font-mono text-gray-500">{{ sess.ip }}</td>
+                            <td class="px-6 py-2 text-xs text-gray-500">{{ sess.created.strftime('%Y-%m-%d %H:%M') if sess.created }}</td>
+                            <td class="px-6 py-2 text-right">
+                                <form method="POST" action="/security/revoke-session" class="inline">
+                                    <input type="hidden" name="session_id" value="{{ sess.id }}">
+                                    <button class="btn-ghost text-xs text-red-600">Revoke</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No active sessions.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            {% endfor %}
         </div>
     </div>
 
-    {% if scan_history %}
-    <div class="divide-y divide-gray-200 dark:divide-gray-700">
-        {% for s in scan_history[:5] %}
-        <div class="p-4">
-            <div class="flex items-center justify-between cursor-pointer" @click="showDetails['s{{ s.id }}'] = !showDetails['s{{ s.id }}']">
-                <div class="flex items-center gap-3">
-                    <span class="w-2.5 h-2.5 rounded-full
-                        {{ 'bg-green-500' if s.status == 'completed' and s.infected_count == 0 else '' }}
-                        {{ 'bg-red-500' if s.infected_count > 0 else '' }}
-                        {{ 'bg-gray-400' if s.status != 'completed' and s.infected_count == 0 }}"></span>
-                    <span class="text-sm font-medium text-gray-900 dark:text-white">Scan #{{ s.id }}</span>
-                    <span class="text-xs text-gray-500">{{ s.started_at.strftime('%Y-%m-%d %H:%M') if s.started_at }}</span>
-                    <span class="text-xs px-1.5 py-0.5 rounded
-                        {{ 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' if s.status == 'completed' else '' }}
-                        {{ 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' if s.status == 'failed' else '' }}
-                        {{ 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' if s.status == 'running' else '' }}">
-                        {{ s.status }}
+    <!-- Firewall & Network Tab -->
+    <div x-show="activeTab === 'firewall'" x-cloak>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {% if firewall %}
+            <div class="card">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Firewall (ufw)</h2>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                        {% if firewall.active %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                        {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                        {{ 'Active' if firewall.active else 'Inactive' }}
                     </span>
                 </div>
-                <div class="flex items-center gap-4 text-xs">
-                    <span class="{{ 'text-red-600 font-bold' if s.infected_count > 0 else 'text-green-600' }}">
-                        {{ s.infected_count }} threats
+                <div class="p-4">
+                    {% if firewall.rules %}
+                    <pre class="text-xs font-mono text-gray-600 dark:text-gray-400 max-h-60 overflow-y-auto">{{ firewall.rules|join('\n') }}</pre>
+                    {% else %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400">No rules or sudo access missing.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if fail2ban %}
+            <div class="card">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Fail2Ban</h2>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                        {% if fail2ban.active %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                        {% else %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% endif %}">
+                        {{ 'Running' if fail2ban.active else 'Not running' }}
                     </span>
-                    <span class="text-gray-500">{{ s.scanned_count }} files</span>
-                    <svg class="w-4 h-4 text-gray-400 transition-transform" :class="showDetails['s{{ s.id }}'] ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                </div>
+                <div class="p-4">
+                    {% if fail2ban.jails %}
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        {% for jail in fail2ban.jails %}
+                        <span class="px-2 py-1 text-xs font-mono bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">{{ jail }}</span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">No active jails found.</p>
+                    {% endif %}
+                    <div class="pt-4 border-t border-gray-100 dark:border-gray-800">
+                        <p class="text-xs text-gray-500 mb-2">Enable standard jails</p>
+                        <div class="flex gap-2 flex-wrap">
+                            {% set jail_opts = {"sshd": "SSH", "sshd-ddos": "SSH DDoS", "nginx-http-auth": "Nginx", "apache-auth": "Apache", "postfix": "Postfix"} %}
+                            {% for jail, label in jail_opts.items() %}
+                            <button class="btn-ghost text-xs" hx-post="/security/fail2ban/enable" hx-vals='{"jail":"{{ jail }}"}' hx-swap="none">{{ label }}</button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if abuseipdb_key %}
+        <div class="card mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">AbuseIPDB</h2>
+                <span class="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded">Active</span>
+            </div>
+            <div class="p-4">
+                <div class="flex gap-2 mb-4">
+                    <form hx-post="/security/abuseipdb-check" hx-target="#abuseipdb-result" class="flex gap-2 flex-1">
+                        <input name="ip" placeholder="Check IP address..." class="input text-sm flex-1" required>
+                        <button type="submit" class="btn-ghost text-sm">Check</button>
+                    </form>
+                    <button class="btn-ghost text-xs" hx-get="/security/abuseipdb-blacklist" hx-target="#abuseipdb-blacklist" hx-swap="innerHTML">
+                        Load Blacklist (90%+)
+                    </button>
+                </div>
+                <div id="abuseipdb-result" class="text-sm mb-2"></div>
+                <div id="abuseipdb-blacklist" class="max-h-80 overflow-y-auto"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">External Blocklists</h2>
+            </div>
+            <div class="p-4" hx-get="/security/blocklist" hx-trigger="load">
+                <div class="flex items-center text-sm text-gray-500">
+                    <svg class="animate-spin h-5 w-5 text-gray-500 inline-block mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                    <span>Loading blocklists...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Malware Scan Tab -->
+    <div x-show="activeTab === 'malware'" x-cloak>
+        <div class="card" x-data="{ showDetails: {}, showConfig: false, showThreats: false }">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Malware Scan</h2>
+                    <div class="flex gap-2 flex-wrap">
+                        <button class="btn-ghost text-xs" @click="showConfig = !showConfig">Config</button>
+                        <button class="btn-ghost text-xs" @click="showThreats = !showThreats">Threats</button>
+                        <button class="btn-ghost text-xs"
+                                hx-post="/security/malware/update-defs"
+                                hx-target="#defs-status"
+                                hx-swap="innerHTML"
+                                hx-on::before-request="this.disabled=true;this.innerText='Updating...'">
+                            Update Definitions
+                        </button>
+                        <button class="btn-ghost text-xs text-green-700 dark:text-green-400"
+                                hx-post="/security/malware/scan-full"
+                                hx-target="body"
+                                hx-swap="innerHTML"
+                                hx-on::before-request="this.disabled=true;this.innerText='Scanning system...'">
+                            Full System Scan
+                        </button>
+                        <button class="btn-ghost text-xs text-green-700 dark:text-green-400"
+                                hx-post="/security/malware/scan"
+                                hx-target="body"
+                                hx-swap="innerHTML"
+                                hx-on::before-request="this.disabled=true;this.innerText='Scanning...'">
+                            Scan Apps
+                        </button>
+                    </div>
+                </div>
+
+                <div id="defs-status" class="text-xs text-gray-500 mt-1"></div>
+
+                <div x-show="showConfig" x-cloak class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded text-sm space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-700 dark:text-gray-300">Auto-scan interval:</span>
+                        <form hx-post="/security/malware/set-interval" hx-target="#interval-status" class="flex items-center gap-2">
+                            <select name="hours" class="input text-xs py-1 w-20">
+                                <option value="1" {{ 'selected' if scan_interval_hours == 1 else '' }}>1h</option>
+                                <option value="3" {{ 'selected' if scan_interval_hours == 3 else '' }}>3h</option>
+                                <option value="6" {{ 'selected' if scan_interval_hours == 6 else '' }}>6h</option>
+                                <option value="12" {{ 'selected' if scan_interval_hours == 12 else '' }}>12h</option>
+                                <option value="24" {{ 'selected' if scan_interval_hours == 24 else '' }}>24h</option>
+                                <option value="48" {{ 'selected' if scan_interval_hours == 48 else '' }}>48h</option>
+                                <option value="72" {{ 'selected' if scan_interval_hours == 72 else '' }}>72h</option>
+                            </select>
+                            <button type="submit" class="btn-ghost text-xs">Set</button>
+                        </form>
+                        <span id="interval-status" class="text-xs text-green-600"></span>
+                    </div>
+                    <p class="text-xs text-gray-400">When auto-scan is active, scans all apps every N hours.</p>
+                </div>
+
+                <div x-show="showThreats" x-cloak class="mt-3 grid grid-cols-2 gap-2">
+                    {% for cat, desc in threat_categories.items() %}
+                    <div class="text-xs p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                        <span class="font-medium text-gray-900 dark:text-white">{{ cat }}</span>
+                        <p class="text-gray-500 mt-0.5">{{ desc }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if scan_history %}
+            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for s in scan_history %}
+                <div class="p-4">
+                    <div class="flex items-center justify-between cursor-pointer" @click="showDetails['s{{ s.id }}'] = !showDetails['s{{ s.id }}']">
+                        <div class="flex items-center gap-3">
+                            <span class="w-2.5 h-2.5 rounded-full
+                                {{ 'bg-green-500' if s.status == 'completed' and s.infected_count == 0 else '' }}
+                                {{ 'bg-red-500' if s.infected_count > 0 else '' }}
+                                {{ 'bg-gray-400' if s.status != 'completed' and s.infected_count == 0 }}"></span>
+                            {% if s.status == 'running' %}
+                            <svg class="animate-spin h-4 w-4 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            {% endif %}
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">Scan #{{ s.id }}</span>
+                            <span class="text-xs text-gray-500">{{ s.started_at.strftime('%Y-%m-%d %H:%M') if s.started_at }}</span>
+                            <span class="text-xs px-1.5 py-0.5 rounded
+                                {{ 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' if s.status == 'completed' else '' }}
+                                {{ 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' if s.status == 'failed' else '' }}
+                                {{ 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' if s.status == 'running' else '' }}">
+                                {{ s.status }}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-4 text-xs">
+                            {% if s.status == 'completed' %}
+                            <span class="{{ 'text-red-600 font-bold' if s.infected_count > 0 else 'text-green-600' }}">
+                                {{ s.infected_count }} threats
+                            </span>
+                            <span class="text-gray-500">{{ s.scanned_count }} files</span>
+                            {% endif %}
+                            <svg class="w-4 h-4 text-gray-400 transition-transform" :class="showDetails['s{{ s.id }}'] ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div x-show="showDetails['s{{ s.id }}']" x-cloak class="mt-3 text-xs">
+                        {% if s.details and s.details.get('apps') %}
+                        <div class="space-y-2 pl-5">
+                            {% for app in s.details.apps %}
+                            <div class="flex items-center justify-between py-1 {{ 'text-red-600' if app.infected_total > 0 else 'text-green-600' }}">
+                                <span class="font-mono">{{ app.target }}</span>
+                                <span>{{ app.infected_total }} threats / {{ app.scanned_total }} files</span>
+                            </div>
+                            {% if app.scans %}
+                            <div class="pl-4 space-y-1 border-l-2 border-gray-200 dark:border-gray-700">
+                                {% for scan in app.scans %}
+                                <div class="flex items-center justify-between text-gray-500">
+                                    <span>{{ scan.target }}</span>
+                                    <span>{{ scan.infected_count }} threats / {{ scan.scanned_count }} files ({{ scan.tool }})</span>
+                                </div>
+                                {% if scan.infected %}
+                                <div class="bg-red-50 dark:bg-red-900/10 rounded p-2 space-y-1">
+                                    {% for threat in scan.infected %}
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-red-500">&#9888;</span>
+                                        <span class="font-mono text-red-700 dark:text-red-300">{{ threat.threat }}</span>
+                                        <span class="text-red-400 truncate max-w-[300px]">{{ threat.file }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <div class="text-gray-400 mt-1 pl-5">Status: {{ s.status }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-8 text-center">
+                <p class="text-sm text-gray-500 mb-2">No scans yet</p>
+                <p class="text-xs text-gray-400">Click "Scan Apps" above to scan all deployed applications.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Access Control Tab -->
+    <div x-show="activeTab === 'access'" x-cloak>
+        <!-- Manual IP Ban -->
+        <div class="card mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Manual IP Ban</h2>
+            </div>
+            <div class="p-4">
+                <form method="POST" action="/security/ban-ip" class="flex gap-2 flex-wrap items-end">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">IP Address</label>
+                        <input name="ip" placeholder="192.168.1.1" class="input" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Reason</label>
+                        <input name="reason" placeholder="manual" class="input" value="manual">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Duration (min)</label>
+                        <input name="duration" type="number" value="60" class="input w-24">
+                    </div>
+                    <button type="submit" class="btn-ghost text-red-700 dark:text-red-400">Ban IP</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- IP Bans -->
+        <div class="card mb-6" x-data="{ open: true }">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between cursor-pointer" @click="open = !open">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">IP Bans</h2>
+                <div class="flex items-center gap-2 text-sm text-gray-500">
+                    <span>{{ bans|length }} total</span>
+                    <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </div>
             </div>
-            <div x-show="showDetails['s{{ s.id }}']" x-cloak class="mt-3 text-xs">
-                {% if s.details and s.details.get('apps') %}
-                <div class="space-y-2 pl-5">
-                    {% for app in s.details.apps %}
-                    <div class="flex items-center justify-between py-1 {{ 'text-red-600' if app.infected_total > 0 else 'text-green-600' }}">
-                        <span class="font-mono">{{ app.target }}</span>
-                        <span>{{ app.infected_total }} threats / {{ app.scanned_total }} files</span>
-                    </div>
-                    {% if app.scans %}
-                    <div class="pl-4 space-y-1 border-l-2 border-gray-200 dark:border-gray-700">
-                        {% for scan in app.scans %}
-                        <div class="flex items-center justify-between text-gray-500">
-                            <span>{{ scan.target }}</span>
-                            <span>{{ scan.infected_count }} threats / {{ scan.scanned_count }} files ({{ scan.tool }})</span>
-                        </div>
-                        {% if scan.infected %}
-                        <div class="bg-red-50 dark:bg-red-900/10 rounded p-2 space-y-1">
-                            {% for threat in scan.infected %}
-                            <div class="flex items-center gap-2">
-                                <span class="text-red-500">⚠</span>
-                                <span class="font-mono text-red-700 dark:text-red-300">{{ threat.threat }}</span>
-                                <span class="text-red-400 truncate max-w-[300px]">{{ threat.file }}</span>
-                            </div>
+            <div x-show="open" x-collapse>
+                <div class="overflow-x-auto max-h-96 overflow-y-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 sticky top-0">
+                                <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
+                                <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Reason</th>
+                                <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Failed</th>
+                                <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Expires</th>
+                                <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            {% for ban in bans %}
+                            <tr>
+                                <td class="px-6 py-2 text-sm font-mono text-gray-900 dark:text-white">{{ ban.ip_address }}</td>
+                                <td class="px-6 py-2 text-xs text-gray-500 dark:text-gray-400">{{ ban.reason }}</td>
+                                <td class="px-6 py-2 text-xs text-red-600 dark:text-red-400 font-bold">{{ ban.failed_attempts }}</td>
+                                <td class="px-6 py-2 text-xs text-gray-500">
+                                    {% if ban.expires_at %}{{ ban.expires_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Permanent{% endif %}
+                                </td>
+                                <td class="px-6 py-2 text-right">
+                                    <form method="POST" action="/security/unban" class="inline">
+                                        <input type="hidden" name="ip" value="{{ ban.ip_address }}">
+                                        <button class="btn-ghost text-xs text-green-600">Unban</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No banned IPs.</td></tr>
                             {% endfor %}
-                        </div>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-                {% endif %}
-                <div class="text-gray-400 mt-1 pl-5">Status: {{ s.status }}</div>
             </div>
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="p-8 text-center">
-        <p class="text-sm text-gray-500 mb-2">No scans yet</p>
-        <p class="text-xs text-gray-400">Click "Scan All Apps" to scan all deployed applications and their Docker volumes.</p>
-    </div>
-    {% endif %}
-</div>
 
-<!-- Manual IP Ban -->
-<div class="card mb-6">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Manual IP Ban</h2>
-    </div>
-    <div class="p-4">
-        <form method="POST" action="/security/ban-ip" class="flex gap-2 flex-wrap items-end">
-            <div>
-                <label class="block text-xs text-gray-500 mb-1">IP Address</label>
-                <input name="ip" placeholder="192.168.1.1" class="input" required>
+        <!-- Login Attempts -->
+        <div class="card mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Login Attempts</h2>
             </div>
-            <div>
-                <label class="block text-xs text-gray-500 mb-1">Reason</label>
-                <input name="reason" placeholder="manual" class="input" value="manual">
-            </div>
-            <div>
-                <label class="block text-xs text-gray-500 mb-1">Duration (min)</label>
-                <input name="duration" type="number" value="60" class="input w-24">
-            </div>
-            <button type="submit" class="btn-ghost text-red-700 dark:text-red-400">Ban IP</button>
-        </form>
-    </div>
-</div>
-
-<!-- IP Bans -->
-<div class="card mb-6" x-data="{ open: true }">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between cursor-pointer" @click="open = !open">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">IP Bans</h2>
-        <div class="flex items-center gap-2 text-sm text-gray-500">
-            <span>{{ bans|length }} total</span>
-            <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-        </div>
-    </div>
-    <div x-show="open" x-collapse>
-        <div class="overflow-x-auto max-h-96 overflow-y-auto">
-            <table class="w-full">
-                <thead>
-                    <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 sticky top-0">
-                        <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
-                        <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Reason</th>
-                        <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Failed</th>
-                        <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Expires</th>
-                        <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    {% for ban in bans %}
-                    <tr>
-                        <td class="px-6 py-2 text-sm font-mono text-gray-900 dark:text-white">{{ ban.ip_address }}</td>
-                        <td class="px-6 py-2 text-xs text-gray-500 dark:text-gray-400">{{ ban.reason }}</td>
-                        <td class="px-6 py-2 text-xs text-red-600 dark:text-red-400 font-bold">{{ ban.failed_attempts }}</td>
-                        <td class="px-6 py-2 text-xs text-gray-500">
-                            {% if ban.expires_at %}{{ ban.expires_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Permanent{% endif %}
-                        </td>
-                        <td class="px-6 py-2 text-right">
-                            <form method="POST" action="/security/unban" class="inline">
-                                <input type="hidden" name="ip" value="{{ ban.ip_address }}">
-                                <button class="btn-ghost text-xs text-green-600">Unban</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No banned IPs.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Login Attempts -->
-<div class="card mb-6">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Login Attempts</h2>
-    </div>
-    <div class="overflow-x-auto max-h-80 overflow-y-auto">
-        <table class="w-full">
-            <thead>
-                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Username</th>
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Result</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                {% for a in attempts %}
-                <tr>
-                    <td class="px-6 py-2 text-xs text-gray-500 font-mono">{{ a.attempted_at.strftime('%H:%M:%S') if a.attempted_at }}</td>
-                    <td class="px-6 py-2 text-xs font-mono text-gray-900 dark:text-white">{{ a.ip_address }}</td>
-                    <td class="px-6 py-2 text-xs text-gray-500">{{ a.username or '-' }}</td>
-                    <td class="px-6 py-2">
-                        {% if a.success %}
-                        <span class="text-green-600 dark:text-green-400 text-xs font-medium">success</span>
+            <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                            <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
+                            <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
+                            <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Username</th>
+                            <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Result</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for a in attempts %}
+                        <tr>
+                            <td class="px-6 py-2 text-xs text-gray-500 font-mono">{{ a.attempted_at.strftime('%H:%M:%S') if a.attempted_at }}</td>
+                            <td class="px-6 py-2 text-xs font-mono text-gray-900 dark:text-white">{{ a.ip_address }}</td>
+                            <td class="px-6 py-2 text-xs text-gray-500">{{ a.username or '-' }}</td>
+                            <td class="px-6 py-2">
+                                {% if a.success %}
+                                <span class="text-green-600 dark:text-green-400 text-xs font-medium">success</span>
+                                {% else %}
+                                <span class="text-red-600 dark:text-red-400 text-xs font-medium">failed</span>
+                                {% endif %}
+                            </td>
+                        </tr>
                         {% else %}
-                        <span class="text-red-600 dark:text-red-400 text-xs font-medium">failed</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No attempts yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+                        <tr><td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No attempts yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-<!-- Active Sessions -->
-<div class="card">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Active Sessions</h2>
-    </div>
-    <div class="overflow-x-auto">
-        <table class="w-full">
-            <thead>
-                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
-                    <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Since</th>
-                    <th class="text-right px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                {% for sess in sessions %}
-                <tr>
-                    <td class="px-6 py-2 text-xs text-gray-900 dark:text-white">{{ sess.username }}</td>
-                    <td class="px-6 py-2 text-xs font-mono text-gray-500">{{ sess.ip }}</td>
-                    <td class="px-6 py-2 text-xs text-gray-500">{{ sess.created.strftime('%Y-%m-%d %H:%M') if sess.created }}</td>
-                    <td class="px-6 py-2 text-right">
-                        <form method="POST" action="/security/revoke-session" class="inline">
-                            <input type="hidden" name="session_id" value="{{ sess.id }}">
-                            <button class="btn-ghost text-xs text-red-600">Revoke</button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No active sessions.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- Active Sessions -->
+        <div class="card">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Active Sessions</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                            <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
+                            <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
+                            <th class="text-left px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Since</th>
+                            <th class="text-right px-6 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for sess in sessions %}
+                        <tr>
+                            <td class="px-6 py-2 text-xs text-gray-900 dark:text-white">{{ sess.username }}</td>
+                            <td class="px-6 py-2 text-xs font-mono text-gray-500">{{ sess.ip }}</td>
+                            <td class="px-6 py-2 text-xs text-gray-500">{{ sess.created.strftime('%Y-%m-%d %H:%M') if sess.created }}</td>
+                            <td class="px-6 py-2 text-right">
+                                <form method="POST" action="/security/revoke-session" class="inline">
+                                    <input type="hidden" name="session_id" value="{{ sess.id }}">
+                                    <button class="btn-ghost text-xs text-red-600">Revoke</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No active sessions.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
