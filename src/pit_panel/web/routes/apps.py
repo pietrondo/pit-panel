@@ -273,6 +273,27 @@ async def app_deploy(
     except Exception as e:
         error = f"Docker compose error: {e}"
 
+    # Auto-setup WordPress
+    if compose_ok and stack_type == "wordpress" and settings.base_domain:
+        fqdn = f"{sd.subdomain}.{settings.base_domain}"
+        try:
+            await asyncio.sleep(8)
+            await docker_mgr.exec_command(sd.subdomain, "wordpress", [
+                "sh", "-c",
+                "curl -sSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+                " -o /tmp/wp-cli.phar"
+                " && php /tmp/wp-cli.phar core install"
+                f" --url=https://{fqdn}"
+                " --title='My Blog'"
+                " --admin_user=admin"
+                " --admin_password=admin123"
+                " --admin_email=admin@blog.local"
+                " --skip-email"
+                " && rm /tmp/wp-cli.phar"
+            ])
+        except Exception as e:
+            logger.warning(f"WordPress auto-setup failed: {e}")
+
     # Caddy route
     if settings.base_domain:
         try:

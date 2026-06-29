@@ -38,6 +38,27 @@ class DockerManager:
                 "error": f"Failed to execute docker compose command: {e}",
             }
 
+    async def exec_command(
+        self, subdomain: str, service: str, cmd: list[str],
+    ) -> dict[str, Any]:
+        path = self.apps_dir / subdomain
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "docker", "compose", "-f", str(path / "docker-compose.yml"),
+                "exec", "-T", service, *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=str(path),
+            )
+            stdout, stderr = await proc.communicate()
+            return {
+                "success": proc.returncode == 0,
+                "stdout": stdout.decode(),
+                "stderr": stderr.decode(),
+            }
+        except OSError as e:
+            return {"success": False, "stdout": "", "stderr": str(e)}
+
     async def compose_ps(self, subdomain: str) -> list[dict[str, Any]]:
         path = self.apps_dir / subdomain
         try:
