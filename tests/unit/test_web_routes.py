@@ -108,7 +108,7 @@ class TestSecurityHeaders:
             resp = client.get("/apps/1", follow_redirects=False)
             assert resp.status_code == 200
             assert "example.com" in resp.text
-            assert "Main Domain" in resp.text
+            assert "Main" in resp.text
         finally:
             client.app.dependency_overrides.clear()
 

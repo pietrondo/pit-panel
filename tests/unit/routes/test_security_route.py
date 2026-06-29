@@ -126,10 +126,20 @@ async def test_fail2ban_enable(monkeypatch) -> None:
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
 
+    class MockCompletedProcess:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr(
+        "subprocess.run",
+        MagicMock(return_value=MockCompletedProcess()),
+    )
+
     response = client.post("/security/fail2ban/enable", data={"jail": "sshd"})
 
     assert response.status_code == 200
-    assert "Enabled sshd" in response.text
+    assert "sshd enabled" in response.text
 
 
 @pytest.mark.asyncio

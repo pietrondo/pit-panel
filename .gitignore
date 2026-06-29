@@ -36,18 +36,18 @@ node_modules/
 .dolt/
 .beads-credential-key
 
-# Agent skills
+# Agent / tool state (local, not source)
 .agents/
-.claude/skills/
-skills-lock.json
-
-# Jules artifacts
-pr_body.txt
+.claude/
+.serena/
 .jules/
+.codegraph/
+skills-lock.json
 
 # Scratch / temp
 scratch*.py
 test_cve*.py
 trivy_*.json
+
 # Local AI runtime state
 .atl/
