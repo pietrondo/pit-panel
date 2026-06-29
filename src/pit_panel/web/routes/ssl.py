@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
-from pit_panel.core.caddy import CaddyManager
+from pit_panel.core.caddy import CaddyManager, get_last_ssl_renew_check
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
 from pit_panel.web.render import render
@@ -229,6 +229,7 @@ async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)):
         providers=DNS_PROVIDERS,
         current_caddyfile=existing,
         caddy_result=None,
+        last_ssl_renew_check=get_last_ssl_renew_check(),
     )
 
 
@@ -278,6 +279,7 @@ async def ssl_generate(
         providers=DNS_PROVIDERS,
         current_caddyfile=caddyfile[:2000],
         caddy_result=result_msg,
+        last_ssl_renew_check=get_last_ssl_renew_check(),
     )
 
 
@@ -313,4 +315,5 @@ async def ssl_renew(
             Path(CADDYFILE_PATH).read_text()[:2000] if Path(CADDYFILE_PATH).exists() else ""
         ),
         caddy_result=None,
+        last_ssl_renew_check=get_last_ssl_renew_check(),
     )

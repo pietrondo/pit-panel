@@ -18,12 +18,17 @@ from pit_panel.web.limiter import limiter
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     from pit_panel.core.blocklist import daily_blocklist_import
+    from pit_panel.core.caddy import ssl_auto_renew_loop
 
-    task = asyncio.create_task(daily_blocklist_import())
+    tasks = [
+        asyncio.create_task(daily_blocklist_import()),
+        asyncio.create_task(ssl_auto_renew_loop()),
+    ]
     yield
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+    for t in tasks:
+        t.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await t
 
 
 async def _ip_ban_middleware(request: Request, call_next):

@@ -49,6 +49,14 @@
         <p class="text-lg font-bold text-gray-900 dark:text-white">{{ certs|length }}</p>
         <p class="text-xs text-gray-500 mt-1">Active Let's Encrypt certs</p>
     </div>
+    <div class="stat-card border-blue-200 dark:border-blue-800">
+        <span class="stat-label">Auto-Renew</span>
+        <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ 'Active' if last_ssl_renew_check else 'Starting...' }}</p>
+        <p class="text-xs text-gray-500 mt-1">
+            {% if last_ssl_renew_check %}Last check: {{ last_ssl_renew_check.strftime('%Y-%m-%d %H:%M') }}{% else %}First check in ~6h{% endif %}
+            &middot; Renew at {{ settings.ssl_auto_renew_days }} days
+        </p>
+    </div>
 </div>
 
 <!-- SSL Wizard -->

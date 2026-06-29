@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     caddy_admin_url: str = "http://127.0.0.1:2019"
     base_domain: str = ""
     panel_subdomain: str = "panel"
+    ssl_auto_renew_days: int = 14
 
     @property
     def effective_domain(self) -> str:

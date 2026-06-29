@@ -11,6 +11,36 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+_last_ssl_renew_check: dt.datetime | None = None
+
+
+async def ssl_auto_renew_loop():
+    global _last_ssl_renew_check
+    while True:
+        await asyncio.sleep(21600)
+        try:
+            from pit_panel.config import get_settings
+
+            settings = get_settings()
+            caddy = CaddyManager(settings.caddy_admin_url)
+            results = await caddy.auto_renew_certificates(
+                getattr(settings, "ssl_auto_renew_days", 14)
+            )
+            _last_ssl_renew_check = dt.datetime.now(dt.UTC)
+            if results:
+                for r in results:
+                    domain = r.get("domain", "?")
+                    if r.get("success"):
+                        logger.info(f"Auto-renewed certificate for {domain}")
+                    else:
+                        logger.warning(f"Auto-renew failed for {domain}: {r.get('error')}")
+        except Exception:
+            logger.exception("SSL auto-renew check failed")
+
+
+def get_last_ssl_renew_check() -> dt.datetime | None:
+    return _last_ssl_renew_check
+
 
 class CaddyManager:
     def __init__(self, admin_url: str = "http://127.0.0.1:2019"):
@@ -165,6 +195,19 @@ class CaddyManager:
             except Exception as e:
                 logger.error(f"Failed to renew certificate for domain {domain}: {e}")
                 return {"success": False, "domain": domain, "error": str(e)}
+
+    async def auto_renew_certificates(self, renew_days: int = 14) -> list[dict[str, Any]]:
+        results = []
+        certs = await self.get_certificates()
+        for cert in certs:
+            days = cert.get("expires_in_days")
+            if days is not None and days < renew_days:
+                logger.info(f"Auto-renewing certificate for {cert['domains']} ({days} days left)")
+                result = await self.renew_certificate(cert["domains"])
+                results.append(result)
+        if not results:
+            logger.info(f"Auto-renew: no certificates expiring within {renew_days} days")
+        return results
 
     async def _delete_route(self, route_id: str) -> dict[str, Any]:
         async with httpx.AsyncClient() as client:
