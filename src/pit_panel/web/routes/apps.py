@@ -724,7 +724,6 @@ async def app_wp_flush_cache(request: Request, sd_id: int, db: AsyncSession = De
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
-
     settings = get_settings()
 
     try:
@@ -767,7 +766,6 @@ async def app_wp_update_plugins(request: Request, sd_id: int, db: AsyncSession =
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
-
     settings = get_settings()
 
     try:
@@ -811,7 +809,6 @@ async def app_wp_update_core(request: Request, sd_id: int, db: AsyncSession = De
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
-
     settings = get_settings()
 
     try:
