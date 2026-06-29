@@ -309,10 +309,15 @@ async def ssl_renew(
     result = await caddy.renew_certificate(domain)
 
     certs = await caddy.get_certificates()
+    subdomains_result = await db.execute(
+        select(Subdomain).where(Subdomain.is_main_domain.is_(False)).limit(50)
+    )
+    subdomains = subdomains_result.scalars().all()
     return render(
         "ssl.html",
         user=user,
         settings=settings,
+        subdomains=subdomains,
         certs=certs,
         renew_result=result,
         caddy_running=_check_caddy_running(),

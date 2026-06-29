@@ -280,7 +280,7 @@ async def app_deploy(
             if sd.is_main_domain:
                 await caddy.add_main_domain(settings.base_domain, port=port)
             elif sd.app_type != stack_type:
-                await caddy.add_subdomain(sd.subdomain, settings.base_domain)
+                await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
         except Exception as e:
             logger.error(f"Caddy route error for {sd.subdomain}: {e}")
             error = (error or "") + f" | Caddy route error: {e}"
