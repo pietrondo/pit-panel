@@ -1,6 +1,7 @@
 """Application deployment from templates."""
 
 import json
+import secrets
 import shutil
 from pathlib import Path
 from string import Template
@@ -27,14 +28,17 @@ class AppManager:
         target_dir = self.apps_dir / subdomain
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        vars_dict = variables or {}
+        vars_dict = dict(variables or {})
+        vars_dict.setdefault("DB_PASSWORD", secrets.token_urlsafe(24))
+        vars_dict.setdefault("DB_USER", "appuser")
+        vars_dict.setdefault("DB_NAME", "appdb")
         vars_dict["subdomain"] = subdomain
 
         for file_path in template_dir.iterdir():
             if file_path.suffix == ".tpl":
                 template = Template(file_path.read_text())
                 output = template.safe_substitute(vars_dict)
-                output_name = file_path.stem
+                output_name = ".env" if file_path.stem == "env" else file_path.stem
                 (target_dir / output_name).write_text(output)
             elif file_path.name != "meta.json":
                 shutil.copy2(file_path, target_dir / file_path.name)
