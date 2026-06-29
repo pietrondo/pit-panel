@@ -32,6 +32,11 @@ class AppManager:
         vars_dict.setdefault("DB_PASSWORD", secrets.token_urlsafe(24))
         vars_dict.setdefault("DB_USER", "appuser")
         vars_dict.setdefault("DB_NAME", "appdb")
+        vars_dict.setdefault("WP_TITLE", "My Blog")
+        vars_dict.setdefault("WP_ADMIN_USER", "admin")
+        vars_dict.setdefault("WP_ADMIN_PASSWORD", secrets.token_urlsafe(12))
+        vars_dict.setdefault("WP_ADMIN_EMAIL", "admin@localhost")
+        vars_dict.setdefault("WP_LOCALE", "it_IT")
         vars_dict["subdomain"] = subdomain
 
         for file_path in template_dir.iterdir():

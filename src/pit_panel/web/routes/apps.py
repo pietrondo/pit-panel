@@ -6,6 +6,7 @@ import datetime
 import logging
 import os
 import re
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -277,19 +278,32 @@ async def app_deploy(
     if compose_ok and stack_type == "wordpress" and settings.base_domain:
         fqdn = f"{sd.subdomain}.{settings.base_domain}"
         try:
+            env_path = Path(settings.apps_dir) / sd.subdomain / ".env"
+            env_vars = {}
+            if env_path.exists():
+                for line in env_path.read_text().splitlines():
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        env_vars[k.strip()] = v.strip()
+            wp_title = env_vars.get("WP_TITLE", "My Blog")
+            wp_user = env_vars.get("WP_ADMIN_USER", "admin")
+            wp_pass = env_vars.get("WP_ADMIN_PASSWORD", "admin")
+            wp_email = env_vars.get("WP_ADMIN_EMAIL", "admin@localhost")
+            wp_locale = env_vars.get("WP_LOCALE", "it_IT")
             await asyncio.sleep(8)
             await docker_mgr.exec_command(sd.subdomain, "wordpress", [
                 "sh", "-c",
-                "curl -sSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
-                " -o /tmp/wp-cli.phar"
-                " && php /tmp/wp-cli.phar core install"
+                f"curl -sSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+                f" -o /tmp/wp-cli.phar"
+                f" && php /tmp/wp-cli.phar core install"
                 f" --url=https://{fqdn}"
-                " --title='My Blog'"
-                " --admin_user=admin"
-                " --admin_password=admin123"
-                " --admin_email=admin@blog.local"
-                " --skip-email"
-                " && rm /tmp/wp-cli.phar"
+                f" --title='{wp_title}'"
+                f" --admin_user={wp_user}"
+                f" --admin_password={wp_pass}"
+                f" --admin_email={wp_email}"
+                f" --locale={wp_locale}"
+                f" --skip-email"
+                f" && rm /tmp/wp-cli.phar"
             ])
         except Exception as e:
             logger.warning(f"WordPress auto-setup failed: {e}")
