@@ -52,6 +52,24 @@
 - **`packaging/install.sh`** — the Debian installer. If ANY bug is found during remote usage (curl pipe), fix this file immediately. Also run it locally after any change that affects startup, permissions, paths, or systemd units.
 - **`packaging/pit-panel.service`** — systemd unit. Keep `Type=simple`. Ensure `ReadWritePaths` includes `.venv/` and `/var/lib/pit-panel`. **Never** use `StateDirectory=` or `ConfigurationDirectory=` with `ProtectSystem=strict` (they create empty private dirs that hide real files). Use `BindReadOnlyPaths=` for config files instead.
 
+## Pre-Push Checklist (run BEFORE every `git push`)
+
+```bash
+# 1. Lint
+uv run ruff check src/ tests/
+
+# 2. Type check (mypy)
+uv run mypy src/pit_panel/
+
+# 3. Tests
+uv run pytest -q
+
+# 4. Push
+git push
+```
+
+All 3 commands MUST pass (lint, mypy, tests) before pushing. No exceptions.
+
 ## Commit Rules
 - **ALWAYS lint before committing**: `uv run ruff check src/ tests/` — fix ALL errors, never commit with lint
 - **ALWAYS run tests before committing**: `uv run pytest -q` — 100% must pass

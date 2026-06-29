@@ -86,7 +86,12 @@ async def test_settings_update_unauthenticated(monkeypatch):
     from pit_panel.web.routes.settings import settings_update
 
     response = await settings_update(
-        mock_request, base_domain="", panel_subdomain="panel", db=mock_db
+        mock_request,
+        base_domain="",
+        panel_subdomain="panel",
+        abuseipdb_api_key="",
+        sudo_password="",
+        db=mock_db,
     )
 
     # Assert
@@ -112,6 +117,8 @@ async def test_settings_update_existing_settings(monkeypatch):
     mock_row_base = MagicMock()
     mock_row_panel = MagicMock()
     mock_row_host = MagicMock()
+    mock_row_abuseipdb = MagicMock()
+    mock_row_sudo = MagicMock()
 
     mock_result_base = MagicMock()
     mock_result_base.scalar_one_or_none.return_value = mock_row_base
@@ -119,6 +126,10 @@ async def test_settings_update_existing_settings(monkeypatch):
     mock_result_panel.scalar_one_or_none.return_value = mock_row_panel
     mock_result_host = MagicMock()
     mock_result_host.scalar_one_or_none.return_value = mock_row_host
+    mock_result_abuseipdb = MagicMock()
+    mock_result_abuseipdb.scalar_one_or_none.return_value = mock_row_abuseipdb
+    mock_result_sudo = MagicMock()
+    mock_result_sudo.scalar_one_or_none.return_value = mock_row_sudo
 
     # Mock DB select for AuditLog
     mock_result_audit = MagicMock()
@@ -126,10 +137,13 @@ async def test_settings_update_existing_settings(monkeypatch):
     mock_result_audit.scalars.return_value.all.return_value = [mock_audit]
 
     # Return different mock results for multiple execute calls
+    # Route loops 5 keys + 1 audit = 6 db.execute() calls
     mock_db.execute.side_effect = [
         mock_result_base,
         mock_result_panel,
         mock_result_host,
+        mock_result_abuseipdb,
+        mock_result_sudo,
         mock_result_audit,
     ]
 
@@ -145,7 +159,12 @@ async def test_settings_update_existing_settings(monkeypatch):
     from pit_panel.web.routes.settings import settings_update
 
     await settings_update(
-        mock_request, base_domain=" newdomain.com ", panel_subdomain=" newpanel ", db=mock_db
+        mock_request,
+        base_domain=" newdomain.com ",
+        panel_subdomain=" newpanel ",
+        abuseipdb_api_key="",
+        sudo_password="",
+        db=mock_db,
     )
 
     # Assert SystemSettings were updated
@@ -156,7 +175,7 @@ async def test_settings_update_existing_settings(monkeypatch):
     assert mock_row_host.value == {"v": "127.0.0.1"}
     assert mock_row_host.updated_by == user.id
 
-    # Assert no new settings added
+    # Assert no new settings added (all rows already exist)
     mock_db.add.assert_not_called()
 
     # Assert commit called
@@ -201,7 +220,10 @@ async def test_settings_update_new_settings(monkeypatch):
     mock_result_audit.scalars.return_value.all.return_value = [mock_audit]
 
     # Return different mock results for multiple execute calls
+    # Route loops 5 keys + 1 audit = 6 db.execute() calls
     mock_db.execute.side_effect = [
+        mock_result_settings,
+        mock_result_settings,
         mock_result_settings,
         mock_result_settings,
         mock_result_settings,
@@ -220,22 +242,30 @@ async def test_settings_update_new_settings(monkeypatch):
     from pit_panel.web.routes.settings import settings_update
 
     await settings_update(
-        mock_request, base_domain="example.com", panel_subdomain="mypanel", db=mock_db
+        mock_request,
+        base_domain="example.com",
+        panel_subdomain="mypanel",
+        abuseipdb_api_key="",
+        sudo_password="",
+        db=mock_db,
     )
 
-    # Assert db.add was called for all 3 settings
-    assert mock_db.add.call_count == 3
+    # Assert db.add was called for all 5 settings
+    assert mock_db.add.call_count == 5
     added_objects = [call.args[0] for call in mock_db.add.call_args_list]
 
     # Check added SystemSettings objects
     keys = [obj.key for obj in added_objects]
-    assert keys == ["base_domain", "panel_subdomain", "host"]
+    assert keys == ["base_domain", "panel_subdomain", "host", "abuseipdb_api_key", "sudo_password"]
 
     values = [obj.value for obj in added_objects]
-    assert values == [{"v": "example.com"}, {"v": "mypanel"}, {"v": "127.0.0.1"}]
+    assert values == [
+        {"v": "example.com"}, {"v": "mypanel"}, {"v": "127.0.0.1"},
+        {"v": ""}, {"v": ""},
+    ]
 
     updated_bys = [obj.updated_by for obj in added_objects]
-    assert updated_bys == [user.id, user.id, user.id]
+    assert updated_bys == [user.id, user.id, user.id, user.id, user.id]
 
     # Assert commit called
     mock_db.commit.assert_awaited_once()
@@ -273,6 +303,8 @@ async def test_settings_update_empty_panel(monkeypatch):
     mock_row_base = MagicMock()
     mock_row_panel = MagicMock()
     mock_row_host = MagicMock()
+    mock_row_abuseipdb = MagicMock()
+    mock_row_sudo = MagicMock()
 
     mock_result_base = MagicMock()
     mock_result_base.scalar_one_or_none.return_value = mock_row_base
@@ -280,6 +312,10 @@ async def test_settings_update_empty_panel(monkeypatch):
     mock_result_panel.scalar_one_or_none.return_value = mock_row_panel
     mock_result_host = MagicMock()
     mock_result_host.scalar_one_or_none.return_value = mock_row_host
+    mock_result_abuseipdb = MagicMock()
+    mock_result_abuseipdb.scalar_one_or_none.return_value = mock_row_abuseipdb
+    mock_result_sudo = MagicMock()
+    mock_result_sudo.scalar_one_or_none.return_value = mock_row_sudo
 
     # Mock DB select for AuditLog
     mock_result_audit = MagicMock()
@@ -287,10 +323,13 @@ async def test_settings_update_empty_panel(monkeypatch):
     mock_result_audit.scalars.return_value.all.return_value = [mock_audit]
 
     # Return different mock results for multiple execute calls
+    # Route loops 5 keys + 1 audit = 6 db.execute() calls
     mock_db.execute.side_effect = [
         mock_result_base,
         mock_result_panel,
         mock_result_host,
+        mock_result_abuseipdb,
+        mock_result_sudo,
         mock_result_audit,
     ]
 
@@ -305,7 +344,14 @@ async def test_settings_update_empty_panel(monkeypatch):
     # Call function with empty base_domain and empty panel_subdomain
     from pit_panel.web.routes.settings import settings_update
 
-    await settings_update(mock_request, base_domain="   ", panel_subdomain="   ", db=mock_db)
+    await settings_update(
+        mock_request,
+        base_domain="   ",
+        panel_subdomain="   ",
+        abuseipdb_api_key="",
+        sudo_password="",
+        db=mock_db,
+    )
 
     # Assert SystemSettings were updated with fallbacks
     assert mock_row_base.value == {"v": ""}
@@ -332,7 +378,12 @@ async def test_settings_update_invalid_base_domain(monkeypatch):
     from pit_panel.web.routes.settings import settings_update
 
     response = await settings_update(
-        mock_request, base_domain="invalid space", panel_subdomain="panel", db=mock_db
+        mock_request,
+        base_domain="invalid space",
+        panel_subdomain="panel",
+        abuseipdb_api_key="",
+        sudo_password="",
+        db=mock_db,
     )
 
     assert response.status_code == 400
@@ -353,7 +404,12 @@ async def test_settings_update_invalid_panel_subdomain(monkeypatch):
     from pit_panel.web.routes.settings import settings_update
 
     response = await settings_update(
-        mock_request, base_domain="example.com", panel_subdomain="invalid space", db=mock_db
+        mock_request,
+        base_domain="example.com",
+        panel_subdomain="invalid space",
+        abuseipdb_api_key="",
+        sudo_password="",
+        db=mock_db,
     )
 
     assert response.status_code == 400

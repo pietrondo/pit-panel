@@ -21,21 +21,21 @@ SERVICES = [
 ]
 
 STATIC_COMMANDS = {
-    "restart_caddy": ["systemctl", "restart", "caddy"],
-    "restart_panel": ["systemctl", "restart", "pit-panel"],
-    "apt_update": ["apt-get", "update"],
-    "apt_upgrade": ["apt-get", "upgrade", "-y"],
-    "apt_dist_upgrade": ["apt-get", "dist-upgrade", "-y"],
-    "apt_list_upgradable": ["apt", "list", "--upgradable"],
-    "df": ["df", "-h"],
-    "free": ["free", "-m"],
-    "uptime": ["uptime"],
-    "journal_panel": ["journalctl", "-u", "pit-panel", "-n", "100", "--no-pager"],
-    "journal_caddy": ["journalctl", "-u", "caddy", "-n", "100", "--no-pager"],
-    "journal_docker": ["journalctl", "-u", "docker", "-n", "100", "--no-pager"],
-    "journal_ssh": ["journalctl", "-u", "ssh", "-n", "50", "--no-pager"],
-    "docker_ps": ["docker", "ps", "--format", "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"],
-    "reboot": ["reboot"],
+    "restart_caddy": ["/usr/bin/systemctl", "restart", "caddy"],
+    "restart_panel": ["/usr/bin/systemctl", "restart", "pit-panel"],
+    "apt_update": ["/usr/bin/apt-get", "update"],
+    "apt_upgrade": ["/usr/bin/apt-get", "upgrade", "-y"],
+    "apt_dist_upgrade": ["/usr/bin/apt-get", "dist-upgrade", "-y"],
+    "apt_list_upgradable": ["/usr/bin/apt", "list", "--upgradable"],
+    "df": ["/usr/bin/df", "-h"],
+    "free": ["/usr/bin/free", "-m"],
+    "uptime": ["/usr/bin/uptime"],
+    "journal_panel": ["/usr/bin/journalctl", "-u", "pit-panel", "-n", "100", "--no-pager"],
+    "journal_caddy": ["/usr/bin/journalctl", "-u", "caddy", "-n", "100", "--no-pager"],
+    "journal_docker": ["/usr/bin/journalctl", "-u", "docker", "-n", "100", "--no-pager"],
+    "journal_ssh": ["/usr/bin/journalctl", "-u", "ssh", "-n", "50", "--no-pager"],
+    "docker_ps": ["/usr/bin/docker", "ps", "--format", "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"],  # noqa: E501
+    "reboot": ["/usr/sbin/reboot"],
 }
 
 
@@ -43,13 +43,14 @@ def _resolve_cmd(action: str) -> list[str] | None:
     if action in STATIC_COMMANDS:
         return STATIC_COMMANDS[action]
     if action.startswith("service_restart_"):
-        return ["systemctl", "restart", action.removeprefix("service_restart_")]
+        return ["/usr/bin/systemctl", "restart", action.removeprefix("service_restart_")]
     if action.startswith("service_stop_"):
-        return ["systemctl", "stop", action.removeprefix("service_stop_")]
+        return ["/usr/bin/systemctl", "stop", action.removeprefix("service_stop_")]
     if action.startswith("service_start_"):
-        return ["systemctl", "start", action.removeprefix("service_start_")]
+        return ["/usr/bin/systemctl", "start", action.removeprefix("service_start_")]
     if action.startswith("journal_"):
-        return ["journalctl", "-u", action.removeprefix("journal_"), "-n", "100", "--no-pager"]
+        svc_name = action.removeprefix("journal_")
+        return ["/usr/bin/journalctl", "-u", svc_name, "-n", "100", "--no-pager"]
     return None
 
 
@@ -111,7 +112,8 @@ async def system_manage_services(request: Request, db: AsyncSession = Depends(ge
     lines = []
     for svc, label in SERVICES:
         try:
-            status = (await run_sudo(["systemctl", "is-active", svc], sudo_password)).strip()
+            result = await run_sudo(["/usr/bin/systemctl", "is-active", svc], sudo_password)
+            status = result.strip()
         except Exception:
             status = "unknown"
 

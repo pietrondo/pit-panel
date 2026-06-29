@@ -40,6 +40,8 @@ async def settings_update(
     request: Request,
     base_domain: str = Form(""),
     panel_subdomain: str = Form("panel"),
+    abuseipdb_api_key: str = Form(""),
+    sudo_password: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_admin(request, db)
@@ -60,6 +62,8 @@ async def settings_update(
         ("base_domain", new_base),
         ("panel_subdomain", new_panel),
         ("host", new_host),
+        ("abuseipdb_api_key", abuseipdb_api_key.strip()),
+        ("sudo_password", sudo_password),
     ]:
         result = await db.execute(select(SystemSettings).where(SystemSettings.key == key))
         row = result.scalar_one_or_none()
@@ -75,6 +79,8 @@ async def settings_update(
     settings.base_domain = new_base
     settings.panel_subdomain = new_panel
     settings.host = new_host
+    settings.abuseipdb_api_key = abuseipdb_api_key.strip()
+    settings.sudo_password = sudo_password
 
     result = await db.execute(select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50))
     audit_entries = result.scalars().all()

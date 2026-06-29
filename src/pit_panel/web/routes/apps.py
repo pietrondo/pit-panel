@@ -280,7 +280,9 @@ async def app_deploy(
             if sd.is_main_domain:
                 await caddy.add_main_domain(settings.base_domain, port=port)
             elif sd.app_type != stack_type:
-                await caddy.add_subdomain(sd.subdomain, settings.base_domain)
+                await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
+                fqdn = f"{sd.subdomain}.{settings.base_domain}"
+                await caddy.renew_certificate(fqdn)
         except Exception as e:
             logger.error(f"Caddy route error for {sd.subdomain}: {e}")
             error = (error or "") + f" | Caddy route error: {e}"
@@ -387,7 +389,9 @@ async def app_deploy_from_repo(
     if settings.base_domain:
         try:
             caddy = CaddyManager(settings.caddy_admin_url)
-            await caddy.add_subdomain(sd.subdomain, settings.base_domain)
+            await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
+            fqdn = f"{sd.subdomain}.{settings.base_domain}"
+            await caddy.renew_certificate(fqdn)
         except Exception as e:
             logger.error(f"Caddy route error for {sd.subdomain}: {e}")
 
@@ -451,6 +455,25 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     mgr = AppManager()
     app_info = mgr.get_template_info(sd.app_type) if sd.app_type else {}
 
+    # SSL cert status
+    ssl_info = {"has_cert": False, "expires_in_days": None, "issuer": None}
+    if settings.base_domain and sd.subdomain:
+        try:
+            caddy = CaddyManager(settings.caddy_admin_url)
+            certs = await caddy.get_certificates()
+            fqdn = f"{sd.subdomain}.{settings.base_domain}"
+            for c in certs:
+                if c.get("domains", "").startswith(fqdn):
+                    ssl_info = {
+                        "has_cert": True,
+                        "expires_in_days": c.get("expires_in_days"),
+                        "issuer": c.get("issuer"),
+                        "not_after": c.get("not_after", ""),
+                    }
+                    break
+        except Exception:
+            pass
+
     needs_db = sd.app_type in ("wordpress", "ghost")
     db_password = _get_db_password(settings, sd.subdomain) if needs_db else None
     has_db = _has_db_container(settings, sd.subdomain)
@@ -466,6 +489,7 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
         db_container=has_db,
         app_version=app_info.get("version", ""),
         app_port=app_info.get("default_port", ""),
+        ssl_info=ssl_info,
     )
 
 

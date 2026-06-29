@@ -104,9 +104,18 @@ pit-panel ALL=(root) NOPASSWD: /usr/bin/journalctl -u pit-panel.service *
 pit-panel ALL=(root) PASSWD: /usr/bin/systemctl restart caddy
 pit-panel ALL=(root) PASSWD: /usr/bin/systemctl restart pit-panel
 pit-panel ALL=(root) PASSWD: /usr/bin/apt-get update
-pit-panel ALL=(root) PASSWD: /usr/bin/journalctl -u pit-panel -n 50 --no-pager
-pit-panel ALL=(root) PASSWD: /sbin/reboot
+pit-panel ALL=(root) PASSWD: /usr/bin/apt-get upgrade -y
+pit-panel ALL=(root) PASSWD: /usr/bin/apt-get dist-upgrade -y
+pit-panel ALL=(root) PASSWD: /usr/bin/apt list --upgradable
+pit-panel ALL=(root) PASSWD: /usr/bin/docker ps
+pit-panel ALL=(root) PASSWD: /usr/bin/uptime
+pit-panel ALL=(root) PASSWD: /usr/bin/systemctl is-active *
+pit-panel ALL=(root) PASSWD: /usr/bin/systemctl restart *
+pit-panel ALL=(root) PASSWD: /usr/bin/systemctl stop *
+pit-panel ALL=(root) PASSWD: /usr/bin/systemctl start *
+pit-panel ALL=(root) PASSWD: /usr/bin/journalctl -u *
 pit-panel ALL=(root) PASSWD: /usr/sbin/reboot
+pit-panel ALL=(root) PASSWD: /sbin/reboot
 SUDOERS
 chmod 440 /etc/sudoers.d/pit-panel
 

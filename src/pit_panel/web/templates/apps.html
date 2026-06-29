@@ -4,12 +4,16 @@
 
 <script>
     document.addEventListener('alpine:init', () => {
-        Alpine.data('stackSelector', () => ({
+        Alpine.data('deployForm', () => ({
             selected: '',
+            isMain: false,
+            isSubmitting: false,
             selectStack(name, port) {
                 this.selected = name;
-                this.$refs.stackType.value = name;
-                this.$refs.port.value = port;
+                this.$nextTick(() => {
+                    if (this.$refs.stackType) this.$refs.stackType.value = name;
+                    if (this.$refs.port) this.$refs.port.value = port;
+                });
             }
         }))
     })
@@ -140,45 +144,45 @@
             </div>
         </div>
 
-        <!-- Template Cards -->
-        <div class="mb-8">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" x-data="stackSelector">
-                {% for tpl in template_infos %}
-                <div class="card p-5 cursor-pointer transition-all duration-200 transform hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-lg"
-                     x-bind:class="selected === '{{ tpl.name }}' ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : 'hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400'"
-                     x-on:click="selectStack('{{ tpl.name }}', '{{ tpl.meta.get('default_port', 8000) }}')">
-                    <div class="flex items-center gap-3 mb-2">
-                        <span class="text-2xl">{{ tpl.meta.get('icon', '📦') }}</span>
-                        <div>
-                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ tpl.meta.get('display_name', tpl.name) }}</h3>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ tpl.meta.get('version', '') }}</p>
+        <!-- Template Cards + Deploy Form (shared scope for $refs) -->
+        <div x-data="deployForm">
+            <div class="mb-8">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% for tpl in template_infos %}
+                    <div class="card p-5 cursor-pointer transition-all duration-200 transform hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-lg"
+                         x-bind:class="selected === '{{ tpl.name }}' ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : 'hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400'"
+                         x-on:click="selectStack('{{ tpl.name }}', '{{ tpl.meta.get('default_port', 8000) }}')">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-2xl">{{ tpl.meta.get('icon', '📦') }}</span>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">{{ tpl.meta.get('display_name', tpl.name) }}</h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ tpl.meta.get('version', '') }}</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">{{ tpl.meta.get('description', '') }}</p>
+                        <div class="flex gap-2 mt-3">
+                            {% if tpl.meta.get('requires_db') %}
+                            <span class="badge badge-blue">DB</span>
+                            {% endif %}
+                            <span class="badge badge-gray">Port {{ tpl.meta.get('default_port', '—') }}</span>
                         </div>
                     </div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ tpl.meta.get('description', '') }}</p>
-                    <div class="flex gap-2 mt-3">
-                        {% if tpl.meta.get('requires_db') %}
-                        <span class="badge badge-blue">DB</span>
-                        {% endif %}
-                        <span class="badge badge-gray">Port {{ tpl.meta.get('default_port', '—') }}</span>
-                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
-        </div>
 
-        <!-- Deploy Form -->
-        <div class="card mb-8">
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
-            </div>
-            <div class="p-6">
-                <form method="POST" action="/apps/deploy" class="space-y-4" x-data="{ isMain: false, isSubmitting: false }" @submit="isSubmitting = true">
+            <div class="card mb-8">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
+                </div>
+                <div class="p-6">
+                    <form method="POST" action="/apps/deploy" class="space-y-4" @submit="isSubmitting = true">
 
                     <div class="form-control">
                         <label class="label cursor-pointer justify-start gap-3">
-                            <input type="checkbox" name="is_main_domain" class="checkbox checkbox-primary"
-                                   x-model="isMain" :disabled="isSubmitting">
+                             <input type="checkbox" name="is_main_domain" class="checkbox checkbox-primary"
+                                    x-model="isMain">
                             <span class="label-text">Deploy on main domain <code class="text-indigo-600">{{ settings.base_domain or '—' }}</code></span>
                         </label>
                     </div>
@@ -187,8 +191,8 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="label">Subdomain</label>
-                                <select name="subdomain_id" class="input" x-ref="sdSelect" :disabled="isSubmitting"
-                                        @change="$refs.newSd.disabled = $event.target.value > 0 || isSubmitting; if($event.target.value > 0) $refs.newSd.value = ''">
+                                <select name="subdomain_id" class="input" x-ref="sdSelect"
+                                        @change="$refs.newSd.value = ''">
                                     <option value="-1" selected>Create new...</option>
                                     {% for sd in subdomains %}
                                     <option value="{{ sd.id }}">{{ sd.subdomain }}.{{ sd.base_domain }}</option>
@@ -197,31 +201,27 @@
                             </div>
                             <div>
                                 <label class="label">New subdomain name</label>
-                                <input type="text" name="new_subdomain" x-ref="newSd" class="input" :disabled="isSubmitting"
+                                <input type="text" name="new_subdomain" x-ref="newSd" class="input" placeholder="myapp" pattern="[a-z0-9-]+"
                                        placeholder="myapp" pattern="[a-z0-9-]+"
                                        @input="$refs.sdSelect.value = '-1'">
                             </div>
                         </div>
                     </div>
 
+                    <input type="hidden" name="stack_type" x-ref="stackType" value="">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="label">Stack</label>
-                            <select class="input" x-ref="stackType" name="stack_type" :disabled="isSubmitting" required>
-                                <option value="">Select a stack...</option>
-                                {% for tpl in template_infos %}
-                                <option value="{{ tpl.name }}">{{ tpl.meta.get('display_name', tpl.name) }}</option>
-                                {% endfor %}
-                            </select>
+                            <label class="label">Selected Stack</label>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white" x-text="selected || 'Click a card above'">Click a card above</p>
                         </div>
                         <div>
                             <label class="label">Port</label>
-                            <input type="number" name="port" x-ref="port" value="8000" class="input w-32" :disabled="isSubmitting">
+                            <input type="number" name="port" x-ref="port" value="8000" class="input w-32">
                         </div>
                     </div>
 
                     <div class="flex items-center gap-3 pt-2">
-                        <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400 flex items-center gap-2" :disabled="isSubmitting">
+                        <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400 flex items-center gap-2">
                             <svg x-show="isSubmitting" x-cloak class="animate-spin -ml-1 mr-2 h-4 w-4 text-indigo-700 dark:text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

@@ -151,6 +151,59 @@
     </div>
 </div>
 
+<!-- Auto-SSL Info -->
+<div class="card mb-6 bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800">
+    <div class="px-6 py-4 border-b border-green-200 dark:border-green-800">
+        <h2 class="text-lg font-semibold text-green-900 dark:text-green-100">Auto-SSL for Subdomains</h2>
+    </div>
+    <div class="p-6 text-sm text-green-800 dark:text-green-200">
+        <p class="mb-2">SSL certificates are automatically requested when a subdomain is created. Caddy handles the ACME challenge in the background.</p>
+        <p>If a subdomain already exists but has no cert yet, click <strong>Renew</strong> below to trigger certificate issuance.</p>
+    </div>
+</div>
+
+{% if subdomains %}
+<!-- Existing Subdomains -->
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Existing Subdomains</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subdomain</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                    <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for sd in subdomains %}
+                <tr>
+                    <td class="px-6 py-3 text-xs font-mono text-gray-900 dark:text-white">{{ sd.subdomain }}.{{ sd.base_domain }}</td>
+                    <td class="px-6 py-3 text-xs text-gray-500">{{ sd.app_type or '-' }}</td>
+                    <td class="px-6 py-3">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if sd.status == 'active' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                            {% else %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+                            {{ sd.status }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-3 text-right">
+                        <form method="POST" action="/ssl/renew" class="inline">
+                            <input type="hidden" name="domain" value="{{ sd.subdomain }}.{{ sd.base_domain }}">
+                            <button class="btn-ghost text-xs text-orange-600">Get SSL Cert</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- Active Certificates -->
 <div class="card">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
