@@ -494,28 +494,32 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     app_info = mgr.get_template_info(sd.app_type) if sd.app_type else {}
 
     # SSL cert status
-    ssl_info = {"has_cert": False, "expires_in_days": None, "issuer": None}
+    ssl_info: dict[str, object] = {"has_cert": False, "expires_in_days": None, "issuer": None}
     if settings.base_domain and sd.subdomain:
-        try:
-            caddy = CaddyManager(settings.caddy_admin_url)
+        caddy = CaddyManager(settings.caddy_admin_url)
+        fqdn = f"{sd.subdomain}.{settings.base_domain}"
+
+        # Step 1: try openssl-based cert check (may fail if Caddy is unreachable)
+        certs = []
+        with contextlib.suppress(Exception):
             certs = await caddy.get_certificates()
-            fqdn = f"{sd.subdomain}.{settings.base_domain}"
-            found = any(c.get("domains", "").startswith(fqdn) for c in certs)
-            for c in certs:
-                if c.get("domains", "").startswith(fqdn):
-                    ssl_info = {
-                        "has_cert": True,
-                        "expires_in_days": c.get("expires_in_days"),
-                        "issuer": c.get("issuer"),
-                        "not_after": c.get("not_after", ""),
-                    }
-                    break
-            if not found:
+
+        for c in certs:
+            if c.get("domains", "").startswith(fqdn):
+                ssl_info = {
+                    "has_cert": True,
+                    "expires_in_days": c.get("expires_in_days"),
+                    "issuer": c.get("issuer"),
+                    "not_after": c.get("not_after", ""),
+                }
+                break
+
+        # Step 2: fallback to Caddy config check (domain is routed but cert may still be pending)
+        if not ssl_info["has_cert"]:
+            with contextlib.suppress(Exception):
                 domains = await caddy._get_managed_domains()
                 if fqdn in domains:
-                    ssl_info = {"has_cert": True, "expires_in_days": None, "issuer": "Pending..."}
-        except Exception:
-            pass
+                    ssl_info = {"has_cert": True, "expires_in_days": None, "issuer": "Pending...", "not_after": ""}
 
     needs_db = sd.app_type in ("wordpress", "ghost")
     db_password = _get_db_password(settings, sd.subdomain) if needs_db else None
