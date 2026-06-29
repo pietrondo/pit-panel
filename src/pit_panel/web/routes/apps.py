@@ -291,20 +291,25 @@ async def app_deploy(
             wp_email = env_vars.get("WP_ADMIN_EMAIL", "admin@localhost")
             wp_locale = env_vars.get("WP_LOCALE", "it_IT")
             await asyncio.sleep(8)
-            await docker_mgr.exec_command(sd.subdomain, "wordpress", [
-                "sh", "-c",
-                f"curl -sSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
-                f" -o /tmp/wp-cli.phar"
-                f" && php /tmp/wp-cli.phar core install"
-                f" --url=https://{fqdn}"
-                f" --title='{wp_title}'"
-                f" --admin_user={wp_user}"
-                f" --admin_password={wp_pass}"
-                f" --admin_email={wp_email}"
-                f" --locale={wp_locale}"
-                f" --skip-email"
-                f" && rm /tmp/wp-cli.phar"
-            ])
+            await docker_mgr.exec_command(
+                sd.subdomain,
+                "wordpress",
+                [
+                    "sh",
+                    "-c",
+                    f"curl -sSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+                    f" -o /tmp/wp-cli.phar"
+                    f" && php /tmp/wp-cli.phar core install"
+                    f" --url=https://{fqdn}"
+                    f" --title='{wp_title}'"
+                    f" --admin_user={wp_user}"
+                    f" --admin_password={wp_pass}"
+                    f" --admin_email={wp_email}"
+                    f" --locale={wp_locale}"
+                    f" --skip-email"
+                    f" && rm /tmp/wp-cli.phar",
+                ],
+            )
         except Exception as e:
             logger.warning(f"WordPress auto-setup failed: {e}")
 

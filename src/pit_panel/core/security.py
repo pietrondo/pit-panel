@@ -145,9 +145,7 @@ async def _fail2ban_jail_banned(jail: str) -> list[dict[str, str]]:
 
 
 async def _fail2ban_unban(jail: str, ip: str) -> bool:
-    out = await _run_cmd(
-        ["sudo", "-n", "fail2ban-client", "set", jail, "unbanip", ip], timeout=10
-    )
+    out = await _run_cmd(["sudo", "-n", "fail2ban-client", "set", jail, "unbanip", ip], timeout=10)
     return ip not in out
 
 

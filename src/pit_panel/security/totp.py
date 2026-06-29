@@ -8,10 +8,13 @@ def generate_totp_secret() -> str:
 
 
 def get_totp_uri(secret: str, username: str, issuer: str = "pit-panel") -> str:
-    return cast(str, pyotp.totp.TOTP(secret).provisioning_uri(
-        name=username,
-        issuer_name=issuer,
-    ))
+    return cast(
+        str,
+        pyotp.totp.TOTP(secret).provisioning_uri(
+            name=username,
+            issuer_name=issuer,
+        ),
+    )
 
 
 def verify_totp(secret: str, code: str) -> bool:
