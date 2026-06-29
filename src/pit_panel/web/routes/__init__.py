@@ -1,4 +1,4 @@
-from .apps import router as apps_router
+from .app_routes import router as apps_router
 from .auth_routes import router as auth_router
 from .containers import router as containers_router
 from .dashboard import router as dashboard_router
