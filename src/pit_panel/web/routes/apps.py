@@ -8,7 +8,7 @@ import os
 import re
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +18,9 @@ from pit_panel.core.app_manager import AppManager
 from pit_panel.core.caddy import CaddyManager
 from pit_panel.core.docker_ops import DockerManager
 from pit_panel.core.repo_detector import analyze_repo
+from pit_panel.core.wp_proxy import auto_login as wp_auto_login
+from pit_panel.core.wp_proxy import proxy_request as wp_proxy_request
+from pit_panel.core.wp_proxy import read_env as wp_read_env
 from pit_panel.db.models import AppDeployment, AuditLog, Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
@@ -947,3 +950,82 @@ async def app_status_get(request: Request, sd_id: int, db: AsyncSession = Depend
         running_count=running_count,
         total_count=total_count,
     )
+
+
+def _get_wp_port(settings, subdomain: str) -> int | None:
+    env = wp_read_env(settings.apps_dir, subdomain)
+    port_str = env.get("PORT", "8081")
+    try:
+        return int(port_str)
+    except ValueError:
+        return None
+
+
+@router.get("/apps/{sd_id}/wp-auto-login")
+async def app_wp_auto_login(
+    request: Request, sd_id: int, db: AsyncSession = Depends(get_db)
+):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse(url=f"/auth/login?next=/apps/{sd_id}")
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd or sd.app_type != "wordpress":
+        return RedirectResponse(url="/apps", status_code=302)
+
+    settings = get_settings()
+    port = _get_wp_port(settings, sd.subdomain)
+    if not port:
+        return HTMLResponse("WordPress port not found", status_code=500)
+
+    panel_fqdn = request.url.hostname or sd.subdomain + "." + settings.base_domain
+    result = await wp_auto_login(settings.apps_dir, sd.subdomain, port, panel_fqdn)
+    if not result:
+        return RedirectResponse(url=f"https://{sd.subdomain}.{settings.base_domain}/wp-admin")
+
+    redirect_to, cookies = result
+    prefix = f"/apps/{sd_id}/wp"
+    redirect_to = f"{prefix}{redirect_to}" if redirect_to.startswith("/") else f"{prefix}/wp-admin/"
+
+    response = RedirectResponse(url=redirect_to, status_code=302)
+    for cookie_raw in cookies:
+        fixed = _fix_cookie_path_static(cookie_raw, prefix)
+        response.headers.append("set-cookie", fixed)
+    return response
+
+
+@router.api_route("/apps/{sd_id}/wp/{path:path}", methods=[
+    "GET", "POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS",
+])
+async def app_wp_proxy(
+    request: Request, sd_id: int, path: str, db: AsyncSession = Depends(get_db)
+):
+    user = await get_user(request, db)
+    if not user:
+        return Response("Unauthorized", status_code=401)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return Response("App not found", status_code=404)
+
+    settings = get_settings()
+    port = _get_wp_port(settings, sd.subdomain)
+    if not port:
+        return Response("WordPress port not found", status_code=500)
+
+    return await wp_proxy_request(request, port, sd_id)
+
+
+def _fix_cookie_path_static(cookie: str, prefix: str) -> str:
+    parts = cookie.split(";")
+    fixed = []
+    for part in parts:
+        part = part.strip()
+        if part.lower().startswith("path="):
+            path_val = part.split("=", 1)[1]
+            if not path_val.startswith(prefix):
+                part = f"path={prefix}{path_val}"
+        fixed.append(part)
+    return "; ".join(fixed)
