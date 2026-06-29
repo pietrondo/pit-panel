@@ -2,7 +2,7 @@
 
 import asyncio
 
-ALLOWED_COMMANDS = {"systemctl", "apt-get", "journalctl", "df", "free", "reboot"}
+ALLOWED_COMMANDS = {"systemctl", "apt-get", "apt", "journalctl", "df", "free", "reboot", "uptime"}
 
 
 async def run_sudo(cmd: list[str], sudo_password: str) -> str:
