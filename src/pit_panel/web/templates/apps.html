@@ -208,19 +208,15 @@
                         </div>
                     </div>
 
+                    <input type="hidden" name="stack_type" x-ref="stackType" value="">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="label">Stack</label>
-                            <select class="input" x-ref="stackType" name="stack_type" :disabled="isSubmitting" required>
-                                <option value="">Select a stack...</option>
-                                {% for tpl in template_infos %}
-                                <option value="{{ tpl.name }}">{{ tpl.meta.get('display_name', tpl.name) }}</option>
-                                {% endfor %}
-                            </select>
+                            <label class="label">Selected Stack</label>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white" x-text="selected || 'Click a card above'">Click a card above</p>
                         </div>
                         <div>
                             <label class="label">Port</label>
-                            <input type="number" name="port" x-ref="port" value="8000" class="input w-32" :disabled="isSubmitting">
+                            <input type="number" name="port" x-ref="port" value="8000" class="input w-32">
                         </div>
                     </div>
 
