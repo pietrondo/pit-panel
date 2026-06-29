@@ -8,10 +8,12 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
 from pit_panel.core.caddy import CaddyManager, get_last_ssl_renew_check
+from pit_panel.db.models import Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
 from pit_panel.web.render import render
@@ -217,10 +219,16 @@ async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)):
     if Path(CADDYFILE_PATH).exists():
         existing = Path(CADDYFILE_PATH).read_text()[:2000]
 
+    subdomains_result = await db.execute(
+        select(Subdomain).where(Subdomain.is_main_domain.is_(False)).limit(50)
+    )
+    subdomains = subdomains_result.scalars().all()
+
     return render(
         "ssl.html",
         user=user,
         settings=settings,
+        subdomains=subdomains,
         certs=certs,
         renew_result=None,
         caddy_running=caddy_running,

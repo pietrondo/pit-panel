@@ -1,0 +1,9 @@
+{
+    "name": "stirling-pdf",
+    "display_name": "Stirling-PDF",
+    "version": "latest",
+    "description": "Locally hosted web application that allows you to perform various operations on PDF files (merge, split, convert, OCR, compress, etc.). No data leaves your server.",
+    "icon": "📄",
+    "requires_db": false,
+    "default_port": 8080
+}

@@ -140,40 +140,40 @@
             </div>
         </div>
 
-        <!-- Template Cards -->
-        <div class="mb-8">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" x-data="stackSelector">
-                {% for tpl in template_infos %}
-                <div class="card p-5 cursor-pointer transition-all duration-200 transform hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-lg"
-                     x-bind:class="selected === '{{ tpl.name }}' ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : 'hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400'"
-                     x-on:click="selectStack('{{ tpl.name }}', '{{ tpl.meta.get('default_port', 8000) }}')">
-                    <div class="flex items-center gap-3 mb-2">
-                        <span class="text-2xl">{{ tpl.meta.get('icon', '📦') }}</span>
-                        <div>
-                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ tpl.meta.get('display_name', tpl.name) }}</h3>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ tpl.meta.get('version', '') }}</p>
+        <!-- Template Cards + Deploy Form (shared scope for $refs) -->
+        <div x-data="stackSelector">
+            <div class="mb-8">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% for tpl in template_infos %}
+                    <div class="card p-5 cursor-pointer transition-all duration-200 transform hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-lg"
+                         x-bind:class="selected === '{{ tpl.name }}' ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : 'hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400'"
+                         x-on:click="selectStack('{{ tpl.name }}', '{{ tpl.meta.get('default_port', 8000) }}')">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-2xl">{{ tpl.meta.get('icon', '📦') }}</span>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">{{ tpl.meta.get('display_name', tpl.name) }}</h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ tpl.meta.get('version', '') }}</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">{{ tpl.meta.get('description', '') }}</p>
+                        <div class="flex gap-2 mt-3">
+                            {% if tpl.meta.get('requires_db') %}
+                            <span class="badge badge-blue">DB</span>
+                            {% endif %}
+                            <span class="badge badge-gray">Port {{ tpl.meta.get('default_port', '—') }}</span>
                         </div>
                     </div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ tpl.meta.get('description', '') }}</p>
-                    <div class="flex gap-2 mt-3">
-                        {% if tpl.meta.get('requires_db') %}
-                        <span class="badge badge-blue">DB</span>
-                        {% endif %}
-                        <span class="badge badge-gray">Port {{ tpl.meta.get('default_port', '—') }}</span>
-                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
-        </div>
 
-        <!-- Deploy Form -->
-        <div class="card mb-8">
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
-            </div>
-            <div class="p-6">
-                <form method="POST" action="/apps/deploy" class="space-y-4" x-data="{ isMain: false, isSubmitting: false }" @submit="isSubmitting = true">
+            <div class="card mb-8">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
+                </div>
+                <div class="p-6">
+                    <form method="POST" action="/apps/deploy" class="space-y-4" x-data="{ isMain: false, isSubmitting: false }" @submit="isSubmitting = true">
 
                     <div class="form-control">
                         <label class="label cursor-pointer justify-start gap-3">

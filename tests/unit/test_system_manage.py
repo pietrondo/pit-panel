@@ -92,7 +92,8 @@ def test_system_manage_action_df(client: TestClient, auth_headers: dict):
 
         assert response.status_code == 200
         assert b"Filesystem" in response.content
-        mock_sudo.assert_called_once_with(["df", "-h"], client.app.state.settings.sudo_password)
+        expected = ["/usr/bin/df", "-h"]
+        mock_sudo.assert_called_once_with(expected, client.app.state.settings.sudo_password)
 
 
 def test_system_manage_action_reboot(client: TestClient, auth_headers: dict):
@@ -105,7 +106,8 @@ def test_system_manage_action_reboot(client: TestClient, auth_headers: dict):
 
         assert response.status_code == 200
         assert b"reboot NOW!" in response.content
-        mock_sudo.assert_called_once_with(["reboot"], client.app.state.settings.sudo_password)
+        expected = ["/usr/sbin/reboot"]
+        mock_sudo.assert_called_once_with(expected, client.app.state.settings.sudo_password)
 
 
 def test_system_manage_action_invalid(client: TestClient, auth_headers: dict):

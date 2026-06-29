@@ -67,31 +67,77 @@
         <!-- Updates Tab -->
         <div x-show="activeTab === 'updates'" x-cloak>
             <div class="card p-6 mb-4">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Package Management</h3>
-                <div class="flex flex-wrap gap-3">
-                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "apt_update"}' hx-target="#result"
-                            hx-on::before-request="loading = true;this.disabled=true;this.innerText='Updating...'"
-                            hx-on::after-request="loading = false;this.disabled=false;this.innerText='apt-get update'">
-                        apt-get update
-                    </button>
-                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "apt_upgrade"}' hx-target="#result"
-                            hx-on::before-request="loading = true;this.disabled=true;this.innerText='Upgrading...'"
-                            hx-on::after-request="loading = false;this.disabled=false;this.innerText='apt-get upgrade -y'"
-                            hx-confirm="This will upgrade all packages. Continue?">
-                        apt-get upgrade -y
-                    </button>
-                    <button class="btn-primary text-sm border-amber-500 text-amber-700 dark:text-amber-400" hx-post="/system/manage/action" hx-vals='{"action": "apt_dist_upgrade"}' hx-target="#result"
-                            hx-on::before-request="loading = true;this.disabled=true;this.innerText='Dist-upgrading...'"
-                            hx-on::after-request="loading = false;this.disabled=false;this.innerText='apt-get dist-upgrade -y'"
-                            hx-confirm="DIST-UPGRADE will change dependencies. This can remove packages. Continue?">
-                        apt-get dist-upgrade -y
-                    </button>
-                    <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "apt_list_upgradable"}' hx-target="#result"
-                            hx-on::before-request="loading = true" hx-on::after-request="loading = false">
-                        List upgradable
-                    </button>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">&#x1F4E6; Package Management</h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-lg">&#x1F504;</span>
+                            <span class="font-medium text-sm text-gray-900 dark:text-white">Step 1: Refresh</span>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Update package lists from repositories</p>
+                        <button class="btn-primary text-sm w-full justify-center" hx-post="/system/manage/action" hx-vals='{"action": "apt_update"}' hx-target="#result"
+                                hx-on::before-request="loading = true;this.disabled=true;this.innerText='Updating...'"
+                                hx-on::after-request="loading = false;this.disabled=false;this.innerHTML='&#x1F504; apt-get update'">
+                            &#x1F504; apt-get update
+                        </button>
+                    </div>
+
+                    <div class="p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-lg">&#x1F4E2;</span>
+                            <span class="font-medium text-sm text-gray-900 dark:text-white">Step 2: Preview</span>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">See what packages can be upgraded</p>
+                        <button class="btn-ghost text-sm w-full justify-center border border-green-300 dark:border-green-700" hx-post="/system/manage/action" hx-vals='{"action": "apt_list_upgradable"}' hx-target="#result"
+                                hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                            &#x1F50D; List upgradable
+                        </button>
+                    </div>
                 </div>
-                <p class="text-xs text-gray-500 mt-3">Always run <strong>update</strong> first to refresh package lists before upgrading.</p>
+
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-4">
+                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">&#x26A1; Apply Upgrades</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">Standard Upgrade</span>
+                                <span class="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded">Safe</span>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Upgrades packages without changing dependencies</p>
+                            <button class="btn-primary text-sm w-full justify-center" hx-post="/system/manage/action" hx-vals='{"action": "apt_upgrade"}' hx-target="#result"
+                                    hx-on::before-request="loading = true;this.disabled=true;this.innerText='Upgrading...'"
+                                    hx-on::after-request="loading = false;this.disabled=false;this.innerHTML='&#x1F4E2; apt-get upgrade -y'"
+                                    hx-confirm="This will upgrade all upgradable packages. Continue?">
+                                &#x1F4E2; apt-get upgrade -y
+                            </button>
+                        </div>
+
+                        <div class="p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">Full Upgrade</span>
+                                <span class="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded">Caution</span>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">May add or remove packages to satisfy new dependencies</p>
+                            <button class="w-full justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors" hx-post="/system/manage/action" hx-vals='{"action": "apt_dist_upgrade"}' hx-target="#result"
+                                    hx-on::before-request="loading = true;this.disabled=true;this.innerText='Dist-upgrading...'"
+                                    hx-on::after-request="loading = false;this.disabled=false;this.innerHTML='&#x26A1; apt-get dist-upgrade -y'"
+                                    hx-confirm="DIST-UPGRADE may REMOVE packages to satisfy new dependencies. Are you sure?">
+                                &#x26A1; apt-get dist-upgrade -y
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                    <div class="flex items-start gap-2">
+                        <span class="text-sm mt-0.5">&#x2139;&#xFE0F;</span>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                            <strong>Recommended workflow:</strong> Run <strong>apt-get update</strong> first, then check <strong>List upgradable</strong>, finally choose <strong>Standard Upgrade</strong> or <strong>Full Upgrade</strong>.
+                            Full upgrade is only needed when standard upgrade reports packages "kept back".
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

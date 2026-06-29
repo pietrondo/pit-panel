@@ -112,6 +112,9 @@ async def subdomain_add(
         caddy = CaddyManager(settings.caddy_admin_url)
         with contextlib.suppress(Exception):
             await caddy.add_subdomain(safe_subdomain, settings.base_domain)
+        with contextlib.suppress(Exception):
+            fqdn = f"{safe_subdomain}.{settings.base_domain}"
+            await caddy.renew_certificate(fqdn)
 
     await _log_audit(
         db,
