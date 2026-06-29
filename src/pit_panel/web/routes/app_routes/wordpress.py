@@ -168,13 +168,15 @@ async def app_wp_auto_login(
         ])
         await docker_mgr.exec_command(sd.subdomain, "wordpress", [
             "sh", "-c",
-            f"php -d memory_limit=256M /tmp/wp-cli.phar option update siteurl 'https://{fqdn}'"
-            f" && php -d memory_limit=256M /tmp/wp-cli.phar option update home 'https://{fqdn}'"
+            f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+            f" option update siteurl 'https://{fqdn}'"
+            f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+            f" option update home 'https://{fqdn}'"
         ])
         r = await docker_mgr.exec_command(sd.subdomain, "wordpress", [
             "sh", "-c",
-            f"php -d memory_limit=256M /tmp/wp-cli.phar user one-time-login admin"
-            f" --url=https://{fqdn}"
+            f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+            f" user one-time-login admin --url=https://{fqdn} 2>/dev/null"
         ])
         if r.get("success"):
             login_url = (r.get("stdout") or "").strip()
@@ -229,10 +231,12 @@ async def app_wp_fix_url(
     try:
         r = await docker_mgr.exec_command(sd.subdomain, "wordpress", [
             "sh", "-c",
-            f"php -d memory_limit=256M /tmp/wp-cli.phar option update siteurl 'https://{fqdn}'"
-            f" && php -d memory_limit=256M /tmp/wp-cli.phar option update home 'https://{fqdn}'"
+            f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+            f" option update siteurl 'https://{fqdn}'"
+            f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+            f" option update home 'https://{fqdn}'"
         ])
-        success = r.get("exit_code", -1) == 0
+        success = r.get("success", False)
         if not success:
             error_msg = r.get("stderr", "Unknown error")[:300]
     except Exception as e:
