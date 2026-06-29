@@ -74,13 +74,14 @@ async def settings_update(
             db.add(SystemSettings(key=key, value={"v": val}, updated_by=user.id))
     await db.commit()
 
-    # Update in-memory settings
+    # Update in-memory settings and persist to config file
     settings = get_settings()
     settings.base_domain = new_base
     settings.panel_subdomain = new_panel
     settings.host = new_host
     settings.abuseipdb_api_key = abuseipdb_api_key.strip()
     settings.sudo_password = sudo_password
+    settings.save_config_file()
 
     result = await db.execute(select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50))
     audit_entries = result.scalars().all()

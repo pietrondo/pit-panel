@@ -95,6 +95,24 @@ class Settings(BaseSettings):  # type: ignore[misc]
             return self.database_url
         return f"sqlite+aiosqlite:///{self.data_dir}/pit-panel.db"
 
+    def save_config_file(self) -> None:
+        import tomli_w
+        config_path = Path(self.config_path)
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "base_domain": self.base_domain,
+            "panel_subdomain": self.panel_subdomain,
+            "host": self.host,
+            "abuseipdb_api_key": self.abuseipdb_api_key,
+            "sudo_password": self.sudo_password,
+            "caddy_admin_url": self.caddy_admin_url,
+            "secret_key": self.secret_key,
+            "database_url": self.database_url,
+            "debug": self.debug,
+        }
+        with open(config_path, "wb") as f:
+            tomli_w.dump(data, f)
+
 
 _settings: Settings | None = None
 

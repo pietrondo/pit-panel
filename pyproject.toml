@@ -23,6 +23,7 @@ dependencies = [
     "qrcode[pil]>=8.0",
     "httpx>=0.28.0",
     "playwright>=1.60.0",
+    "tomli-w>=1.2.0",
 ]
 
 [project.optional-dependencies]

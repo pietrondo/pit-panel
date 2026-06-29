@@ -130,6 +130,27 @@ async def _ensure_fail2ban_jails():
     await _run_cmd(["sudo", "-n", "systemctl", "restart", "fail2ban"])
 
 
+async def _fail2ban_jail_banned(jail: str) -> list[dict[str, str]]:
+    out = await _run_cmd(["sudo", "-n", "fail2ban-client", "status", jail], timeout=10)
+    ips = []
+    for line in out.split("\n"):
+        line = line.strip()
+        if "Banned IP list:" in line:
+            raw = line.split(":", 1)[1].strip()
+            if raw and raw != "None":
+                for ip in raw.split():
+                    ips.append({"ip": ip.strip()})
+            break
+    return ips
+
+
+async def _fail2ban_unban(jail: str, ip: str) -> bool:
+    out = await _run_cmd(
+        ["sudo", "-n", "fail2ban-client", "set", jail, "unbanip", ip], timeout=10
+    )
+    return ip not in out
+
+
 async def ban_ip_address(
     db: AsyncSession, ip: str, reason: str, duration_minutes: int = 60
 ) -> bool:

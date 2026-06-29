@@ -11,7 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pit_panel.config import get_settings
 from pit_panel.core.blocklist import BLOCKLIST_SOURCES, fetch_blocklist
 from pit_panel.core.security import (
+    _fail2ban_jail_banned,
     _fail2ban_status,
+    _fail2ban_unban,
     _firewall_status,
     ban_ip_address,
     unban_ip_address,
@@ -453,6 +455,60 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
         )
     except Exception as e:
         return HTMLResponse(f'<span class="text-red-600 text-xs">Error: {e}</span>')
+
+
+@router.get("/security/fail2ban/jail/{jail}", response_class=HTMLResponse)
+async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    import html
+    jailed = await _fail2ban_jail_banned(jail)
+    jail_e = html.escape(jail)
+
+    if not jailed:
+        msg = f'Nessun IP bloccato in <strong>{jail_e}</strong>'
+        return HTMLResponse(f'<div class="text-xs text-gray-500">{msg}</div>')
+
+    rows = "".join(
+        '<div class="flex items-center justify-between py-1.5 px-3 '
+        'bg-gray-50 dark:bg-gray-800/50 rounded-lg">'
+        f'<span class="font-mono text-xs">{e["ip"]}</span>'
+        f'<button class="btn-ghost text-xs text-green-600" '
+        f'hx-post="/security/fail2ban/unban" '
+        f'hx-vals=\'{{"jail":"{jail_e}","ip":"{e["ip"]}"}}\' '
+        f'hx-target="closest div" '
+        f'hx-swap="outerHTML">Sblocca</button>'
+        f'</div>'
+        for e in jailed
+    )
+    count_msg = f'IP bloccati in <strong>{jail_e}</strong>: {len(jailed)}'
+    return HTMLResponse(
+        f'<div class="space-y-2">'
+        f'<p class="text-xs text-gray-500 mb-2">{count_msg}</p>'
+        f'{rows}'
+        f'</div>'
+    )
+
+
+@router.post("/security/fail2ban/unban", response_class=HTMLResponse)
+async def security_fail2ban_unban(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    form = await request.form()
+    jail = form.get("jail", "")
+    ip = form.get("ip", "")
+    ok = await _fail2ban_unban(jail, ip)
+    if ok:
+        return HTMLResponse(
+            f'<div class="text-xs text-green-600">✅ {ip} sbloccato da {jail}</div>'
+        )
+    return HTMLResponse(
+        f'<div class="text-xs text-red-600">❌ Impossibile sbloccare {ip}</div>'
+    )
 
 
 @router.get("/security/abuseipdb-blacklist", response_class=HTMLResponse)
