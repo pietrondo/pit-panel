@@ -263,17 +263,22 @@ async def app_proxy_service(
     port_map = {
         "phpmyadmin": env.get("PMA_PORT", "8082"),
     }
-    port_str = port_map.get(service_name)
+
+    parts = service_name.split("/", 1)
+    name = parts[0]
+    sub_path = parts[1] if len(parts) > 1 else ""
+
+    port_str = port_map.get(name)
     if not port_str:
-        return Response(f"Service '{service_name}' not found", status_code=404)
+        return Response(f"Service '{name}' not found", status_code=404)
 
     try:
         target_port = int(port_str)
     except ValueError:
-        return Response(f"Invalid port for '{service_name}'", status_code=500)
+        return Response(f"Invalid port for '{name}'", status_code=500)
 
     import httpx
-    sub_path = service_name.split("/", 1)[1] if "/" in service_name else ""
+    prefix = f"/apps/{sd_id}/proxy/{name}"
     target_url = f"http://127.0.0.1:{target_port}/{sub_path}"
     qs = request.scope.get("query_string", b"").decode()
     if qs:
@@ -300,16 +305,28 @@ async def app_proxy_service(
                 follow_redirects=False,
             )
         except httpx.ConnectError:
-            return Response(f"Service '{service_name}' unreachable", status_code=502)
+            return Response(f"Service '{name}' unreachable", status_code=502)
+
+    content = resp.content
+    content_type = resp.headers.get("content-type", "").lower()
+    if any(ct in content_type for ct in ("text/html", "text/css", "application/javascript")):
+        rewrite_dirs = ("/js/", "/css/", "/themes/", "/libraries/", "/vendor/")
+        for d in rewrite_dirs:
+            content = content.replace(f'"{d}'.encode(), f'"{prefix}{d}'.encode())
+            content = content.replace(f"'{d}".encode(), f"'{prefix}{d}".encode())
 
     resp_headers = {}
     for key, value in resp.headers.items():
         kl = key.lower()
         if kl in ("content-encoding", "transfer-encoding", "content-length"):
             continue
+        if kl == "location":
+            loc = value
+            if loc.startswith("/") and not loc.startswith(prefix):
+                value = f"{prefix}{loc}"
         resp_headers[key] = value
 
-    return Response(content=resp.content, status_code=resp.status_code, headers=resp_headers)
+    return Response(content=content, status_code=resp.status_code, headers=resp_headers)
 
 
 @router.api_route("/apps/{sd_id}/wp/{path:path}", methods=[
