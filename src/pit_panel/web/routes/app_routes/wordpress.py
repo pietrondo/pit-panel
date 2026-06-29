@@ -155,24 +155,53 @@ async def app_wp_auto_login(
         return RedirectResponse(url="/apps", status_code=302)
 
     settings = get_settings()
+    base_domain = sd.base_domain or settings.base_domain
+    fqdn = f"{sd.subdomain}.{base_domain}"
+
+    # Step 1: fix site URL + generate magic login link via WP-CLI
+    try:
+        docker_mgr = DockerManager(settings.apps_dir)
+        await docker_mgr.exec_command(sd.subdomain, "wordpress", [
+            "sh", "-c",
+            "test -f /tmp/wp-cli.phar || curl -sSLo /tmp/wp-cli.phar"
+            " https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+        ])
+        await docker_mgr.exec_command(sd.subdomain, "wordpress", [
+            "sh", "-c",
+            f"php -d memory_limit=256M /tmp/wp-cli.phar option update siteurl 'https://{fqdn}'"
+            f" && php -d memory_limit=256M /tmp/wp-cli.phar option update home 'https://{fqdn}'"
+        ])
+        r = await docker_mgr.exec_command(sd.subdomain, "wordpress", [
+            "sh", "-c",
+            f"php -d memory_limit=256M /tmp/wp-cli.phar user one-time-login admin"
+            f" --url=https://{fqdn}"
+        ])
+        if r.get("success"):
+            login_url = (r.get("stdout") or "").strip()
+            if login_url:
+                return RedirectResponse(url=login_url)
+    except Exception as e:
+        logger.warning(f"WP-CLI login failed for {sd.subdomain}: {e}")
+
+    # Step 2: fallback to password-based auto-login
     port = _get_wp_port(settings, sd.subdomain)
-    if not port:
-        return HTMLResponse("WordPress port not found", status_code=500)
+    if port:
+        panel_fqdn = request.url.hostname or sd.subdomain + "." + settings.base_domain
+        pw_result = await wp_auto_login(settings.apps_dir, sd.subdomain, port, panel_fqdn)
+        if pw_result:
+            redirect_to, cookies = pw_result
+            prefix = f"/apps/{sd_id}/wp"
+            redirect_to = (
+                f"{prefix}{redirect_to}" if redirect_to.startswith("/")
+                else f"{prefix}/wp-admin/"
+            )
+            response = RedirectResponse(url=redirect_to, status_code=302)
+            for cookie_raw in cookies:
+                fixed = _fix_cookie_path_static(cookie_raw, prefix)
+                response.headers.append("set-cookie", fixed)
+            return response
 
-    panel_fqdn = request.url.hostname or sd.subdomain + "." + settings.base_domain
-    result = await wp_auto_login(settings.apps_dir, sd.subdomain, port, panel_fqdn)
-    if not result:
-        return RedirectResponse(url=f"https://{sd.subdomain}.{settings.base_domain}/wp-admin")
-
-    redirect_to, cookies = result
-    prefix = f"/apps/{sd_id}/wp"
-    redirect_to = f"{prefix}{redirect_to}" if redirect_to.startswith("/") else f"{prefix}/wp-admin/"
-
-    response = RedirectResponse(url=redirect_to, status_code=302)
-    for cookie_raw in cookies:
-        fixed = _fix_cookie_path_static(cookie_raw, prefix)
-        response.headers.append("set-cookie", fixed)
-    return response
+    return RedirectResponse(url=f"https://{fqdn}/wp-admin")
 
 
 @router.post("/apps/{sd_id}/wp-fix-url", response_class=HTMLResponse)
@@ -212,6 +241,75 @@ async def app_wp_fix_url(
     msg = f"WordPress URL aggiornata a https://{fqdn}" if success else f"Errore: {error_msg}"
     cls = "text-green-600" if success else "text-red-600"
     return HTMLResponse(f'<p class="text-sm {cls}">{msg}</p>')
+
+
+@router.api_route("/apps/{sd_id}/proxy/{service_name:path}", methods=[
+    "GET", "POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS",
+])
+async def app_proxy_service(
+    request: Request, sd_id: int, service_name: str, db: AsyncSession = Depends(get_db)
+):
+    user = await get_user(request, db)
+    if not user:
+        return Response("Unauthorized", status_code=401)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return Response("App not found", status_code=404)
+
+    settings = get_settings()
+    env = wp_read_env(settings.apps_dir, sd.subdomain)
+    port_map = {
+        "phpmyadmin": env.get("PMA_PORT", "8082"),
+    }
+    port_str = port_map.get(service_name)
+    if not port_str:
+        return Response(f"Service '{service_name}' not found", status_code=404)
+
+    try:
+        target_port = int(port_str)
+    except ValueError:
+        return Response(f"Invalid port for '{service_name}'", status_code=500)
+
+    import httpx
+    sub_path = service_name.split("/", 1)[1] if "/" in service_name else ""
+    target_url = f"http://127.0.0.1:{target_port}/{sub_path}"
+    qs = request.scope.get("query_string", b"").decode()
+    if qs:
+        target_url += f"?{qs}"
+
+    headers = {}
+    hop_by_hop = frozenset({
+        "host", "connection", "transfer-encoding",
+        "content-length", "keep-alive", "upgrade",
+    })
+    for key, value in request.headers.items():
+        if key.lower() in hop_by_hop:
+            continue
+        headers[key] = value
+
+    body = await request.body()
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.request(
+                method=request.method,
+                url=target_url,
+                headers=headers,
+                content=body,
+                follow_redirects=False,
+            )
+        except httpx.ConnectError:
+            return Response(f"Service '{service_name}' unreachable", status_code=502)
+
+    resp_headers = {}
+    for key, value in resp.headers.items():
+        kl = key.lower()
+        if kl in ("content-encoding", "transfer-encoding", "content-length"):
+            continue
+        resp_headers[key] = value
+
+    return Response(content=resp.content, status_code=resp.status_code, headers=resp_headers)
 
 
 @router.api_route("/apps/{sd_id}/wp/{path:path}", methods=[

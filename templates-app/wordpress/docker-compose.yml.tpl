@@ -25,6 +25,19 @@ services:
     volumes:
       - db_data:/var/lib/mysql
 
+  phpmyadmin:
+    image: phpmyadmin:latest
+    restart: unless-stopped
+    ports:
+      - '${PMA_PORT}:80'
+    environment:
+      PMA_HOST: db
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASSWORD}
+      UPLOAD_LIMIT: 100M
+    depends_on:
+      - db
+
 volumes:
   wordpress_data:
   db_data:
