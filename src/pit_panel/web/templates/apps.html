@@ -4,12 +4,16 @@
 
 <script>
     document.addEventListener('alpine:init', () => {
-        Alpine.data('stackSelector', () => ({
+        Alpine.data('deployForm', () => ({
             selected: '',
+            isMain: false,
+            isSubmitting: false,
             selectStack(name, port) {
                 this.selected = name;
-                this.$refs.stackType.value = name;
-                this.$refs.port.value = port;
+                this.$nextTick(() => {
+                    if (this.$refs.stackType) this.$refs.stackType.value = name;
+                    if (this.$refs.port) this.$refs.port.value = port;
+                });
             }
         }))
     })
@@ -141,7 +145,7 @@
         </div>
 
         <!-- Template Cards + Deploy Form (shared scope for $refs) -->
-        <div x-data="stackSelector">
+        <div x-data="deployForm">
             <div class="mb-8">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Stack</h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -173,7 +177,7 @@
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
                 </div>
                 <div class="p-6">
-                    <form method="POST" action="/apps/deploy" class="space-y-4" x-data="{ isMain: false, isSubmitting: false }" @submit="isSubmitting = true">
+                    <form method="POST" action="/apps/deploy" class="space-y-4" @submit="isSubmitting = true">
 
                     <div class="form-control">
                         <label class="label cursor-pointer justify-start gap-3">
