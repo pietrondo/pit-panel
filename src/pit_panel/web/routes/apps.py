@@ -106,8 +106,10 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
 
     confidence_pct = detected.confidence
     badge_color = (
-        "badge-green" if confidence_pct >= 90
-        else "badge-yellow" if confidence_pct >= 50
+        "badge-green"
+        if confidence_pct >= 90
+        else "badge-yellow"
+        if confidence_pct >= 50
         else "badge-red"
     )
     auto = confidence_pct >= 90
@@ -138,8 +140,8 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
             <input type="hidden" name="stack_type" value="{detected.stack_type}">
             <input type="hidden" name="port" value="{port}">
             <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400 text-sm"
-                    {'hx-disable' if auto else ''}>
-                {'🚀 Deploy Automatico' if auto else 'Deploy Manuale'}
+                    {"hx-disable" if auto else ""}>
+                {"🚀 Deploy Automatico" if auto else "Deploy Manuale"}
             </button>
         </form>
         <p class="text-xs text-gray-500">{pct_label}</p>
@@ -406,8 +408,12 @@ async def app_deploy_from_repo(
             action="app_deploy",
             target_type="subdomain",
             target_id=sd.id,
-            details={"stack": stack_type, "repo": repo_url,
-                     "subdomain": sd.subdomain, "success": compose_ok},
+            details={
+                "stack": stack_type,
+                "repo": repo_url,
+                "subdomain": sd.subdomain,
+                "success": compose_ok,
+            },
             ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
@@ -719,7 +725,6 @@ async def app_wp_flush_cache(request: Request, sd_id: int, db: AsyncSession = De
     if not sd:
         return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
 
-
     settings = get_settings()
 
     try:
@@ -762,7 +767,6 @@ async def app_wp_update_plugins(request: Request, sd_id: int, db: AsyncSession =
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
-
 
     settings = get_settings()
 
@@ -807,7 +811,6 @@ async def app_wp_update_core(request: Request, sd_id: int, db: AsyncSession = De
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
-
 
     settings = get_settings()
 

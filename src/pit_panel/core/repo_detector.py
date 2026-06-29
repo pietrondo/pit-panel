@@ -29,7 +29,12 @@ async def analyze_repo(repo_url: str) -> DetectedStack:
 async def clone_repo(repo_url: str) -> Path:
     dest = Path(tempfile.mkdtemp(prefix="pit-panel-repo-"))
     proc = await asyncio.create_subprocess_exec(
-        "git", "clone", "--depth", "1", repo_url, str(dest),
+        "git",
+        "clone",
+        "--depth",
+        "1",
+        repo_url,
+        str(dest),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
