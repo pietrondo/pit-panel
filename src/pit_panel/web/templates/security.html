@@ -200,31 +200,37 @@
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <div class="flex items-center justify-between mb-3">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Malware Scan</h2>
-                    <div class="flex gap-2 flex-wrap">
-                        <button class="btn-ghost text-xs" @click="showConfig = !showConfig">Config</button>
-                        <button class="btn-ghost text-xs" @click="showThreats = !showThreats">Threats</button>
-                        <button class="btn-ghost text-xs"
-                                hx-post="/security/malware/update-defs"
-                                hx-target="#defs-status"
-                                hx-swap="innerHTML"
-                                hx-on::before-request="this.disabled=true;this.innerText='Updating...'">
-                            Update Definitions
-                        </button>
-                        <button class="btn-ghost text-xs text-green-700 dark:text-green-400"
-                                hx-post="/security/malware/scan-full"
-                                hx-target="body"
-                                hx-swap="innerHTML"
-                                hx-on::before-request="this.disabled=true;this.innerText='Scanning system...'">
-                            Full System Scan
-                        </button>
-                        <button class="btn-ghost text-xs text-green-700 dark:text-green-400"
-                                hx-post="/security/malware/scan"
-                                hx-target="body"
-                                hx-swap="innerHTML"
-                                hx-on::before-request="this.disabled=true;this.innerText='Scanning...'">
-                            Scan Apps
-                        </button>
+                    <div class="flex items-center gap-2">
+                        <span id="clamav-status"
+                              hx-get="/security/malware/clamav-status"
+                              hx-trigger="load, every 60s"
+                              class="text-xs text-gray-500">Checking ClamAV...</span>
                     </div>
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <button class="btn-ghost text-xs" @click="showConfig = !showConfig">Config</button>
+                    <button class="btn-ghost text-xs" @click="showThreats = !showThreats">Threats</button>
+                    <button class="btn-ghost text-xs"
+                            hx-post="/security/malware/update-defs"
+                            hx-target="#defs-status"
+                            hx-swap="innerHTML"
+                            hx-on::before-request="this.disabled=true;this.innerText='Updating...'">
+                        Update Definitions
+                    </button>
+                    <button class="btn-ghost text-xs text-green-700 dark:text-green-400"
+                            hx-post="/security/malware/scan-full"
+                            hx-target="body"
+                            hx-swap="innerHTML"
+                            hx-on::before-request="this.disabled=true;this.innerText='Scanning system...'">
+                        Full System Scan
+                    </button>
+                    <button class="btn-ghost text-xs text-green-700 dark:text-green-400"
+                            hx-post="/security/malware/scan"
+                            hx-target="body"
+                            hx-swap="innerHTML"
+                            hx-on::before-request="this.disabled=true;this.innerText='Scanning...'">
+                        Scan Apps
+                    </button>
                 </div>
 
                 <div id="defs-status" class="text-xs text-gray-500 mt-1"></div>
@@ -260,7 +266,6 @@
             </div>
 
             {% if scan_history %}
-            <div class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for s in scan_history %}
                 <div class="p-4">
                     <div class="flex items-center justify-between cursor-pointer" @click="showDetails['s{{ s.id }}'] = !showDetails['s{{ s.id }}']">

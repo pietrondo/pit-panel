@@ -497,6 +497,7 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
             caddy = CaddyManager(settings.caddy_admin_url)
             certs = await caddy.get_certificates()
             fqdn = f"{sd.subdomain}.{settings.base_domain}"
+            found = any(c.get("domains", "").startswith(fqdn) for c in certs)
             for c in certs:
                 if c.get("domains", "").startswith(fqdn):
                     ssl_info = {
@@ -506,6 +507,10 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
                         "not_after": c.get("not_after", ""),
                     }
                     break
+            if not found:
+                domains = await caddy._get_managed_domains()
+                if fqdn in domains:
+                    ssl_info = {"has_cert": True, "expires_in_days": None, "issuer": "Pending..."}
         except Exception:
             pass
 

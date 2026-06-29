@@ -339,6 +339,22 @@ async def security_malware_set_interval(request: Request, db: AsyncSession = Dep
     return HTMLResponse(f'<span class="text-green-600">Scan interval set to {hours}h</span>')
 
 
+@router.get("/security/malware/clamav-status", response_class=HTMLResponse)
+async def security_clamav_status(request: Request, db: AsyncSession = Depends(get_db)):
+    import subprocess
+    try:
+        r = subprocess.run(
+            ["docker", "ps", "--filter", "name=clamav", "--format", "{{.Status}}"],
+            capture_output=True, text=True, timeout=5,
+        )
+        status = r.stdout.strip()
+        if status:
+            return HTMLResponse('<span class="text-green-600">🛡️ ClamAV: Up</span>')
+        return HTMLResponse('<span class="text-yellow-600">🛡️ ClamAV: Not running</span>')
+    except Exception:
+        return HTMLResponse('<span class="text-gray-400">🛡️ ClamAV: N/A</span>')
+
+
 @router.post("/security/malware/update-defs", response_class=HTMLResponse)
 async def security_malware_update_defs(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
@@ -414,11 +430,29 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
+    import subprocess
     form = await request.form()
-    jail = form.get("jail")
+    jail = form.get("jail", "")
+    jail_escaped = __import__("html").escape(jail)
 
-    jail_escaped = __import__("html").escape(jail or "")
-    return HTMLResponse(f'<span class="text-green-600 text-xs">Enabled {jail_escaped}</span>')
+    try:
+        r = subprocess.run(
+            ["sudo", "-n", "fail2ban-client", "start", jail],
+            capture_output=True, text=True, timeout=10,
+        )
+        if r.returncode == 0:
+            return HTMLResponse(
+                f'<span class="text-green-600 text-xs">✅ {jail_escaped} enabled</span>'
+            )
+        return HTMLResponse(
+            f'<span class="text-red-600 text-xs">❌ {jail_escaped}: {r.stderr.strip()[:100]}</span>'
+        )
+    except FileNotFoundError:
+        return HTMLResponse(
+            '<span class="text-yellow-600 text-xs">fail2ban-client not found</span>'
+        )
+    except Exception as e:
+        return HTMLResponse(f'<span class="text-red-600 text-xs">Error: {e}</span>')
 
 
 @router.get("/security/abuseipdb-blacklist", response_class=HTMLResponse)
