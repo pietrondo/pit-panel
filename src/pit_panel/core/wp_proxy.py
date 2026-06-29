@@ -72,6 +72,13 @@ async def auto_login(
         return None
 
     async with httpx.AsyncClient() as client:
+        # Step 1: GET wp-login.php to get the test cookie
+        await client.get(
+            f"http://localhost:{port}/wp-login.php",
+            headers={"Host": panel_fqdn},
+        )
+
+        # Step 2: POST credentials with the test cookie from step 1
         resp = await client.post(
             f"http://localhost:{port}/wp-login.php",
             data={

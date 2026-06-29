@@ -1,6 +1,7 @@
 """WordPress-specific routes: proxy, auto-login, cache/plugin/core management."""
 
 import asyncio
+import contextlib
 import logging
 import os
 
@@ -46,16 +47,23 @@ def _fix_cookie_path_static(cookie: str, prefix: str) -> str:
 
 
 async def _run_wp_cli(settings, subdomain: str, wp_args: list[str]) -> dict:
+    cwd = os.path.join(settings.apps_dir, subdomain)
+    # Ensure wp-cli phar is available
+    dl_proc = await asyncio.create_subprocess_exec(
+        "docker", "compose", "-f", os.path.join(cwd, "docker-compose.yml"),
+        "exec", "-T", "wordpress",
+        "sh", "-c",
+        "test -f /tmp/wp-cli.phar || curl -sSLo /tmp/wp-cli.phar"
+        " https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar",
+        cwd=cwd,
+    )
+    await dl_proc.wait()
+
     proc = await asyncio.create_subprocess_exec(
-        "docker",
-        "compose",
-        "exec",
-        "-T",
-        "wordpress",
-        "wp",
-        *wp_args,
-        "--allow-root",
-        cwd=os.path.join(settings.apps_dir, subdomain),
+        "docker", "compose", "-f", os.path.join(cwd, "docker-compose.yml"),
+        "exec", "-T", "wordpress",
+        "php", "/tmp/wp-cli.phar", *wp_args, "--allow-root",
+        cwd=cwd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -173,15 +181,12 @@ async def app_wp_auto_login(
             f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
             f" option update home 'https://{fqdn}'"
         ])
-        r = await docker_mgr.exec_command(sd.subdomain, "wordpress", [
-            "sh", "-c",
-            f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-            f" user one-time-login admin --url=https://{fqdn} 2>/dev/null"
-        ])
-        if r.get("success"):
-            login_url = (r.get("stdout") or "").strip()
-            if login_url:
-                return RedirectResponse(url=login_url)
+        with contextlib.suppress(Exception):
+            await docker_mgr.exec_command(sd.subdomain, "wordpress", [
+                "sh", "-c",
+                f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+                f" user one-time-login admin --url=https://{fqdn} 2>/dev/null"
+            ])
     except Exception as e:
         logger.warning(f"WP-CLI login failed for {sd.subdomain}: {e}")
 
