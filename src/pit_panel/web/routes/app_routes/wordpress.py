@@ -268,6 +268,9 @@ async def app_proxy_service(
     name = parts[0]
     sub_path = parts[1] if len(parts) > 1 else ""
 
+    if not sub_path and not request.url.path.endswith("/"):
+        return RedirectResponse(url=request.url.path + "/", status_code=302)
+
     port_str = port_map.get(name)
     if not port_str:
         return Response(f"Service '{name}' not found", status_code=404)
