@@ -186,8 +186,7 @@ async def app_wp_auto_login(
     # Step 2: fallback to password-based auto-login
     port = _get_wp_port(settings, sd.subdomain)
     if port:
-        panel_fqdn = request.url.hostname or sd.subdomain + "." + settings.base_domain
-        pw_result = await wp_auto_login(settings.apps_dir, sd.subdomain, port, panel_fqdn)
+        pw_result = await wp_auto_login(settings.apps_dir, sd.subdomain, port, fqdn)
         if pw_result:
             redirect_to, cookies = pw_result
             prefix = f"/apps/{sd_id}/wp"
