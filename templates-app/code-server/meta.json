@@ -1,0 +1,10 @@
+{
+    "name": "code-server",
+    "display_name": "Code Server",
+    "version": "latest",
+    "description": "VS Code nel browser. Formatta JSON/YAML/HTML/CSS/JS, linting, editing testo, e molto altro.",
+    "icon": "💻",
+    "requires_db": false,
+    "default_port": 8085,
+    "admin_path": "/"
+}
