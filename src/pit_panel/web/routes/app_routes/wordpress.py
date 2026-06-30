@@ -11,6 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
 from pit_panel.core.docker_ops import DockerManager
+from pit_panel.core.wp_proxy import (
+    _fix_cookie_path as _fix_cookie_path_proxy,
+)
 from pit_panel.core.wp_proxy import auto_login as wp_auto_login
 from pit_panel.core.wp_proxy import proxy_request as wp_proxy_request
 from pit_panel.core.wp_proxy import read_env as wp_read_env
@@ -30,19 +33,6 @@ def _get_wp_port(settings, subdomain: str) -> int | None:
         return int(port_str)
     except ValueError:
         return None
-
-
-def _fix_cookie_path_static(cookie: str, prefix: str) -> str:
-    parts = cookie.split(";")
-    fixed = []
-    for part in parts:
-        part = part.strip()
-        if part.lower().startswith("path="):
-            path_val = part.split("=", 1)[1]
-            if not path_val.startswith(prefix):
-                part = f"path={prefix}{path_val}"
-        fixed.append(part)
-    return "; ".join(fixed)
 
 
 async def _run_wp_cli(settings, subdomain: str, wp_args: list[str]) -> dict:
@@ -190,13 +180,10 @@ async def app_wp_auto_login(
         if pw_result:
             redirect_to, cookies = pw_result
             prefix = f"/apps/{sd_id}/wp"
-            redirect_to = (
-                f"{prefix}{redirect_to}" if redirect_to.startswith("/")
-                else f"{prefix}/wp-admin/"
-            )
-            response = RedirectResponse(url=redirect_to, status_code=302)
+            redirect_path = f"{prefix}/{redirect_to.lstrip('/')}" if redirect_to.startswith("/") else f"{prefix}/wp-admin/"  # noqa: E501
+            response = RedirectResponse(url=redirect_path, status_code=302)
             for cookie_raw in cookies:
-                fixed = _fix_cookie_path_static(cookie_raw, prefix)
+                fixed = _fix_cookie_path_proxy(cookie_raw, prefix)
                 response.headers.append("set-cookie", fixed)
             return response
 

@@ -34,7 +34,12 @@ STATIC_COMMANDS = {
     "journal_caddy": ["/usr/bin/journalctl", "-u", "caddy", "-n", "100", "--no-pager"],
     "journal_docker": ["/usr/bin/journalctl", "-u", "docker", "-n", "100", "--no-pager"],
     "journal_ssh": ["/usr/bin/journalctl", "-u", "ssh", "-n", "50", "--no-pager"],
-    "docker_ps": ["/usr/bin/docker", "ps", "--format", "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"],  # noqa: E501
+    "docker_ps": [
+        "/usr/bin/docker",
+        "ps",
+        "--format",
+        "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}",
+    ],  # noqa: E501
     "reboot": ["/usr/sbin/reboot"],
 }
 
@@ -87,6 +92,7 @@ async def system_manage_action(
         output = await run_sudo(cmd, sudo_password)
         if "incorrect password attempt" in output or "no password was provided" in output:
             import getpass
+
             output += (
                 f"\n\n[pit-panel Note] Sudo authentication failed. "
                 f"Running as '{getpass.getuser()}'. "
@@ -94,6 +100,7 @@ async def system_manage_action(
             )
     except Exception as e:
         import getpass
+
         output = f"Error running sudo as '{getpass.getuser()}': {str(e)}"
 
     return HTMLResponse(output)
@@ -134,8 +141,8 @@ async def system_manage_services(request: Request, db: AsyncSession = Depends(ge
             f'hx-post="/system/manage/action" '
             f'hx-vals=\'{{"action": "service_restart_{svc}"}}\' '
             f'hx-target="#result" '
-            f'hx-on::before-request="this.disabled=true;this.innerText=\'...\'" '
-            f'hx-on::after-request="this.disabled=false;this.innerText=\'Restart\'"'
+            f"hx-on::before-request=\"this.disabled=true;this.innerText='...'\" "
+            f"hx-on::after-request=\"this.disabled=false;this.innerText='Restart'\""
             f">Restart</button>"
         )
         logs_btn = (

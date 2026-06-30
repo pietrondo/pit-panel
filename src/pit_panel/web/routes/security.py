@@ -21,6 +21,7 @@ from pit_panel.core.security import (
 from pit_panel.db.models import LoginAttempt, MalwareScan, SystemSettings, User
 from pit_panel.db.models import Session as DBSession
 from pit_panel.db.session import get_db
+from pit_panel.security.bug_analyzer import analyze_container_logs, analyze_system_logs
 from pit_panel.security.ipban import ban_ips_bulk, get_banned_ips
 from pit_panel.security.malware_scanner import (
     SCAN_DEFAULT_INTERVAL_HOURS,
@@ -344,10 +345,13 @@ async def security_malware_set_interval(request: Request, db: AsyncSession = Dep
 @router.get("/security/malware/clamav-status", response_class=HTMLResponse)
 async def security_clamav_status(request: Request, db: AsyncSession = Depends(get_db)):
     import subprocess
+
     try:
         r = subprocess.run(
             ["docker", "ps", "--filter", "name=clamav", "--format", "{{.Status}}"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         status = r.stdout.strip()
         if status:
@@ -433,6 +437,7 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
         return HTMLResponse("Unauthorized", status_code=401)
 
     import subprocess
+
     form = await request.form()
     jail = form.get("jail", "")
     jail_escaped = __import__("html").escape(jail)
@@ -440,7 +445,9 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
     try:
         r = subprocess.run(
             ["sudo", "-n", "fail2ban-client", "start", jail],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if r.returncode == 0:
             return HTMLResponse(
@@ -464,11 +471,12 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
         return HTMLResponse("Unauthorized", status_code=401)
 
     import html
+
     jailed = await _fail2ban_jail_banned(jail)
     jail_e = html.escape(jail)
 
     if not jailed:
-        msg = f'Nessun IP bloccato in <strong>{jail_e}</strong>'
+        msg = f"Nessun IP bloccato in <strong>{jail_e}</strong>"
         return HTMLResponse(f'<div class="text-xs text-gray-500">{msg}</div>')
 
     rows = "".join(
@@ -480,15 +488,12 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
         f'hx-vals=\'{{"jail":"{jail_e}","ip":"{e["ip"]}"}}\' '
         f'hx-target="closest div" '
         f'hx-swap="outerHTML">Sblocca</button>'
-        f'</div>'
+        f"</div>"
         for e in jailed
     )
-    count_msg = f'IP bloccati in <strong>{jail_e}</strong>: {len(jailed)}'
+    count_msg = f"IP bloccati in <strong>{jail_e}</strong>: {len(jailed)}"
     return HTMLResponse(
-        f'<div class="space-y-2">'
-        f'<p class="text-xs text-gray-500 mb-2">{count_msg}</p>'
-        f'{rows}'
-        f'</div>'
+        f'<div class="space-y-2"><p class="text-xs text-gray-500 mb-2">{count_msg}</p>{rows}</div>'
     )
 
 
@@ -506,9 +511,7 @@ async def security_fail2ban_unban(request: Request, db: AsyncSession = Depends(g
         return HTMLResponse(
             f'<div class="text-xs text-green-600">✅ {ip} sbloccato da {jail}</div>'
         )
-    return HTMLResponse(
-        f'<div class="text-xs text-red-600">❌ Impossibile sbloccare {ip}</div>'
-    )
+    return HTMLResponse(f'<div class="text-xs text-red-600">❌ Impossibile sbloccare {ip}</div>')
 
 
 @router.get("/security/abuseipdb-blacklist", response_class=HTMLResponse)
@@ -580,3 +583,60 @@ async def security_abuseipdb_check(request: Request, db: AsyncSession = Depends(
         <div class="text-xs text-gray-500 mt-1">Total Reports: {result.get("reports", 0)}</div>
     </div>
     ''')
+
+
+@router.get("/security/bugs", response_class=HTMLResponse)
+async def security_bugs(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    container_bugs = await analyze_container_logs()
+    system_bugs = await analyze_system_logs()
+
+    html = '<div class="space-y-4">'
+
+    if not container_bugs and not system_bugs:
+        return HTMLResponse(
+            '<div class="text-sm text-green-600 p-4 bg-green-50 '
+            "dark:bg-green-900/10 rounded border border-green-200 "
+            'dark:border-green-800">✅ Nessun errore o bug rilevato nei log.</div>'
+        )
+
+    if container_bugs:
+        html += (
+            '<h3 class="text-sm font-semibold text-gray-900 '
+            'dark:text-white mt-2">🐳 Errori App Containerizzate</h3>'
+        )
+        for app in container_bugs:
+            html += (
+                '<div class="p-3 bg-red-50 dark:bg-red-900/10 border '
+                'border-red-200 dark:border-red-800 rounded">\n'
+                '  <div class="flex justify-between items-center mb-2">\n'
+                '    <span class="font-mono text-sm font-bold text-red-700 '
+                f'dark:text-red-400">{app["container"]}</span>\n'
+                '    <span class="text-xs bg-red-200 text-red-800 dark:bg-red-900 '
+                f'dark:text-red-300 px-2 py-0.5 rounded-full">{app["count"]} errori</span>\n'
+                "  </div>\n"
+                '  <ul class="list-disc pl-5 text-xs text-red-600 dark:text-red-400 space-y-1">\n'
+            )
+            for err in app["errors"]:
+                html += f'    <li class="break-all">{__import__("html").escape(err)}</li>\n'
+            html += "  </ul></div>\n"
+
+    if system_bugs:
+        html += (
+            '<h3 class="text-sm font-semibold text-gray-900 '
+            'dark:text-white mt-4">⚙️ Errori di Sistema (Pit Panel)</h3>'
+        )
+        html += (
+            '<div class="p-3 bg-orange-50 dark:bg-orange-900/10 border '
+            'border-orange-200 dark:border-orange-800 rounded">\n'
+            '<ul class="list-disc pl-5 text-xs text-orange-700 dark:text-orange-400 space-y-1">\n'
+        )
+        for err in system_bugs:
+            html += f'  <li class="break-all">{__import__("html").escape(err)}</li>\n'
+        html += "</ul></div>\n"
+
+    html += "</div>"
+    return HTMLResponse(html)

@@ -74,10 +74,9 @@ class Settings(BaseSettings):  # type: ignore[misc]
     @classmethod
     def from_config_file(cls, path: str | None = None) -> "Settings":
         import os
+
         config_path_str = (
-            path
-            or os.environ.get("PITPANEL_CONFIG_PATH")
-            or "/etc/pit-panel/config.toml"
+            path or os.environ.get("PITPANEL_CONFIG_PATH") or "/etc/pit-panel/config.toml"
         )
         config_file = Path(config_path_str)
         if config_file.exists():

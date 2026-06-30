@@ -72,13 +72,11 @@ async def auto_login(
         return None
 
     async with httpx.AsyncClient() as client:
-        # Step 1: GET wp-login.php to get the test cookie
-        await client.get(
-            f"http://localhost:{port}/wp-login.php",
-            headers={"Host": panel_fqdn},
-        )
+        # Step 1: GET wp-login.php with default Host (localhost) so the test
+        # cookie is scoped to localhost and httpx sends it on the subsequent POST
+        await client.get(f"http://localhost:{port}/wp-login.php")
 
-        # Step 2: POST credentials with the test cookie from step 1
+        # Step 2: POST credentials with blog FQDN as Host for WordPress routing
         resp = await client.post(
             f"http://localhost:{port}/wp-login.php",
             data={
@@ -91,8 +89,14 @@ async def auto_login(
             follow_redirects=False,
         )
 
-    # WordPress returns 302 with Set-Cookie on success
+    # WordPress returns 302 + Set-Cookie on success, 200 + login form on failure
+    if resp.status_code != 302:
+        return None
+
     cookies = resp.headers.get_list("set-cookie")
+    if not cookies:
+        return None
+
     redirect_to = resp.headers.get("location", "/wp-admin/")
     return redirect_to, cookies
 

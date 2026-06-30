@@ -37,6 +37,10 @@
             :class="activeTab === 'malware' ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
             🦠 Antivirus
         </button>
+        <button @click="activeTab = 'bugs'" class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+            :class="activeTab === 'bugs' ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
+            🐛 Analisi Bug
+        </button>
         <button @click="activeTab = 'access'" class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
             :class="activeTab === 'access' ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
             🚫 Controllo Accessi
@@ -412,6 +416,44 @@
                 <p class="text-xs text-gray-400">Clicca "Scansiona App" per analizzare tutte le applicazioni, o "Scansione Completa" per un'analisi più approfondita.</p>
             </div>
             {% endif %}
+        </div>
+    </div>
+
+
+    <!-- ── Analisi Bug ── -->
+    <div x-show="activeTab === 'bugs'" x-cloak>
+        <div class="card mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span>🐛</span>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Analisi Automatica Bug & Errori</h2>
+                </div>
+                <button class="btn-ghost text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5"
+                        hx-get="/security/bugs"
+                        hx-target="#bug-analysis-result"
+                        hx-swap="innerHTML"
+                        hx-on::before-request="this.disabled=true;this.innerHTML='<span class=\'animate-pulse\'>Analizzo...</span>'"
+                        hx-on::after-request="this.disabled=false;this.innerText='🔄 Scansiona Ora'">
+                    🔄 Scansiona Ora
+                </button>
+            </div>
+            <div class="p-4">
+                <p class="text-xs text-gray-500 mb-4">
+                    Questo strumento analizza automaticamente i log dei container Docker e del sistema per individuare
+                    exception, crash, e malfunzionamenti del software.
+                </p>
+                <div id="bug-analysis-result">
+                    <div hx-get="/security/bugs" hx-trigger="load">
+                        <div class="flex items-center text-sm text-gray-500 gap-2">
+                            <svg class="animate-spin h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
+                            <span>Eseguo analisi iniziale dei log...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -39,13 +39,22 @@ class DockerManager:
             }
 
     async def exec_command(
-        self, subdomain: str, service: str, cmd: list[str],
+        self,
+        subdomain: str,
+        service: str,
+        cmd: list[str],
     ) -> dict[str, Any]:
         path = self.apps_dir / subdomain
         try:
             proc = await asyncio.create_subprocess_exec(
-                "docker", "compose", "-f", str(path / "docker-compose.yml"),
-                "exec", "-T", service, *cmd,
+                "docker",
+                "compose",
+                "-f",
+                str(path / "docker-compose.yml"),
+                "exec",
+                "-T",
+                service,
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(path),
