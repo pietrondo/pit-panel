@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pit_panel.config import get_settings
 from pit_panel.core.sudo_ops import run_sudo
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
@@ -64,7 +65,7 @@ async def system_manage_page(request: Request, db: AsyncSession = Depends(get_db
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    return render("system_manage.html", user=user)
+    return render("system_manage.html", user=user, settings=get_settings())
 
 
 @router.post("/system/manage/action", response_class=HTMLResponse)
