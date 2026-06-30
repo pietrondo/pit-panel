@@ -478,6 +478,62 @@ async def app_logs_get(request: Request, sd_id: int, db: AsyncSession = Depends(
     return render("tabs/_logs.html", request=request, sd=sd, logs=logs)
 
 
+@router.websocket("/apps/{sd_id}/logs/ws")
+async def app_logs_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = Depends(get_db)):
+    await websocket.accept()
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        await websocket.send_text("ERROR: App not found")
+        await websocket.close()
+        return
+
+    settings = get_settings()
+    compose_path = Path(settings.apps_dir) / sd.subdomain / "docker-compose.yml"
+    cwd = str(Path(settings.apps_dir) / sd.subdomain)
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "compose", "-f", str(compose_path),
+            "logs", "--tail=50", "--follow",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=cwd,
+        )
+    except OSError as e:
+        await websocket.send_text(f"ERROR: {e}")
+        await websocket.close()
+        return
+
+    async def reader():
+        try:
+            while True:
+                data = await proc.stdout.read(4096)
+                if not data:
+                    break
+                await websocket.send_text(data.decode(errors="replace"))
+        except Exception:
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await websocket.close()
+
+    async def writer():
+        try:
+            while True:
+                await websocket.receive_text()
+        except (WebSocketDisconnect, Exception):
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                proc.kill()
+
+    await asyncio.gather(reader(), writer())
+
+
 @router.get("/apps/{sd_id}/env", response_class=HTMLResponse)
 async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
