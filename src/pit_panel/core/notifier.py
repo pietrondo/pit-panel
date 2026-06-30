@@ -39,5 +39,41 @@ async def notify_app_update(subdomain: str) -> None:
     await send_telegram(f"<b>🔄 App updated</b>\nApp: {subdomain}")
 
 
+async def notify_app_deploy(subdomain: str, stack: str, fqdn: str) -> None:
+    await send_telegram(
+        f"<b>🚀 App deployed</b>\n"
+        f"Name: {subdomain}\nStack: {stack}\nURL: https://{fqdn}"
+    )
+
+
+async def notify_app_delete(subdomain: str, stack: str) -> None:
+    await send_telegram(f"<b>🗑️ App deleted</b>\nName: {subdomain}\nStack: {stack}")
+
+
+async def notify_login_failed(username: str, ip: str) -> None:
+    await send_telegram(
+        f"<b>⚠️ Failed login</b>\nUser: {username}\nIP: {ip}"
+    )
+
+
+async def notify_login_success(username: str, ip: str) -> None:
+    await send_telegram(
+        f"<b>🔓 Login success</b>\nUser: {username}\nIP: {ip}"
+    )
+
+
+async def notify_ssl_expiring(domains: list[str], days: int) -> None:
+    d = ", ".join(domains[:3])
+    if len(domains) > 3:
+        d += f" (+{len(domains)-3} more)"
+    await send_telegram(
+        f"<b>🔐 SSL cert expiring in {days}d</b>\n{d}"
+    )
+
+
+async def notify_system_alarm(title: str, detail: str) -> None:
+    await send_telegram(f"<b>🚨 {title}</b>\n{detail}")
+
+
 async def notify_test() -> bool:
     return await send_telegram("<b>✅ pit-panel</b>\nTelegram notifications work!")

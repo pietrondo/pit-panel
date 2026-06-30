@@ -205,6 +205,8 @@ async def app_delete(request: Request, sd_id: int, db: AsyncSession = Depends(ge
             )
         )
         await db.commit()
+        from pit_panel.core.notifier import notify_app_delete
+        await notify_app_delete(sd.subdomain, old_app_type or "unknown")
     return RedirectResponse("/apps", status_code=302)
 
 

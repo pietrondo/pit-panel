@@ -346,6 +346,11 @@ async def app_deploy(
     )
     await db.commit()
 
+    if compose_ok:
+        from pit_panel.core.notifier import notify_app_deploy
+        base_domain = sd.base_domain or settings.base_domain
+        await notify_app_deploy(sd.subdomain, stack_type, f"{sd.subdomain}.{base_domain}")
+
     if error:
         result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
         subdomains = result.scalars().all()
