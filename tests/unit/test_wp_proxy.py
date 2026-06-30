@@ -1,5 +1,8 @@
 """Tests for WordPress proxy module."""
 
+import json
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from pit_panel.core.wp_proxy import (
@@ -127,7 +130,7 @@ async def test_auto_login_returns_none_on_missing_password(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_auto_login_returns_none_on_200_status(httpx_mock, tmp_path):
+async def test_auto_login_subprocess_fails(tmp_path):
     from pit_panel.core.wp_proxy import auto_login
 
     app_dir = tmp_path / "blog"
@@ -136,18 +139,18 @@ async def test_auto_login_returns_none_on_200_status(httpx_mock, tmp_path):
         "WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n"
     )
 
-    httpx_mock.add_response(
-        method="POST",
-        url="http://localhost:8081/wp-login.php",
-        status_code=200,
-    )
+    with patch("pit_panel.core.wp_proxy.asyncio.create_subprocess_exec") as mock_sub:
+        proc = AsyncMock()
+        proc.communicate = AsyncMock(return_value=(b"", b"error: container not found"))
+        proc.returncode = 1
+        mock_sub.return_value = proc
 
-    result = await auto_login(str(tmp_path), "blog", 8081, "blog.example.com")
-    assert result is None, "Should return None when WordPress returns 200 (login failed)"
+        result = await auto_login(str(tmp_path), "blog", 8081, "blog.example.com")
+    assert result is None
 
 
 @pytest.mark.asyncio
-async def test_auto_login_returns_none_on_no_cookies(httpx_mock, tmp_path):
+async def test_auto_login_returns_none_on_no_cookies(tmp_path):
     from pit_panel.core.wp_proxy import auto_login
 
     app_dir = tmp_path / "blog"
@@ -156,19 +159,18 @@ async def test_auto_login_returns_none_on_no_cookies(httpx_mock, tmp_path):
         "WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n"
     )
 
-    httpx_mock.add_response(
-        method="POST",
-        url="http://localhost:8081/wp-login.php",
-        status_code=302,
-        headers={"location": "/wp-admin/"},
-    )
+    with patch("pit_panel.core.wp_proxy.asyncio.create_subprocess_exec") as mock_sub:
+        proc = AsyncMock()
+        proc.communicate = AsyncMock(return_value=(json.dumps({"cookies": [], "redirect_to": "/wp-admin/"}).encode(), b""))  # noqa: E501
+        proc.returncode = 0
+        mock_sub.return_value = proc
 
-    result = await auto_login(str(tmp_path), "blog", 8081, "blog.example.com")
-    assert result is None, "Should return None when no set-cookie headers"
+        result = await auto_login(str(tmp_path), "blog", 8081, "blog.example.com")
+    assert result is None
 
 
 @pytest.mark.asyncio
-async def test_auto_login_success(httpx_mock, tmp_path):
+async def test_auto_login_success(tmp_path):
     from pit_panel.core.wp_proxy import auto_login
 
     app_dir = tmp_path / "blog"
@@ -177,52 +179,24 @@ async def test_auto_login_success(httpx_mock, tmp_path):
         "WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n"
     )
 
-    httpx_mock.add_response(
-        method="POST",
-        url="http://localhost:8081/wp-login.php",
-        status_code=302,
-        headers={
-            "location": "/wp-admin/",
-            "set-cookie": "wordpress_logged_in_abc=token; path=/; HttpOnly",
-        },
-    )
+    cookie_json = json.dumps({
+        "cookies": [
+            "wordpress_logged_in_abc=token; Path=/; HttpOnly",
+            "wordpress_sec_abc=token; Path=/wp-admin; HttpOnly",
+        ],
+        "redirect_to": "/wp-admin/",
+    })
 
-    result = await auto_login(str(tmp_path), "blog", 8081, "blog.example.com")
+    with patch("pit_panel.core.wp_proxy.asyncio.create_subprocess_exec") as mock_sub:
+        proc = AsyncMock()
+        proc.communicate = AsyncMock(return_value=(cookie_json.encode(), b""))
+        proc.returncode = 0
+        mock_sub.return_value = proc
+
+        result = await auto_login(str(tmp_path), "blog", 8081, "blog.example.com")
     assert result is not None
     redirect_to, cookies = result
     assert redirect_to == "/wp-admin/"
+    assert len(cookies) == 2
     assert any("wordpress_logged_in" in c for c in cookies)
-    assert any("path=/" in c for c in cookies)
-
-
-@pytest.mark.asyncio
-async def test_auto_login_posts_without_testcookie(httpx_mock, tmp_path):
-    """Verify POST data does NOT include testcookie=1 (WordPress test cookie check)."""
-    from pit_panel.core.wp_proxy import auto_login
-
-    app_dir = tmp_path / "blog"
-    app_dir.mkdir()
-    (app_dir / ".env").write_text(
-        "WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n"
-    )
-
-    httpx_mock.add_response(
-        method="POST",
-        url="http://localhost:8081/wp-login.php",
-        status_code=302,
-        headers={
-            "location": "/wp-admin/",
-            "set-cookie": "wordpress_logged_in_abc=token; path=/; HttpOnly",
-        },
-        match_content=None,  # Don't match on content
-    )
-
-    result = await auto_login(str(tmp_path), "blog", 8081, "blog.example.com")
-    assert result is not None
-
-    # Verify the POST request data
-    request = httpx_mock.get_request()
-    body = request.content.decode() if request else ""
-    assert "testcookie" not in body, "POST must not include testcookie parameter"
-    assert "log=admin" in body or "log=" in body
-    assert "pwd=secret" in body or "pwd=" in body
+    assert any("Path=/" in c for c in cookies)

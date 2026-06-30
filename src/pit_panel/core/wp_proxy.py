@@ -1,5 +1,7 @@
 """WordPress proxy and auto-login through pit-panel domain."""
 
+import asyncio
+import json
 import logging
 from pathlib import Path
 
@@ -65,46 +67,81 @@ async def auto_login(
     port: int,
     panel_fqdn: str,
 ) -> tuple[str, list[str]] | None:
+    """
+    Generate WordPress auth cookies via WP-CLI eval, bypassing wp-login.php.
+
+    This avoids the test-cookie dance, redirect loops, and password-hash
+    mismatches between CLI and web contexts that plague POST-based login.
+    wp_set_auth_cookie() creates a proper session token in the DB and
+    generates the same cookie values WordPress uses on a normal login.
+    """
     env = read_env(apps_dir, subdomain)
-    wp_user = env.get("WP_ADMIN_USER", "admin")
     wp_pass = env.get("WP_ADMIN_PASSWORD", "")
     if not wp_pass:
         logger.info("auto_login[%s]: no WP_ADMIN_PASSWORD in .env", subdomain)
         return None
 
-    logger.info(
-        "auto_login[%s]: POST to localhost:%s/wp-login.php (user=%s)",
-        subdomain, port, wp_user,
+    compose_dir = Path(apps_dir) / subdomain
+    compose_file = compose_dir / "docker-compose.yml"
+
+    php_code = (
+        '$id=1;'
+        '$exp=time()+86400;'
+        '$li=wp_generate_auth_cookie($id,$exp,"logged_in");'
+        '$sa=wp_generate_auth_cookie($id,$exp,"secure_auth");'
+        '$au=wp_generate_auth_cookie($id,$exp,"auth");'
+        'echo json_encode(['
+        '"cookies":['
+        'LOGGED_IN_COOKIE."=".$li."; Path=/; HttpOnly",'
+        'SECURE_AUTH_COOKIE."=".$sa."; Path=/wp-admin; HttpOnly",'
+        'AUTH_COOKIE."=".$au."; Path=/wp-admin; HttpOnly"'
+        '],'
+        '"redirect_to":admin_url()'
+        ']);'
     )
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            f"http://localhost:{port}/wp-login.php",
-            data={
-                "log": wp_user,
-                "pwd": wp_pass,
-                "redirect_to": "/wp-admin/",
-            },
-            headers={"Host": panel_fqdn},
-            follow_redirects=False,
+    logger.info("auto_login[%s]: running WP-CLI eval to generate auth cookies", subdomain)
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "compose", "-f", str(compose_file),
+            "exec", "-T", "wordpress",
+            "php", "-d", "memory_limit=256M", "/tmp/wp-cli.phar",
+            "--allow-root", "eval", php_code,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(compose_dir),
         )
-
-    logger.info(
-        "auto_login[%s]: POST → status=%s, location=%s, cookies=%d",
-        subdomain, resp.status_code, resp.headers.get("location"),
-        len(resp.headers.get_list("set-cookie")),
-    )
-
-    # WordPress returns 302 + Set-Cookie on success, 200 + login form on failure
-    if resp.status_code != 302:
+        stdout, stderr = await proc.communicate()
+    except OSError as e:
+        logger.error("auto_login[%s]: subprocess error: %s", subdomain, e)
         return None
 
-    cookies = resp.headers.get_list("set-cookie")
-    if not cookies:
+    if proc.returncode != 0:
+        logger.warning(
+            "auto_login[%s]: WP-CLI eval failed (rc=%d): %s",
+            subdomain, proc.returncode, stderr.decode()[:300],
+        )
         return None
 
-    redirect_to = resp.headers.get("location", "/wp-admin/")
-    return redirect_to, cookies
+    try:
+        data = json.loads(stdout.decode())
+        cookies = data.get("cookies", [])
+        redirect_to = data.get("redirect_to", "/wp-admin/")
+        if not cookies:
+            logger.warning("auto_login[%s]: WP-CLI returned no cookies", subdomain)
+            return None
+        logger.info(
+            "auto_login[%s]: WP-CLI success → %s (%d cookies)",
+            subdomain, redirect_to, len(cookies),
+        )
+        return redirect_to, cookies
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.error(
+            "auto_login[%s]: failed to parse WP-CLI output: %s — raw: %s",
+            subdomain, e, stdout.decode()[:300],
+        )
+        return None
 
 
 async def proxy_request(
