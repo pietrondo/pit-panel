@@ -169,6 +169,15 @@ async def test_auto_login_returns_none_on_no_cookies(tmp_path):
     assert result is None
 
 
+def test_auto_login_php_code_uses_arrow_syntax():
+    """Verify PHP inline code uses => not : for array key-value pairs."""
+    import inspect
+    from pit_panel.core.wp_proxy import auto_login
+    source = inspect.getsource(auto_login)
+    assert '"cookies"=>' in source, "PHP array must use => not : for keys"
+    assert '"cookies":' not in source, "Found JS-style ':' in PHP code - use => instead"
+
+
 @pytest.mark.asyncio
 async def test_auto_login_success(tmp_path):
     from pit_panel.core.wp_proxy import auto_login

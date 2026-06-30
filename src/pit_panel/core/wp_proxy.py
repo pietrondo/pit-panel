@@ -90,14 +90,14 @@ async def auto_login(
         '$li=wp_generate_auth_cookie($id,$exp,"logged_in");'
         '$sa=wp_generate_auth_cookie($id,$exp,"secure_auth");'
         '$au=wp_generate_auth_cookie($id,$exp,"auth");'
-        'echo json_encode(['
-        '"cookies":['
+        'echo json_encode(array('
+        '"cookies"=>array('
         'LOGGED_IN_COOKIE."=".$li."; Path=/; HttpOnly",'
         'SECURE_AUTH_COOKIE."=".$sa."; Path=/wp-admin; HttpOnly",'
         'AUTH_COOKIE."=".$au."; Path=/wp-admin; HttpOnly"'
-        '],'
-        '"redirect_to":admin_url()'
-        ']);'
+        '),'
+        '"redirect_to"=>admin_url()'
+        '));'
     )
 
     logger.info("auto_login[%s]: running WP-CLI eval to generate auth cookies", subdomain)
