@@ -1,14 +1,11 @@
 services:
-  code-server:
-    image: codercom/code-server:latest
+  etherpad:
+    image: etherpad/etherpad:latest
     restart: unless-stopped
     ports:
-      - '${PORT}:8443'
-    environment:
-      PASSWORD: ${CS_PASSWORD}
-      DEFAULT_WORKSPACE: /workspace
+      - '${PORT}:9001'
     volumes:
-      - code_server_data:/workspace
+      - etherpad_data:/opt/etherpad/var
 
 volumes:
-  code_server_data:
+  etherpad_data:

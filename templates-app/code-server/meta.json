@@ -1,9 +1,9 @@
 {
     "name": "code-server",
-    "display_name": "Code Server",
+    "display_name": "Etherpad",
     "version": "latest",
-    "description": "VS Code nel browser. Formatta JSON/YAML/HTML/CSS/JS, linting, editing testo, e molto altro.",
-    "icon": "💻",
+    "description": "Editor di testo collaborativo leggero. Formattazione rich text, markdown, code snippets, export PDF/HTML.",
+    "icon": "📝",
     "requires_db": false,
     "default_port": 8085,
     "admin_path": "/"
