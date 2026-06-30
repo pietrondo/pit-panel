@@ -470,7 +470,7 @@ async def app_backup_restore(
         await docker_mgr.run_compose_command(sd.subdomain, ["down"])
         import tarfile as _tf
         with _tf.open(backup_path, "r:gz") as tar:
-            tar.extractall(Path(settings.apps_dir))
+            tar.extractall(Path(settings.apps_dir), filter="fully_trusted")
         await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
 
         db.add(AuditLog(

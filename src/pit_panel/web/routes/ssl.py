@@ -362,3 +362,63 @@ async def ssl_renew(
         caddy_result=None,
         last_ssl_renew_check=get_last_ssl_renew_check(),
     )
+
+
+@router.post("/ssl/renew-all", response_class=HTMLResponse)
+async def ssl_renew_all(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    settings = get_settings()
+    caddy = CaddyManager(settings.caddy_admin_url)
+    mgr = AppManager(settings.apps_dir)
+
+    result_sd = await db.execute(
+        select(Subdomain).where(
+            Subdomain.is_main_domain.is_(False),
+            Subdomain.app_type.isnot(None),
+        )
+    )
+    apps = result_sd.scalars().all()
+
+    ok = 0
+    fail = 0
+    for sd in apps:
+        base = sd.base_domain or settings.base_domain
+        fqdn = f"{sd.subdomain}.{base}"
+        meta = mgr.get_template_info(sd.app_type) if sd.app_type else {}
+        port = meta.get("default_port", 80)
+        try:
+            await caddy.add_subdomain(sd.subdomain, base, port=port)
+            ok += 1
+        except Exception as e:
+            logger.warning(f"add_subdomain failed for {fqdn}: {e}")
+            fail += 1
+
+    if ok:
+        await caddy.renew_certificate(settings.effective_domain)
+
+    certs = await caddy.get_certificates()
+    subdomains_result = await db.execute(
+        select(Subdomain).where(Subdomain.is_main_domain.is_(False)).limit(50)
+    )
+    subdomains = subdomains_result.scalars().all()
+
+    return render(
+        "ssl.html",
+        user=user,
+        settings=settings,
+        subdomains=subdomains,
+        certs=certs,
+        renew_result={"success": ok > 0, "ok": ok, "fail": fail},
+        caddy_running=_check_caddy_running(),
+        port80_free=_check_port80(),
+        acme_providers=ACME_PROVIDERS,
+        providers=DNS_PROVIDERS,
+        current_caddyfile=(
+            Path(CADDYFILE_PATH).read_text()[:2000] if Path(CADDYFILE_PATH).exists() else ""
+        ),
+        caddy_result=None,
+        last_ssl_renew_check=get_last_ssl_renew_check(),
+    )
