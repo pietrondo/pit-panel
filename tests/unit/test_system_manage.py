@@ -130,3 +130,17 @@ def test_system_manage_action_no_sudo_password(client: TestClient, auth_headers:
     response = client.post("/system/manage/action", data={"action": "df"}, headers=auth_headers)
     assert response.status_code == 200
     assert b"sudo_password is not configured" in response.content
+
+
+def test_system_manage_services_no_nginx(client: TestClient, auth_headers: dict):
+    with patch("pit_panel.web.routes.system_manage.run_sudo", new_callable=AsyncMock) as mock_sudo:
+        mock_sudo.return_value = "active"
+
+        response = client.get("/system/manage/services", headers=auth_headers)
+
+        assert response.status_code == 200
+        assert b"Caddy" in response.content
+        assert b"Pit Panel" in response.content
+        assert b"Nginx" not in response.content
+        assert b"nginx" not in response.content
+

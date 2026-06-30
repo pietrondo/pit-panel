@@ -18,7 +18,6 @@ SERVICES = [
     ("docker", "Docker"),
     ("fail2ban", "Fail2Ban"),
     ("ssh", "SSH"),
-    ("nginx", "Nginx"),
 ]
 
 STATIC_COMMANDS = {
