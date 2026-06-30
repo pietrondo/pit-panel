@@ -1,8 +1,9 @@
 """Sudo operations for system management."""
 
 import asyncio
+from pathlib import Path
 
-ALLOWED_COMMANDS = {"systemctl", "apt-get", "apt", "journalctl", "df", "free", "reboot", "uptime"}
+ALLOWED_COMMANDS = {"systemctl", "apt-get", "apt", "journalctl", "df", "free", "reboot", "uptime", "docker"}
 
 
 async def run_sudo(cmd: list[str], sudo_password: str) -> str:
@@ -10,7 +11,7 @@ async def run_sudo(cmd: list[str], sudo_password: str) -> str:
     if not cmd:
         raise ValueError("Command cannot be empty")
 
-    base_cmd = cmd[0]
+    base_cmd = Path(cmd[0]).name
     if base_cmd not in ALLOWED_COMMANDS:
         raise ValueError(f"Command '{base_cmd}' is not allowed")
 
