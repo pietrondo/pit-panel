@@ -6,7 +6,6 @@ import logging
 
 import httpx
 
-
 logger = logging.getLogger(__name__)
 
 async def check_post_update(base_url: str = "http://127.0.0.1:8080") -> bool:

@@ -1,8 +1,8 @@
 from pathlib import Path
 from unittest.mock import patch
-import pytest
 
 from pit_panel.core.app_manager import AppManager
+
 
 def test_delete_app_exception(tmp_path: Path) -> None:
     apps_dir = tmp_path / "apps"
@@ -11,7 +11,9 @@ def test_delete_app_exception(tmp_path: Path) -> None:
 
     manager = AppManager(apps_dir=str(apps_dir))
 
-    with patch("pit_panel.core.app_manager.shutil.rmtree", side_effect=OSError("Permission denied")):
+    with patch(
+        "pit_panel.core.app_manager.shutil.rmtree", side_effect=OSError("Permission denied")
+    ):
         result = manager.delete_app("myapp")
 
     assert result is False
