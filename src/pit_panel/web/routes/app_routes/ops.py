@@ -97,9 +97,20 @@ async def app_renew_ssl(request: Request, sd_id: int, db: AsyncSession = Depends
     settings = get_settings()
     base_domain = sd.base_domain or settings.base_domain
     fqdn = f"{sd.subdomain}.{base_domain}"
+    caddy = CaddyManager(settings.caddy_admin_url)
 
+    # Step 1: ensure Caddy route exists (may have been missed during deploy)
+    port = 80
+    if sd.app_type:
+        meta = AppManager(settings.apps_dir).get_template_info(sd.app_type)
+        port = meta.get("default_port", 80)
     try:
-        caddy = CaddyManager(settings.caddy_admin_url)
+        await caddy.add_subdomain(sd.subdomain, base_domain, port=port)
+    except Exception as e:
+        logger.warning(f"Caddy route add failed for {fqdn}: {e}")
+
+    # Step 2: reload config to trigger certificate provisioning
+    try:
         r = await caddy.renew_certificate(fqdn)
         if r.get("success"):
             return HTMLResponse(
