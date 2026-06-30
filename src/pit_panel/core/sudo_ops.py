@@ -3,7 +3,10 @@
 import asyncio
 from pathlib import Path
 
-ALLOWED_COMMANDS = {"systemctl", "apt-get", "apt", "journalctl", "df", "free", "reboot", "uptime", "docker"}
+ALLOWED_COMMANDS = {
+    "systemctl", "apt-get", "apt", "journalctl",
+    "df", "free", "reboot", "uptime", "docker",
+}
 
 
 async def run_sudo(cmd: list[str], sudo_password: str) -> str:
