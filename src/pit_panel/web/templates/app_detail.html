@@ -249,6 +249,11 @@
             <span class="mr-1.5">⚙️</span> Environment
         </button>
         <button class="px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px"
+                x-bind:class="active === 'files' ? 'text-indigo-600 border-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border-transparent'"
+                @click="active = 'files'">
+            <span class="mr-1.5">📁</span> Files
+        </button>
+        <button class="px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px"
                 x-bind:class="active === 'logs' ? 'text-indigo-600 border-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border-transparent'"
                 @click="active = 'logs'">
             <span class="mr-1.5">📋</span> Logs
@@ -296,6 +301,20 @@
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
             </svg>
             <span>Loading backup info...</span>
+        </div>
+    </div>
+
+    <div x-show="active === 'files'" x-transition:enter.duration.200ms
+         id="file-manager"
+         hx-get="/apps/{{ sd.id }}/files"
+         hx-trigger="intersect once"
+         hx-swap="innerHTML">
+        <div class="card p-8 flex flex-col items-center justify-center text-sm text-gray-500 gap-3">
+            <svg class="animate-spin h-6 w-6 text-indigo-500" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            <span>Loading files...</span>
         </div>
     </div>
 

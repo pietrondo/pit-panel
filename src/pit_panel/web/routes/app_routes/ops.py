@@ -391,3 +391,94 @@ async def app_status_get(request: Request, sd_id: int, db: AsyncSession = Depend
         running_count=running_count,
         total_count=total_count,
     )
+
+
+@router.get("/apps/{sd_id}/files", response_class=HTMLResponse)
+async def app_files_get(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<div class='text-red-500'>App not found</div>")
+
+    settings = get_settings()
+    app_dir = Path(settings.apps_dir) / sd.subdomain
+    rel = request.query_params.get("path", "").lstrip("/")
+    current = app_dir / rel if rel else app_dir
+
+    # Security: prevent escaping the app dir
+    try:
+        current = current.resolve()
+        current.relative_to(app_dir.resolve())
+    except ValueError:
+        return HTMLResponse("<div class='text-red-500'>Invalid path</div>", status_code=400)
+
+    if current.is_file():
+        try:
+            content = current.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            content = "(binary file — preview not available)"
+        return render(
+            "partials/_file_content.html", request=request, sd=sd, path=str(rel), content=content,
+        )
+
+    entries = []
+    try:
+        for e in sorted(current.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            entries.append({
+                "name": e.name,
+                "is_dir": e.is_dir(),
+                "size": e.stat().st_size if e.is_file() else 0,
+            })
+    except OSError:
+        return HTMLResponse("<div class='text-red-500'>Cannot read directory</div>")
+
+    parent = str(Path(rel).parent) if rel else ""
+    return render(
+        "partials/_files.html", request=request, sd=sd, entries=entries,
+        current=rel, parent=parent, app_dir_name=app_dir.name,
+    )
+
+
+@router.post("/apps/{sd_id}/files/save", response_class=HTMLResponse)
+async def app_files_save(
+    request: Request, sd_id: int, path: str = Form(...),
+    content: str = Form(...), db: AsyncSession = Depends(get_db),
+):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<div class='text-red-500'>App not found</div>", status_code=404)
+
+    settings = get_settings()
+    app_dir = Path(settings.apps_dir) / sd.subdomain
+    target = (app_dir / path.lstrip("/")).resolve()
+    try:
+        target.relative_to(app_dir.resolve())
+    except ValueError:
+        return HTMLResponse("<div class='text-red-500'>Invalid path</div>", status_code=400)
+
+    if not target.exists():
+        return HTMLResponse("<div class='text-red-500'>File not found</div>", status_code=404)
+
+    if any(c in content for c in ['"', "'"]):
+        return HTMLResponse("Quotes are not allowed to prevent quote evasion.", status_code=400)
+
+    try:
+        safe_content = content.replace("\r", "")
+        target.write_text(safe_content, encoding="utf-8")
+        return HTMLResponse("<span class='text-green-600 text-sm'>Saved ✓</span>")
+    except Exception as e:
+        logger.error(f"Failed to save {target}: {e}")
+        return HTMLResponse(f"<span class='text-red-500 text-sm'>Error: {e}</span>")

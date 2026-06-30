@@ -1,0 +1,26 @@
+<div class="flex gap-4 h-[70vh]">
+    <div class="w-64 shrink-0 border-r border-gray-200 dark:border-gray-700 overflow-y-auto text-sm">
+        <div class="p-2 font-medium text-gray-500 text-xs uppercase tracking-wider">Files</div>
+        <a href="?path=" class="flex items-center gap-1.5 px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 text-indigo-600"
+           hx-get="/apps/{{ sd.id }}/files" hx-target="#file-manager" hx-swap="innerHTML">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Back to file list
+        </a>
+    </div>
+    <div class="flex-1 flex flex-col">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-gray-500 truncate">{{ path }}</span>
+            <button class="btn-ghost text-xs text-green-600"
+                    hx-post="/apps/{{ sd.id }}/files/save"
+                    hx-include="closest .file-editor"
+                    hx-target="#save-result">
+                Save
+            </button>
+            <span id="save-result"></span>
+        </div>
+        <form class="file-editor flex-1">
+            <input type="hidden" name="path" value="{{ path }}">
+            <textarea name="content" class="w-full h-full min-h-[60vh] font-mono text-xs p-3 border rounded dark:bg-gray-900 dark:border-gray-700" spellcheck="false">{{ content }}</textarea>
+        </form>
+    </div>
+</div>
