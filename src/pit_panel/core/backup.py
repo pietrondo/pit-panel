@@ -81,13 +81,10 @@ async def perform_app_backup(
             svc_name, db_type, db_user, db_pass, db_name = db_info
             dump_text = None
             if db_type == "postgres":
-                if db_pass:
-                    db_name_fmt = db_name or "postgres"
-                    dump_sh = f"PGPASSWORD={db_pass} pg_dump -U {db_user or 'postgres'} {db_name_fmt}"  # noqa: E501
-                    cmd = ["sh", "-c", dump_sh]
-                else:
-                    cmd = ["pg_dump", "-U", db_user or "postgres", db_name or "postgres"]
-                r = await docker_mgr.exec_command(sd.subdomain, svc_name, cmd)
+                db_name_fmt = db_name or "postgres"
+                cmd = ["pg_dump", "-U", db_user or "postgres", db_name_fmt]
+                env = {"PGPASSWORD": db_pass} if db_pass else None
+                r = await docker_mgr.exec_command(sd.subdomain, svc_name, cmd, env=env)
                 dump_text = r.get("stdout") if r.get("success") else None
             elif "mysql" in db_type:
                 pw_flag = f"-p{db_pass}" if db_pass else ""

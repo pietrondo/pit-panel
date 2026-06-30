@@ -1,6 +1,5 @@
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import text as _text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -46,15 +45,3 @@ async def init_db(settings: Settings) -> None:
     engine = get_engine(settings)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
-    # Migration v4: add is_main_domain column (separate transaction)
-    import logging as _logging
-
-    try:
-        async with engine.begin() as conn:
-            await conn.execute(
-                _text("ALTER TABLE subdomains ADD COLUMN is_main_domain INTEGER DEFAULT 0")
-            )
-            _logging.getLogger(__name__).info("Migrated is_main_domain column")
-    except Exception:
-        _logging.getLogger(__name__).info("is_main_domain column already exists, skipped")

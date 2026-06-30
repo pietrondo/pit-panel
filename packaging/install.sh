@@ -34,6 +34,12 @@ if ! command -v uv &>/dev/null; then
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
+# Ensure /usr/local/bin/uv symlink points to Astral's installed uv binary
+UV_PATH=$(command -v uv || echo "$HOME/.local/bin/uv")
+if [ -f "$UV_PATH" ] && [ "$UV_PATH" != "/usr/local/bin/uv" ]; then
+    ln -sf "$UV_PATH" /usr/local/bin/uv
+fi
+
 if ! command -v caddy &>/dev/null; then
     echo "Installing Caddy..."
     apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
@@ -90,6 +96,11 @@ pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw status numbered
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw --force enable
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw allow *
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw disable
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw deny from *
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw delete deny from *
+pit-panel ALL=(root) NOPASSWD: /usr/bin/git -C /opt/pit-panel fetch origin *
+pit-panel ALL=(root) NOPASSWD: /usr/bin/git -C /opt/pit-panel reset --hard *
+pit-panel ALL=(root) NOPASSWD: /usr/local/bin/uv --directory /opt/pit-panel sync
 pit-panel ALL=(root) NOPASSWD: /usr/bin/apt-get install -y ufw
 pit-panel ALL=(root) NOPASSWD: /usr/bin/apt-get install -y fail2ban
 pit-panel ALL=(root) NOPASSWD: /usr/bin/fail2ban-client status
