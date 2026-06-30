@@ -52,6 +52,10 @@
     </div>
     <div class="p-6">
         <form method="POST" action="/settings/update" class="space-y-4">
+            <input type="hidden" name="base_domain" value="{{ settings.base_domain }}">
+            <input type="hidden" name="panel_subdomain" value="{{ settings.panel_subdomain }}">
+            <input type="hidden" name="abuseipdb_api_key" value="{{ settings.abuseipdb_api_key }}">
+            <input type="hidden" name="sudo_password" value="{{ settings.sudo_password }}">
             <div>
                 <label class="label">Bot Token</label>
                 <input type="password" name="telegram_bot_token" value="{{ settings.telegram_bot_token }}"
