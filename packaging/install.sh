@@ -116,6 +116,9 @@ pit-panel ALL=(root) PASSWD: /usr/bin/systemctl start *
 pit-panel ALL=(root) PASSWD: /usr/bin/journalctl -u *
 pit-panel ALL=(root) PASSWD: /usr/sbin/reboot
 pit-panel ALL=(root) PASSWD: /sbin/reboot
+pit-panel ALL=(root) PASSWD: /usr/bin/df -h
+pit-panel ALL=(root) PASSWD: /usr/bin/free -m
+pit-panel ALL=(root) PASSWD: /usr/bin/docker ps *
 SUDOERS
 chmod 440 /etc/sudoers.d/pit-panel
 

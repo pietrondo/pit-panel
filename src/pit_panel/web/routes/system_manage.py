@@ -35,12 +35,7 @@ STATIC_COMMANDS = {
     "journal_caddy": ["/usr/bin/journalctl", "-u", "caddy", "-n", "100", "--no-pager"],
     "journal_docker": ["/usr/bin/journalctl", "-u", "docker", "-n", "100", "--no-pager"],
     "journal_ssh": ["/usr/bin/journalctl", "-u", "ssh", "-n", "50", "--no-pager"],
-    "docker_ps": [
-        "/usr/bin/docker",
-        "ps",
-        "--format",
-        "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}",
-    ],  # noqa: E501
+    "docker_ps": ["/usr/bin/docker", "ps"],
     "reboot": ["/usr/sbin/reboot"],
 }
 
