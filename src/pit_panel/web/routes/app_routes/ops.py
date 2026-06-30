@@ -262,6 +262,58 @@ async def app_backup_get(request: Request, sd_id: int, db: AsyncSession = Depend
     )
 
 
+def _get_db_service_info(compose_path: Path, env_path: Path) -> tuple | None:
+    """Return (service_name, db_type, user, password, db_name) from docker-compose.yml."""
+    import yaml
+    try:
+        with open(compose_path) as f:
+            data = yaml.safe_load(f)
+        if not data or "services" not in data:
+            return None
+        env_vars = {}
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    env_vars[k.strip()] = v.strip().strip('"').strip("'")
+
+        def _resolve(key: str, cfg: dict) -> str:
+            val = cfg.get(key, "")
+            if isinstance(val, str) and val.startswith("${") and val.endswith("}"):
+                inner = val[2:-1]
+                if ":-" in inner:
+                    inner, default = inner.split(":-", 1)
+                    return env_vars.get(inner, default)
+                return env_vars.get(inner, val)
+            if isinstance(val, str) and val.startswith("$"):
+                return env_vars.get(val[1:], val)
+            return str(val or "")
+
+        for name, svc in data["services"].items():
+            image = svc.get("image", "").lower()
+            cfg = svc.get("environment", {})
+            if isinstance(cfg, list):
+                cfg = {kv.split("=", 1)[0]: kv.split("=", 1)[1] for kv in cfg if "=" in kv}
+            if "postgres" in image:
+                return (
+                    name, "postgres",
+                    _resolve("POSTGRES_USER", cfg),
+                    _resolve("POSTGRES_PASSWORD", cfg),
+                    _resolve("POSTGRES_DB", cfg),
+                )
+            if "mysql" in image or "mariadb" in image:
+                u = _resolve("MYSQL_USER", cfg)
+                p = _resolve("MYSQL_PASSWORD", cfg)
+                dbn = _resolve("MYSQL_DATABASE", cfg)
+                if not u:
+                    u = "root"
+                    p = _resolve("MYSQL_ROOT_PASSWORD", cfg) or p
+                return name, "mysql", u, p, dbn
+        return None
+    except Exception:
+        return None
+
+
 @router.post("/apps/{sd_id}/backup/run", response_class=HTMLResponse)
 async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
@@ -277,13 +329,46 @@ async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depend
     app_dir = Path(settings.apps_dir) / sd.subdomain
     backup_dir = Path(settings.data_dir) / "backups" / sd.subdomain
     backup_dir.mkdir(parents=True, exist_ok=True)
+    docker_mgr = DockerManager(settings.apps_dir)
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     name = f"{sd.subdomain}_{ts}"
     path = backup_dir / f"{name}.tar.gz"
 
     try:
+        # DB dump if applicable
+        db_dump = None
+        db_info = _get_db_service_info(
+            Path(settings.apps_dir) / sd.subdomain / "docker-compose.yml",
+            Path(settings.apps_dir) / sd.subdomain / ".env",
+        )
+        if db_info:
+            svc_name, db_type, db_user, db_pass, db_name = db_info
+            dump_text = None
+            if db_type == "postgres":
+                if db_pass:
+                    cmd = ["sh", "-c", f"PGPASSWORD={db_pass} pg_dump -U {db_user or 'postgres'} {db_name or 'postgres'}"]  # noqa: E501
+                else:
+                    cmd = ["pg_dump", "-U", db_user or "postgres", db_name or "postgres"]
+                r = await docker_mgr.exec_command(sd.subdomain, svc_name, cmd)
+                dump_text = r.get("stdout") if r.get("success") else None
+            elif "mysql" in db_type:
+                pw_flag = f"-p{db_pass}" if db_pass else ""
+                cmd = [
+                    "mysqldump", "--hex-blob",
+                    "-u", db_user or "root", pw_flag,
+                    db_name or "mysql",
+                ]
+                r = await docker_mgr.exec_command(sd.subdomain, svc_name, cmd)
+                dump_text = r.get("stdout") if r.get("success") else None
+            if dump_text:
+                db_dump = backup_dir / f"{name}_db_dump.sql"
+                db_dump.write_text(dump_text)
+
         with tarfile.open(path, "w:gz") as tar:
             tar.add(app_dir, arcname=sd.subdomain)
+            if db_dump and db_dump.exists():
+                tar.add(db_dump, arcname=f"{sd.subdomain}/database_dump.sql")
+                db_dump.unlink()
         size = path.stat().st_size
         sz_mb = size / 1024 / 1024
         size_str = f"{sz_mb:.1f} MB" if sz_mb > 1 else f"{size / 1024:.0f} KB"
