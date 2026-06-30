@@ -155,14 +155,18 @@ async def app_wp_auto_login(
     base_domain = sd.base_domain or settings.base_domain
     fqdn = f"{sd.subdomain}.{base_domain}"
 
-    # Step 1: fix WordPress site URL via WP-CLI (best-effort)
+    # Step 1: fix WordPress site URL and sync admin password via WP-CLI
+    docker_mgr = DockerManager(settings.apps_dir)
     try:
-        docker_mgr = DockerManager(settings.apps_dir)
         await docker_mgr.exec_command(sd.subdomain, "wordpress", [
             "sh", "-c",
             "test -f /tmp/wp-cli.phar || curl -sSLo /tmp/wp-cli.phar"
             " https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
         ])
+    except Exception as e:
+        logger.warning(f"WP-CLI download failed for {sd.subdomain}: {e}")
+
+    try:
         await docker_mgr.exec_command(sd.subdomain, "wordpress", [
             "sh", "-c",
             f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
@@ -171,7 +175,21 @@ async def app_wp_auto_login(
             f" option update home 'https://{fqdn}'"
         ])
     except Exception as e:
-        logger.warning(f"WP-CLI fix failed for {sd.subdomain}: {e}")
+        logger.warning(f"WP-CLI site URL fix failed for {sd.subdomain}: {e}")
+
+    # Sync admin password from .env so auto-login always works
+    try:
+        env = wp_read_env(settings.apps_dir, sd.subdomain)
+        wp_pass = env.get("WP_ADMIN_PASSWORD", "")
+        if wp_pass:
+            await docker_mgr.exec_command(sd.subdomain, "wordpress", [
+                "sh", "-c",
+                f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+                f" user update admin --user_pass='{wp_pass}'"
+            ])
+            logger.info("wp_auto_login[%s]: admin password synced from .env", sd.subdomain)
+    except Exception as e:
+        logger.warning(f"WP-CLI password sync failed for {sd.subdomain}: {e}")
 
     # Step 2: password-based auto-login
     port = _get_wp_port(settings, sd.subdomain)
