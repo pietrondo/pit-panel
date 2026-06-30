@@ -266,9 +266,11 @@ async def app_deploy(
 
     # Docker compose up
     compose_ok = False
+    compose_logs = ""
     try:
         result = await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
         compose_ok = result.get("success", False)
+        compose_logs = (result.get("stdout", "") + result.get("stderr", ""))[:500]
         if not compose_ok:
             error = f"Docker compose failed: {result.get('stderr', '')[:300]}"
     except Exception as e:
@@ -351,24 +353,27 @@ async def app_deploy(
         base_domain = sd.base_domain or settings.base_domain
         await notify_app_deploy(sd.subdomain, stack_type, f"{sd.subdomain}.{base_domain}")
 
+    logs_escaped = (compose_logs or "").replace("&", "&amp;").replace("<", "&lt;")
+    logs_escaped = logs_escaped.replace(">", "&gt;").replace("\n", "<br>")
+    pre_style = 'class="text-xs bg-gray-950 p-3 rounded overflow-auto max-h-60"'
     if error:
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
-        subdomains = result.scalars().all()
-        mgr2 = AppManager()
-        templates = mgr2.list_templates()
-        template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
-        return render(
-            "apps.html",
-            user=user,
-            settings=settings,
-            subdomains=subdomains,
-            templates=templates,
-            template_infos=template_infos,
-            error=error,
-            detected=None,
+        return HTMLResponse(
+            '<div class="card p-6 border-red-400 dark:border-red-700">'
+            '<h3 class="text-red-600 font-semibold mb-2">Deploy failed</h3>'
+            f'<p class="text-sm text-red-500 mb-3">{error}</p>'
+            f'<pre {pre_style} style="color:#fca5a5">{logs_escaped}</pre>'
+            "</div>"
         )
-
-    return RedirectResponse(f"/apps/{sd.id}", status_code=302)
+    fqdn = f"{sd.subdomain}.{sd.base_domain or settings.base_domain}"
+    return HTMLResponse(
+        '<div class="card p-6 border-green-400 dark:border-green-700">'
+        '<h3 class="text-green-600 font-semibold mb-2">Deploy successful!</h3>'
+        f'<p class="text-sm mb-1"><a href="/apps/{sd.id}" class="text-indigo-600 underline">'
+        "Open app details &rarr;</a></p>"
+        f'<p class="text-xs text-gray-500 mb-3">{fqdn}</p>'
+        f'<pre {pre_style} style="color:#86efac">{logs_escaped}</pre>'
+        "</div>"
+    )
 
 
 @router.post("/apps/deploy-from-repo", response_class=HTMLResponse)
