@@ -1,5 +1,6 @@
-"""App operations: restart, stop, delete, status, containers, env, backup, logs."""
+"""App operations: restart, stop, delete, status, containers, env, backup, logs, terminal."""
 
+import asyncio
 import contextlib
 import datetime
 import logging
@@ -8,7 +9,7 @@ import shutil
 import tarfile
 from pathlib import Path
 
-from fastapi import Depends, Form, Request
+from fastapi import Depends, Form, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -550,3 +551,101 @@ async def app_files_save(
     except Exception as e:
         logger.error(f"Failed to save {target}: {e}")
         return HTMLResponse(f"<span class='text-red-500 text-sm'>Error: {e}</span>")
+
+
+def _find_main_service(compose_path: Path) -> str | None:
+    """Return the first non-db service name from docker-compose.yml."""
+    import yaml
+    try:
+        with open(compose_path) as f:
+            data = yaml.safe_load(f)
+        if not data or "services" not in data:
+            return None
+        db_keywords = ("db", "mysql", "postgres", "mariadb", "redis", "database")
+        for name in data["services"]:
+            if name not in db_keywords:
+                return name
+        return None
+    except Exception:
+        return None
+
+
+@router.get("/apps/{sd_id}/terminal", response_class=HTMLResponse)
+async def app_terminal_get(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse(url=f"/auth/login?next=/apps/{sd_id}/terminal")
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return RedirectResponse("/apps", status_code=302)
+
+    settings = get_settings()
+    compose_path = Path(settings.apps_dir) / sd.subdomain / "docker-compose.yml"
+    service = _find_main_service(compose_path) or "wordpress"
+
+    return render("terminal.html", request=request, sd=sd, service=service)
+
+
+@router.websocket("/apps/{sd_id}/terminal/ws")
+async def app_terminal_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = Depends(get_db)):
+    await websocket.accept()
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        await websocket.send_text("ERROR: App not found")
+        await websocket.close()
+        return
+
+    settings = get_settings()
+    compose_path = Path(settings.apps_dir) / sd.subdomain / "docker-compose.yml"
+    service = _find_main_service(compose_path) or "wordpress"
+    cwd = str(Path(settings.apps_dir) / sd.subdomain)
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "compose", "-f", str(compose_path),
+            "exec", "-T", service,
+            "sh",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=cwd,
+        )
+    except OSError as e:
+        await websocket.send_text(f"ERROR: {e}")
+        await websocket.close()
+        return
+
+    async def reader():
+        try:
+            while True:
+                data = await proc.stdout.read(4096)
+                if not data:
+                    break
+                decoded = data.decode(errors="replace")
+                await websocket.send_text(decoded)
+        except Exception:
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await websocket.close()
+
+    async def writer():
+        try:
+            while True:
+                data = await websocket.receive_text()
+                if proc.stdin and not proc.stdin.is_closing():
+                    proc.stdin.write(data.encode())
+                    await proc.stdin.drain()
+        except (WebSocketDisconnect, Exception):
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                proc.kill()
+
+    await asyncio.gather(reader(), writer())

@@ -213,6 +213,104 @@ def test_clone_authenticated(client, monkeypatch, tmp_path):
         client.app.dependency_overrides.clear()
 
 
+def test_backup_run_authenticated(client, monkeypatch, tmp_path):
+    from pit_panel.config import Settings
+
+    sd = _setup_session(client, monkeypatch)
+    app_dir = tmp_path / "apps" / sd.subdomain
+    app_dir.mkdir(parents=True)
+    (app_dir / "test.txt").write_text("hello")
+
+    dd = str(tmp_path / "data")
+    settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"), data_dir=dd)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
+    )
+
+    try:
+        resp = client.post("/apps/1/backup/run", follow_redirects=False)
+        assert resp.status_code == 200
+        assert "Backup created" in resp.text
+        backup_files = list((tmp_path / "data" / "backups" / "blog").iterdir())
+        assert len(backup_files) == 1
+        assert backup_files[0].suffix == ".gz"
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+def test_files_list_authenticated(client, monkeypatch, tmp_path):
+    from pit_panel.config import Settings
+
+    sd = _setup_session(client, monkeypatch)
+    app_dir = tmp_path / "apps" / sd.subdomain
+    app_dir.mkdir(parents=True)
+    (app_dir / "test.txt").write_text("hello world")
+    (app_dir / "subdir").mkdir()
+    (app_dir / "subdir" / "nested.txt").write_text("nested")
+
+    settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
+    )
+
+    try:
+        resp = client.get("/apps/1/files", follow_redirects=False)
+        assert resp.status_code == 200
+        assert "test.txt" in resp.text
+        assert "subdir" in resp.text
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+def test_files_view_authenticated(client, monkeypatch, tmp_path):
+    from pit_panel.config import Settings
+
+    sd = _setup_session(client, monkeypatch)
+    app_dir = tmp_path / "apps" / sd.subdomain
+    app_dir.mkdir(parents=True)
+    (app_dir / "test.txt").write_text("hello world")
+
+    settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
+    )
+
+    try:
+        resp = client.get("/apps/1/files?path=test.txt", follow_redirects=False)
+        assert resp.status_code == 200
+        assert "hello world" in resp.text
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+def test_terminal_requires_login(client):
+    resp = client.get("/apps/1/terminal", follow_redirects=False)
+    assert resp.status_code in (302, 307)
+
+
+def test_terminal_get_authenticated(client, monkeypatch, tmp_path):
+    from pit_panel.config import Settings
+
+    sd = _setup_session(client, monkeypatch)
+    app_dir = tmp_path / "apps" / sd.subdomain
+    app_dir.mkdir(parents=True)
+    compose = app_dir / "docker-compose.yml"
+    compose.write_text("services:\n  web:\n    image: nginx\n")
+
+    settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
+    )
+
+    try:
+        resp = client.get("/apps/1/terminal", follow_redirects=False)
+        assert resp.status_code == 200
+        assert "xterm" in resp.text.lower()
+        assert "web" in resp.text  # first non-db service
+    finally:
+        client.app.dependency_overrides.clear()
+
+
 def test_env_post_authenticated(client, monkeypatch, tmp_path):
     from pit_panel.config import Settings
 

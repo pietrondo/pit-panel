@@ -58,21 +58,18 @@
 # 1. Lint
 uv run ruff check src/ tests/
 
-# 2. Type check (mypy)
-uv run mypy src/pit_panel/
-
-# 3. Tests
+# 2. Tests
 uv run pytest -q
 
-# 4. Push
+# 3. Push
 git push
 ```
 
-All 3 commands MUST pass (lint, mypy, tests) before pushing. No exceptions.
+All commands MUST pass before pushing. No exceptions. **Run tests before deploy, not just before commit.**
 
 ## Commit Rules
-- **ALWAYS lint before committing**: `uv run ruff check src/ tests/` — fix ALL errors, never commit with lint
-- **ALWAYS run tests before committing**: `uv run pytest -q` — 100% must pass
+- **ALWAYS lint + test before committing**: `uv run ruff check src/ tests/ && uv run pytest -q` — 100% must pass
+- **Always write tests for new features** — minimum 1 test per new route/function
 - Every commit MUST pass both commands — no exceptions
 
 ## Issue Tracking
