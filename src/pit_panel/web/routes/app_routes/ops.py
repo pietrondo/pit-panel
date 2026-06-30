@@ -81,6 +81,38 @@ async def app_update(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     return response
 
 
+@router.post("/apps/{sd_id}/renew-ssl", response_class=HTMLResponse)
+async def app_renew_ssl(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>", status_code=404)  # noqa: E501
+
+    settings = get_settings()
+    base_domain = sd.base_domain or settings.base_domain
+    fqdn = f"{sd.subdomain}.{base_domain}"
+
+    try:
+        caddy = CaddyManager(settings.caddy_admin_url)
+        r = await caddy.renew_certificate(fqdn)
+        if r.get("success"):
+            return HTMLResponse(
+                '<span class="text-green-600 text-xs font-medium">SSL renewed ✓</span>'
+            )
+        return HTMLResponse(
+            f'<span class="text-red-500 text-xs">Failed: {r.get("error", "?")}</span>'
+        )
+    except Exception as e:
+        logger.error(f"SSL renew failed for {fqdn}: {e}")
+        return HTMLResponse(f'<span class="text-red-500 text-xs">Error: {e}</span>')
+
+
 @router.post("/apps/{sd_id}/stop", response_class=HTMLResponse)
 async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
