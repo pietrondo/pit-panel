@@ -1,9 +1,11 @@
 """App operations: restart, stop, delete, status, containers, env, backup, logs."""
 
 import contextlib
+import datetime
 import logging
 import os
 import shutil
+import tarfile
 from pathlib import Path
 
 from fastapi import Depends, Form, Request
@@ -238,7 +240,73 @@ async def app_backup_get(request: Request, sd_id: int, db: AsyncSession = Depend
     if not sd:
         return HTMLResponse("<div class='text-red-500'>App not found</div>")
 
-    return render("tabs/_backup.html", request=request, sd=sd)
+    backups_dir2 = Path(get_settings().data_dir) / "backups" / sd.subdomain
+    backups = []
+    if backups_dir2.exists():
+        for f in sorted(backups_dir2.iterdir(), reverse=True)[:20]:
+            if f.suffix == ".tar.gz":
+                sz = f.stat().st_size
+                sz_str = f"{sz / 1024 / 1024:.1f} MB" if sz > 1048576 else f"{sz / 1024:.0f} KB"
+                dt = datetime.datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+                backups.append({"name": f.stem.replace(".tar", ""), "size": sz_str, "date": dt})
+    import json as _json
+    return render(
+        "tabs/_backup.html", request=request, sd=sd, backups=backups,
+        backups_json=_json.dumps(backups),
+    )
+
+
+@router.post("/apps/{sd_id}/backup/run", response_class=HTMLResponse)
+async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>", status_code=401)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<p class='text-red-500'>App not found</p>", status_code=404)
+
+    settings = get_settings()
+    app_dir = Path(settings.apps_dir) / sd.subdomain
+    backup_dir = Path(settings.data_dir) / "backups" / sd.subdomain
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    name = f"{sd.subdomain}_{ts}"
+    path = backup_dir / f"{name}.tar.gz"
+
+    try:
+        with tarfile.open(path, "w:gz") as tar:
+            tar.add(app_dir, arcname=sd.subdomain)
+        size = path.stat().st_size
+        sz_mb = size / 1024 / 1024
+        size_str = f"{sz_mb:.1f} MB" if sz_mb > 1 else f"{size / 1024:.0f} KB"
+
+        db.add(
+            AuditLog(
+                user_id=user.id, action="app_backup", target_type="subdomain",
+                target_id=sd.id, details={"name": name, "size": size},
+                ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
+        )
+        await db.commit()
+
+        html_ok = (
+            '<div class="px-6 py-3 bg-green-50 dark:bg-green-900/20'
+            ' border-b border-green-200 dark:border-green-800">'
+            f'<p class="text-sm text-green-700 dark:text-green-400">'
+            f'Backup created: {name} ({size_str})</p></div>'
+        )
+        return HTMLResponse(html_ok)
+    except Exception as e:
+        logger.error(f"Backup failed for {sd.subdomain}: {e}")
+        html_err = (
+            '<div class="px-6 py-3 bg-red-50 dark:bg-red-900/20'
+            ' border-b border-red-200 dark:border-red-800">'
+            f'<p class="text-sm text-red-600">Backup failed: {e}</p></div>'
+        )
+        return HTMLResponse(html_err)
 
 
 @router.get("/apps/{sd_id}/logs", response_class=HTMLResponse)

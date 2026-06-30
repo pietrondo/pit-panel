@@ -1,11 +1,31 @@
 <div class="card">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Backup</h2>
+        <button class="btn-ghost text-sm text-indigo-600 flex items-center gap-1.5"
+                hx-post="/apps/{{ sd.id }}/backup/run"
+                hx-target="#backup-status"
+                hx-swap="innerHTML">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            Create Backup Now
+        </button>
     </div>
+    <div id="backup-status"></div>
     <div class="p-6">
-        <div class="text-center py-8">
-            <p class="text-gray-500 dark:text-gray-400 mb-4">Backup system coming soon.</p>
-            <button class="btn-ghost text-indigo-700 dark:text-indigo-400" disabled>Create Backup</button>
+        {% if backups %}
+        <div class="space-y-2">
+            {% for b in backups %}
+            <div class="flex items-center justify-between text-sm p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800">
+                <div>
+                    <span class="text-gray-900 dark:text-white">{{ b.name }}</span>
+                    <span class="text-gray-500 ml-2">{{ b.size }}</span>
+                </div>
+                <span class="text-xs text-gray-400">{{ b.date }}</span>
+            </div>
+            {% endfor %}
         </div>
+        {% else %}
+        <p class="text-center text-gray-500 dark:text-gray-400 py-8">No backups yet.</p>
+        {% endif %}
     </div>
 </div>
+<input type="hidden" name="backups_json" value="{{ backups_json }}">
