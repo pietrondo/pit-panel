@@ -1,4 +1,4 @@
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
     <div class="stat-card">
         <div class="flex items-center gap-4">
             <div class="w-9 h-9 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center shrink-0">
@@ -9,6 +9,20 @@
             <div class="min-w-0">
                 <span class="stat-label">Subdomains</span>
                 <p class="stat-value">{{ stats.subdomain_count }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="flex items-center gap-4">
+            <div class="w-9 h-9 bg-cyan-50 dark:bg-cyan-500/10 rounded-lg flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <span class="stat-label">Containers</span>
+                <p class="stat-value">{{ stats.containers_running }} <span class="text-xs font-normal text-surface-500 dark:text-surface-400">/ {{ stats.containers_total }}</span></p>
             </div>
         </div>
     </div>
