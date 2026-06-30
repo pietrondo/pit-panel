@@ -137,12 +137,6 @@ async def test_auto_login_returns_none_on_200_status(httpx_mock, tmp_path):
     )
 
     httpx_mock.add_response(
-        method="GET",
-        url="http://localhost:8081/wp-login.php",
-        status_code=200,
-        headers={"set-cookie": "wordpress_test_cookie=WP+Cookie+check"},
-    )
-    httpx_mock.add_response(
         method="POST",
         url="http://localhost:8081/wp-login.php",
         status_code=200,
@@ -162,11 +156,6 @@ async def test_auto_login_returns_none_on_no_cookies(httpx_mock, tmp_path):
         "WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n"
     )
 
-    httpx_mock.add_response(
-        method="GET",
-        url="http://localhost:8081/wp-login.php",
-        status_code=200,
-    )
     httpx_mock.add_response(
         method="POST",
         url="http://localhost:8081/wp-login.php",
@@ -189,11 +178,6 @@ async def test_auto_login_success(httpx_mock, tmp_path):
     )
 
     httpx_mock.add_response(
-        method="GET",
-        url="http://localhost:8081/wp-login.php",
-        status_code=200,
-    )
-    httpx_mock.add_response(
         method="POST",
         url="http://localhost:8081/wp-login.php",
         status_code=302,
@@ -209,3 +193,36 @@ async def test_auto_login_success(httpx_mock, tmp_path):
     assert redirect_to == "/wp-admin/"
     assert any("wordpress_logged_in" in c for c in cookies)
     assert any("path=/" in c for c in cookies)
+
+
+@pytest.mark.asyncio
+async def test_auto_login_posts_without_testcookie(httpx_mock, tmp_path):
+    """Verify POST data does NOT include testcookie=1 (WordPress test cookie check)."""
+    from pit_panel.core.wp_proxy import auto_login
+
+    app_dir = tmp_path / "blog"
+    app_dir.mkdir()
+    (app_dir / ".env").write_text(
+        "WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n"
+    )
+
+    httpx_mock.add_response(
+        method="POST",
+        url="http://localhost:8081/wp-login.php",
+        status_code=302,
+        headers={
+            "location": "/wp-admin/",
+            "set-cookie": "wordpress_logged_in_abc=token; path=/; HttpOnly",
+        },
+        match_content=None,  # Don't match on content
+    )
+
+    result = await auto_login(str(tmp_path), "blog", 8081, "blog.example.com")
+    assert result is not None
+
+    # Verify the POST request data
+    request = httpx_mock.get_request()
+    body = request.content.decode() if request else ""
+    assert "testcookie" not in body, "POST must not include testcookie parameter"
+    assert "log=admin" in body or "log=" in body
+    assert "pwd=secret" in body or "pwd=" in body

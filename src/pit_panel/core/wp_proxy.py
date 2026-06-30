@@ -69,25 +69,31 @@ async def auto_login(
     wp_user = env.get("WP_ADMIN_USER", "admin")
     wp_pass = env.get("WP_ADMIN_PASSWORD", "")
     if not wp_pass:
+        logger.info("auto_login[%s]: no WP_ADMIN_PASSWORD in .env", subdomain)
         return None
 
-    async with httpx.AsyncClient() as client:
-        # Step 1: GET wp-login.php with default Host (localhost) so the test
-        # cookie is scoped to localhost and httpx sends it on the subsequent POST
-        await client.get(f"http://localhost:{port}/wp-login.php")
+    logger.info(
+        "auto_login[%s]: POST to localhost:%s/wp-login.php (user=%s)",
+        subdomain, port, wp_user,
+    )
 
-        # Step 2: POST credentials with blog FQDN as Host for WordPress routing
+    async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"http://localhost:{port}/wp-login.php",
             data={
                 "log": wp_user,
                 "pwd": wp_pass,
                 "redirect_to": "/wp-admin/",
-                "testcookie": "1",
             },
             headers={"Host": panel_fqdn},
             follow_redirects=False,
         )
+
+    logger.info(
+        "auto_login[%s]: POST → status=%s, location=%s, cookies=%d",
+        subdomain, resp.status_code, resp.headers.get("location"),
+        len(resp.headers.get_list("set-cookie")),
+    )
 
     # WordPress returns 302 + Set-Cookie on success, 200 + login form on failure
     if resp.status_code != 302:

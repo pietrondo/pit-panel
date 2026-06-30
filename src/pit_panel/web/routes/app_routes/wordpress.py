@@ -173,10 +173,12 @@ async def app_wp_auto_login(
     except Exception as e:
         logger.warning(f"WP-CLI fix failed for {sd.subdomain}: {e}")
 
-    # Step 2: fallback to password-based auto-login
+    # Step 2: password-based auto-login
     port = _get_wp_port(settings, sd.subdomain)
+    logger.info("wp_auto_login[%s]: port=%s", sd.subdomain, port)
     if port:
         pw_result = await wp_auto_login(settings.apps_dir, sd.subdomain, port, fqdn)
+        logger.info("wp_auto_login[%s]: result=%s", sd.subdomain, pw_result is not None)
         if pw_result:
             redirect_to, cookies = pw_result
             prefix = f"/apps/{sd_id}/wp"
@@ -185,8 +187,13 @@ async def app_wp_auto_login(
             for cookie_raw in cookies:
                 fixed = _fix_cookie_path_proxy(cookie_raw, prefix)
                 response.headers.append("set-cookie", fixed)
+            logger.info(
+                "wp_auto_login[%s]: SUCCESS → %s (%d cookies)",
+                sd.subdomain, redirect_path, len(cookies),
+            )
             return response
 
+    logger.info("wp_auto_login[%s]: fallback to direct https://%s/wp-admin", sd.subdomain, fqdn)
     return RedirectResponse(url=f"https://{fqdn}/wp-admin")
 
 
