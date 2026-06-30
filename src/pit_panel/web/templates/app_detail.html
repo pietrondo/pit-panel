@@ -33,11 +33,19 @@
                 Open Site
             </a>
             {% if is_wp %}
-            <a href="https://{{ fqdn }}/wp-admin" target="_blank"
+            <a href="/apps/{{ sd.id }}/wp-auto-login"
                class="btn-ghost text-sm text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                 WP Admin
             </a>
+            <button class="btn-ghost text-sm text-yellow-700 dark:text-yellow-400 flex items-center gap-1.5"
+                    hx-post="/apps/{{ sd.id }}/wp-fix-url"
+                    hx-target="#wp-url-result"
+                    hx-swap="innerHTML">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                Fix URL
+            </button>
+            <span id="wp-url-result"></span>
             {% endif %}
             <button class="btn-ghost text-sm text-blue-600 flex items-center gap-1.5"
                     hx-post="/apps/{{ sd.id }}/restart"
@@ -158,7 +166,7 @@
             {% if is_wp %}
             <div class="flex justify-between">
                 <span class="text-gray-500">WP Admin</span>
-                <a href="https://{{ fqdn }}/wp-admin" target="_blank" class="text-indigo-600 hover:underline font-mono text-xs">/wp-admin</a>
+                <a href="/apps/{{ sd.id }}/wp-auto-login" class="text-indigo-600 hover:underline font-mono text-xs">/wp-admin</a>
             </div>
             {% endif %}
         </div>
