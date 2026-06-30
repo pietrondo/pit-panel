@@ -318,6 +318,56 @@ async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depend
         return HTMLResponse(html_err)
 
 
+@router.post("/apps/{sd_id}/backup/restore", response_class=HTMLResponse)
+async def app_backup_restore(
+    request: Request, sd_id: int, name: str = Form(...), db: AsyncSession = Depends(get_db)
+):
+    user = await get_user(request, db)
+    if not user:
+        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>", status_code=401)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<p class='text-red-500'>App not found</p>", status_code=404)
+
+    settings = get_settings()
+    backup_path = Path(settings.data_dir) / "backups" / sd.subdomain / f"{name}.tar.gz"
+    if not backup_path.exists():
+        return HTMLResponse("<p class='text-red-500'>Backup not found</p>", status_code=404)
+
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    try:
+        await docker_mgr.run_compose_command(sd.subdomain, ["down"])
+        import tarfile as _tf
+        with _tf.open(backup_path, "r:gz") as tar:
+            tar.extractall(Path(settings.apps_dir))
+        await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
+
+        db.add(AuditLog(
+            user_id=user.id, action="app_backup_restore", target_type="subdomain",
+            target_id=sd.id, details={"backup": name},
+            ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        ))
+        await db.commit()
+
+        return HTMLResponse(
+            '<div class="px-6 py-3 bg-green-50 dark:bg-green-900/20'
+            ' border-b border-green-200 dark:border-green-800">'
+            f'<p class="text-sm text-green-700 dark:text-green-400">'
+            f'Restored: {name}</p></div>'
+        )
+    except Exception as e:
+        logger.error(f"Restore failed for {sd.subdomain}: {e}")
+        return HTMLResponse(
+            '<div class="px-6 py-3 bg-red-50 dark:bg-red-900/20'
+            ' border-b border-red-200 dark:border-red-800">'
+            f'<p class="text-sm text-red-600">Restore failed: {e}</p></div>'
+        )
+
+
 @router.get("/apps/{sd_id}/logs", response_class=HTMLResponse)
 async def app_logs_get(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)

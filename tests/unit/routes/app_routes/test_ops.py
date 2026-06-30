@@ -213,6 +213,39 @@ def test_clone_authenticated(client, monkeypatch, tmp_path):
         client.app.dependency_overrides.clear()
 
 
+def test_backup_restore_authenticated(client, monkeypatch, tmp_path):
+    from pit_panel.config import Settings
+
+    sd = _setup_session(client, monkeypatch)
+    app_dir = tmp_path / "apps" / sd.subdomain
+    app_dir.mkdir(parents=True)
+    (app_dir / "docker-compose.yml").write_text("services:\n  web:\n    image: nginx\n")
+
+    dd = str(tmp_path / "data")
+    settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"), data_dir=dd)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
+    )
+    monkeypatch.setattr(
+        "pit_panel.core.docker_ops.DockerManager.run_compose_command", AsyncMock()
+    )
+
+    # Create a fake backup
+    import tarfile
+    back_dir = tmp_path / "data" / "backups" / "blog"
+    back_dir.mkdir(parents=True)
+    with tarfile.open(back_dir / "test_backup.tar.gz", "w:gz") as tf:
+        tf.add(app_dir, arcname=sd.subdomain)
+
+    try:
+        url = "/apps/1/backup/restore"
+        resp = client.post(url, data={"name": "test_backup"}, follow_redirects=False)
+        assert resp.status_code == 200
+        assert "Restored" in resp.text
+    finally:
+        client.app.dependency_overrides.clear()
+
+
 def test_backup_run_authenticated(client, monkeypatch, tmp_path):
     from pit_panel.config import Settings
 
