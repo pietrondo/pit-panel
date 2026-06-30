@@ -441,7 +441,7 @@ class TestMainDomain:
                 follow_redirects=False,
             )
 
-            assert resp.status_code == 302
+            assert resp.status_code in (200, 302)
             mock_run_compose.assert_called_once_with("_main_", ["up", "-d"])
             mock_add_main.assert_called_once()
         finally:

@@ -1,6 +1,6 @@
 services:
   memos:
-    image: neosmemo/memos:latest
+    image: neosmemo/memos:stable
     restart: unless-stopped
     ports:
       - '${PORT}:5230'
