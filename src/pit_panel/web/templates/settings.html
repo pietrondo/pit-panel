@@ -45,6 +45,38 @@
     </div>
 </div>
 
+<!-- Telegram notifications -->
+<div class="card mb-8">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Telegram Notifications</h2>
+    </div>
+    <div class="p-6">
+        <form method="POST" action="/settings/update" class="space-y-4">
+            <div>
+                <label class="label">Bot Token</label>
+                <input type="password" name="telegram_bot_token" value="{{ settings.telegram_bot_token }}"
+                       placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" class="input font-mono">
+                <p class="text-xs text-gray-500 mt-1">Get it from <a href="https://t.me/BotFather" target="_blank" class="text-indigo-600">@BotFather</a></p>
+            </div>
+            <div>
+                <label class="label">Chat ID</label>
+                <input type="text" name="telegram_chat_id" value="{{ settings.telegram_chat_id }}"
+                       placeholder="-1001234567890" class="input font-mono">
+                <p class="text-xs text-gray-500 mt-1">Get it from <a href="https://t.me/userinfobot" target="_blank" class="text-indigo-600">@userinfobot</a></p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-lg transition-colors">Save</button>
+                <button class="btn-ghost text-xs text-green-600"
+                        hx-post="/settings/test-notification"
+                        hx-target="#telegram-test-result">
+                    Send Test
+                </button>
+                <span id="telegram-test-result"></span>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- System info -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <div class="card p-6">

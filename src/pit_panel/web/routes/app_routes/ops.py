@@ -73,6 +73,9 @@ async def app_update(request: Request, sd_id: int, db: AsyncSession = Depends(ge
             )
         )
         await db.commit()
+        if r.get("success"):
+            from pit_panel.core.notifier import notify_app_update
+            await notify_app_update(sd.subdomain)
     response = HTMLResponse("")
     response.headers["HX-Redirect"] = f"/apps/{sd_id}"
     return response
@@ -292,6 +295,9 @@ async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depend
             )
         )
         await db.commit()
+
+        from pit_panel.core.notifier import notify_app_backup
+        await notify_app_backup(sd.subdomain, name, size_str)
 
         html_ok = (
             '<div class="px-6 py-3 bg-green-50 dark:bg-green-900/20'

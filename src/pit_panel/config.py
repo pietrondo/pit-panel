@@ -61,6 +61,10 @@ class Settings(BaseSettings):  # type: ignore[misc]
     auto_update: bool = True
     update_interval_hours: int = 6
 
+    # Notifications
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
     # Docker
     docker_socket: str = "unix:///var/run/docker.sock"
 
@@ -108,6 +112,8 @@ class Settings(BaseSettings):  # type: ignore[misc]
             "host": self.host,
             "abuseipdb_api_key": self.abuseipdb_api_key,
             "sudo_password": self.sudo_password,
+            "telegram_bot_token": self.telegram_bot_token,
+            "telegram_chat_id": self.telegram_chat_id,
             "caddy_admin_url": self.caddy_admin_url,
             "secret_key": self.secret_key,
             "database_url": self.database_url,
