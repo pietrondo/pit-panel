@@ -2,10 +2,11 @@
 
 import asyncio
 import contextlib
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
@@ -16,13 +17,13 @@ from pit_panel.web.limiter import limiter
 
 
 @asynccontextmanager
-async def _lifespan(app: FastAPI):
+async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from pit_panel.core.blocklist import daily_blocklist_import
     from pit_panel.core.caddy import ssl_auto_renew_loop
 
     tasks = [
-        asyncio.create_task(daily_blocklist_import()),
-        asyncio.create_task(ssl_auto_renew_loop()),
+        asyncio.create_task(daily_blocklist_import()),  # type: ignore[no-untyped-call]
+        asyncio.create_task(ssl_auto_renew_loop()),  # type: ignore[no-untyped-call]
     ]
     yield
     for t in tasks:
@@ -31,7 +32,9 @@ async def _lifespan(app: FastAPI):
             await t
 
 
-async def _ip_ban_middleware(request: Request, call_next):
+async def _ip_ban_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     client_ip = request.client.host if request.client else "unknown"
     try:
         sessionmaker = get_sessionmaker()
@@ -48,7 +51,9 @@ async def _ip_ban_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-async def _security_headers_middleware(request: Request, call_next):
+async def _security_headers_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -114,17 +119,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(system_router)
     app.include_router(system_manage_router)
 
-    @app.get("/health")
-    async def health():
+    @app.get("/health")  # type: ignore[untyped-decorator]
+    async def health() -> dict[str, str]:
         return {"status": "ok"}
 
     return app
 
 
-def _make_ratelimit_handler():
+def _make_ratelimit_handler() -> Callable[[Request, RateLimitExceeded], Awaitable[Response]]:
     from slowapi import _rate_limit_exceeded_handler
 
-    async def handler(request: Request, exc: RateLimitExceeded):
+    async def handler(request: Request, exc: RateLimitExceeded) -> Response:
         return await _rate_limit_exceeded_handler(request, exc)
 
     return handler
