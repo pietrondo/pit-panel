@@ -79,15 +79,14 @@ class Settings(BaseSettings):  # type: ignore[misc]
     def from_config_file(cls, path: str | None = None) -> "Settings":
         import os
 
-        config_path_str = (
-            path or os.environ.get("PITPANEL_CONFIG_PATH") or "/etc/pit-panel/config.toml"
-        )
-        config_file = Path(config_path_str)
-        if config_file.exists():
-            with open(config_file, "rb") as f:
-                data = tomli.load(f)
-            return cls(**data)
-        return cls()
+        cfg = path or os.environ.get("PITPANEL_CONFIG_PATH") or "/etc/pit-panel/config.toml"
+        data = {}
+        for p in [cfg, "/var/lib/pit-panel/config.toml"]:
+            fpath = Path(p)
+            if fpath.exists():
+                with open(fpath, "rb") as f:
+                    data.update(tomli.load(f))
+        return cls(**data)
 
     def ensure_paths(self) -> None:
         for p in [self.data_dir, self.apps_dir]:
@@ -99,12 +98,9 @@ class Settings(BaseSettings):  # type: ignore[misc]
         return f"sqlite+aiosqlite:///{self.data_dir}/pit-panel.db"
 
     def save_config_file(self) -> None:
-        import subprocess
-        import tempfile
-
         import tomli_w
 
-        config_path = Path(self.config_path)
+        config_path = Path(self.data_dir) / "config.toml"
         config_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "base_domain": self.base_domain,
@@ -119,17 +115,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
             "database_url": self.database_url,
             "debug": self.debug,
         }
-        try:
-            with open(config_path, "wb") as f:
-                tomli_w.dump(data, f)
-        except (OSError, PermissionError):
-            with tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".toml") as tmp:
-                tomli_w.dump(data, tmp)
-                tmp_path = tmp.name
-            subprocess.run(
-                ["sudo", "-n", "cp", tmp_path, str(config_path)], capture_output=True, timeout=10
-            )
-            Path(tmp_path).unlink(missing_ok=True)
+        config_path.write_bytes(tomli_w.dumps(data).encode())
 
 
 _settings: Settings | None = None
