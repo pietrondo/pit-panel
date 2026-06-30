@@ -187,7 +187,11 @@
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
                 </div>
                 <div class="p-6">
-                    <form method="POST" action="/apps/deploy" class="space-y-4" @submit="isSubmitting = true">
+                    <form method="POST" action="/apps/deploy" class="space-y-4"
+                          hx-post="/apps/deploy"
+                          hx-target="#deploy-result"
+                          hx-swap="innerHTML"
+                          @submit="isSubmitting = true">
 
                     <div class="form-control">
                         <label class="label cursor-pointer justify-start gap-3">
