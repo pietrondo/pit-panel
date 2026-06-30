@@ -1,5 +1,6 @@
 """Tests for WordPress proxy module."""
 
+import inspect
 import json
 from unittest.mock import AsyncMock, patch
 
@@ -10,6 +11,7 @@ from pit_panel.core.wp_proxy import (
     _fix_location,
     _rewrite_content,
     _rewrite_urls,
+    auto_login,
     read_env,
 )
 
@@ -121,7 +123,6 @@ def test_fix_location_absolute():
 
 @pytest.mark.asyncio
 async def test_auto_login_returns_none_on_missing_password(tmp_path):
-    from pit_panel.core.wp_proxy import auto_login
     app_dir = tmp_path / "blog"
     app_dir.mkdir()
     (app_dir / ".env").write_text("WP_ADMIN_USER=admin\n")
@@ -131,8 +132,6 @@ async def test_auto_login_returns_none_on_missing_password(tmp_path):
 
 @pytest.mark.asyncio
 async def test_auto_login_subprocess_fails(tmp_path):
-    from pit_panel.core.wp_proxy import auto_login
-
     app_dir = tmp_path / "blog"
     app_dir.mkdir()
     (app_dir / ".env").write_text(
@@ -151,7 +150,7 @@ async def test_auto_login_subprocess_fails(tmp_path):
 
 @pytest.mark.asyncio
 async def test_auto_login_returns_none_on_no_cookies(tmp_path):
-    from pit_panel.core.wp_proxy import auto_login
+
 
     app_dir = tmp_path / "blog"
     app_dir.mkdir()
@@ -171,8 +170,6 @@ async def test_auto_login_returns_none_on_no_cookies(tmp_path):
 
 def test_auto_login_php_code_uses_arrow_syntax():
     """Verify PHP inline code uses => not : for array key-value pairs."""
-    import inspect
-    from pit_panel.core.wp_proxy import auto_login
     source = inspect.getsource(auto_login)
     assert '"cookies"=>' in source, "PHP array must use => not : for keys"
     assert '"cookies":' not in source, "Found JS-style ':' in PHP code - use => instead"
@@ -180,7 +177,7 @@ def test_auto_login_php_code_uses_arrow_syntax():
 
 @pytest.mark.asyncio
 async def test_auto_login_success(tmp_path):
-    from pit_panel.core.wp_proxy import auto_login
+
 
     app_dir = tmp_path / "blog"
     app_dir.mkdir()

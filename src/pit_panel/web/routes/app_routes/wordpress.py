@@ -1,8 +1,10 @@
 """WordPress-specific routes: proxy, auto-login, cache/plugin/core management."""
 
 import asyncio
+import base64
 import logging
 import os
+from pathlib import Path
 
 from fastapi import Depends, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -11,10 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
 from pit_panel.core.docker_ops import DockerManager
-from pit_panel.core.wp_proxy import (
-    _fix_cookie_path as _fix_cookie_path_proxy,
-)
-from pit_panel.core.wp_proxy import auto_login as wp_auto_login
 from pit_panel.core.wp_proxy import proxy_request as wp_proxy_request
 from pit_panel.core.wp_proxy import read_env as wp_read_env
 from pit_panel.db.models import Subdomain
@@ -155,8 +153,9 @@ async def app_wp_auto_login(
     base_domain = sd.base_domain or settings.base_domain
     fqdn = f"{sd.subdomain}.{base_domain}"
 
-    # Step 1: ensure WP-CLI phar is available in the container
     docker_mgr = DockerManager(settings.apps_dir)
+
+    # Step 1: ensure WP-CLI phar is available
     try:
         await docker_mgr.exec_command(sd.subdomain, "wordpress", [
             "sh", "-c",
@@ -166,7 +165,7 @@ async def app_wp_auto_login(
     except Exception as e:
         logger.warning(f"WP-CLI download failed for {sd.subdomain}: {e}")
 
-    # Step 2: fix WordPress site URL (best-effort)
+    # Step 2: fix site URL
     try:
         await docker_mgr.exec_command(sd.subdomain, "wordpress", [
             "sh", "-c",
@@ -178,25 +177,66 @@ async def app_wp_auto_login(
     except Exception as e:
         logger.warning(f"WP-CLI site URL fix failed for {sd.subdomain}: {e}")
 
-    # Step 3: generate auth cookies via WP-CLI eval (bypasses wp-login.php)
-    port = _get_wp_port(settings, sd.subdomain)
-    logger.info("wp_auto_login[%s]: port=%s", sd.subdomain, port)
-    if port:
-        pw_result = await wp_auto_login(settings.apps_dir, sd.subdomain, port, fqdn)
-        logger.info("wp_auto_login[%s]: result=%s", sd.subdomain, pw_result is not None)
-        if pw_result:
-            redirect_to, cookies = pw_result
-            prefix = f"/apps/{sd_id}/wp"
-            redirect_path = f"{prefix}/{redirect_to.lstrip('/')}" if redirect_to.startswith("/") else f"{prefix}/wp-admin/"  # noqa: E501
-            response = RedirectResponse(url=redirect_path, status_code=302)
-            for cookie_raw in cookies:
-                fixed = _fix_cookie_path_proxy(cookie_raw, prefix)
-                response.headers.append("set-cookie", fixed)
-            logger.info(
-                "wp_auto_login[%s]: SUCCESS → %s (%d cookies)",
-                sd.subdomain, redirect_path, len(cookies),
-            )
-            return response
+    # Step 3: ensure the auth-handler PHP file exists in WordPress web root
+    handler_path = Path(settings.apps_dir) / sd.subdomain / ".pit-auth-handler.php"
+    if not handler_path.exists():
+        handler_code = """<?php
+require_once dirname(__DIR__).'/wp-load.php';
+$t=$_GET['token']??'';
+if(!$t)die();
+$d=get_transient('pit_'.$t);
+if(!$d)die();
+delete_transient('pit_'.$t);
+$c=json_decode($d,true)?:[];
+foreach($c as $n=>$v)setcookie($n,$v,time()+86400,COOKIEPATH,COOKIE_DOMAIN,true,true);
+header('Location: /wp-admin/');
+"""
+        handler_path.write_text(handler_code)
+        try:
+            await docker_mgr.exec_command(sd.subdomain, "wordpress", [
+                "sh", "-c", "mkdir -p wp-content",
+            ])
+            b64 = base64.b64encode(handler_code.encode()).decode()
+            await docker_mgr.exec_command(sd.subdomain, "wordpress", [
+                "sh", "-c",
+                f"echo '{b64}' | base64 -d > wp-content/pit-auth.php",
+            ])
+            logger.info("wp_auto_login[%s]: auth handler installed", sd.subdomain)
+        except Exception as e:
+            logger.warning(f"Auth handler install failed for {sd.subdomain}: {e}")
+
+    # Step 4: generate auth cookies and store as transient
+    token = base64.urlsafe_b64encode(os.urandom(12)).rstrip(b"=").decode()
+    php_code = (
+        '$id=1;$exp=time()+86400;'
+        '$li=wp_generate_auth_cookie($id,$exp,"logged_in");'
+        '$sa=wp_generate_auth_cookie($id,$exp,"secure_auth");'
+        '$au=wp_generate_auth_cookie($id,$exp,"auth");'
+        'set_transient('
+        f'  \'pit_{token}\','
+        '  json_encode(array('
+        '    LOGGED_IN_COOKIE=>$li,'
+        '    SECURE_AUTH_COOKIE=>$sa,'
+        '    AUTH_COOKIE=>$au'
+        '  )),'
+        '  30'
+        ');'
+        'echo json_encode(array("ok"=>true));'
+    )
+    try:
+        r = await docker_mgr.exec_command(sd.subdomain, "wordpress", [
+            "php", "-d", "memory_limit=256M", "/tmp/wp-cli.phar",
+            "--allow-root", "eval", php_code,
+        ])
+        if r.get("success"):
+            logger.info("wp_auto_login[%s]: transient stored, redirecting to blog", sd.subdomain)
+            return RedirectResponse(url=f"https://{fqdn}/wp-content/pit-auth.php?token={token}")
+        logger.warning(
+            "wp_auto_login[%s]: WP-CLI transient failed: %s",
+            sd.subdomain, r.get("stderr", "")[:200],
+        )
+    except Exception as e:
+        logger.warning(f"wp_auto_login[%s]: transient error: {e}", sd.subdomain)
 
     logger.info("wp_auto_login[%s]: fallback to direct https://%s/wp-admin", sd.subdomain, fqdn)
     return RedirectResponse(url=f"https://{fqdn}/wp-admin")
