@@ -3,6 +3,8 @@
 import contextlib
 import logging
 import os
+import shutil
+from pathlib import Path
 
 from fastapi import Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -97,6 +99,54 @@ async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_
         )
         await db.commit()
     return RedirectResponse("/apps", status_code=302)
+
+
+@router.post("/apps/{sd_id}/clone", response_class=HTMLResponse)
+async def app_clone(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd or not sd.app_type:
+        return RedirectResponse("/apps", status_code=302)
+
+    settings = get_settings()
+    base = sd.subdomain
+    suffix = 1
+    while (Path(settings.apps_dir) / f"{base}-clone{suffix}").exists():
+        suffix += 1
+    clone_name = f"{base}-clone{suffix}"
+
+    # Copy app directory
+    shutil.copytree(
+        Path(settings.apps_dir) / base,
+        Path(settings.apps_dir) / clone_name,
+    )
+
+    # Create DB record
+    clone_sd = Subdomain(
+        subdomain=clone_name,
+        base_domain=sd.base_domain or settings.base_domain,
+        owner_user_id=user.id,
+        app_type=sd.app_type,
+    )
+    db.add(clone_sd)
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action="app_clone",
+            target_type="subdomain",
+            target_id=clone_sd.id,
+            details={"source": base, "clone": clone_name},
+            ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    )
+    await db.commit()
+
+    return RedirectResponse(f"/apps/{clone_sd.id}", status_code=302)
 
 
 @router.post("/apps/{sd_id}/delete", response_class=HTMLResponse)

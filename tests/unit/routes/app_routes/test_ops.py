@@ -190,6 +190,29 @@ def test_env_get_authenticated(client, monkeypatch, tmp_path):
         client.app.dependency_overrides.clear()
 
 
+def test_clone_authenticated(client, monkeypatch, tmp_path):
+    from pit_panel.config import Settings
+
+    sd = _setup_session(client, monkeypatch)
+    app_dir = tmp_path / "apps" / sd.subdomain
+    app_dir.mkdir(parents=True)
+    (app_dir / "docker-compose.yml").write_text("services:\n  web:\n    image: nginx\n")
+    (app_dir / ".env").write_text("PORT=8080\n")
+
+    settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
+    )
+
+    try:
+        resp = client.post("/apps/1/clone", follow_redirects=False)
+        assert resp.status_code == 302
+        assert "/apps/" in resp.headers["location"]
+        assert (tmp_path / "apps" / "blog-clone1").exists()
+    finally:
+        client.app.dependency_overrides.clear()
+
+
 def test_env_post_authenticated(client, monkeypatch, tmp_path):
     from pit_panel.config import Settings
 
