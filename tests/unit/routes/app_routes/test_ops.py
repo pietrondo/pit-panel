@@ -144,6 +144,23 @@ def test_status_authenticated(client, monkeypatch):
         client.app.dependency_overrides.clear()
 
 
+def test_update_authenticated(client, monkeypatch):
+    _setup_session(client, monkeypatch)
+    mock_compose = AsyncMock()
+    mock_compose.return_value = {"success": True}
+    monkeypatch.setattr(
+        "pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_compose
+    )
+
+    try:
+        resp = client.post("/apps/1/update", follow_redirects=False)
+        assert resp.status_code == 200
+        assert resp.headers.get("HX-Redirect") == "/apps/1"
+        assert mock_compose.call_count == 2  # pull + up -d
+    finally:
+        client.app.dependency_overrides.clear()
+
+
 def test_containers_requires_login(client):
     resp = client.get("/apps/1/containers", follow_redirects=False)
     assert resp.status_code in (200, 302)

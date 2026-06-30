@@ -41,6 +41,38 @@ async def app_restart(request: Request, sd_id: int, db: AsyncSession = Depends(g
     return response
 
 
+@router.post("/apps/{sd_id}/update", response_class=HTMLResponse)
+async def app_update(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if sd:
+        settings = get_settings()
+        docker_mgr = DockerManager(settings.apps_dir)
+        r = await docker_mgr.run_compose_command(sd.subdomain, ["pull"])
+        if r.get("success"):
+            await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
+        db.add(
+            AuditLog(
+                user_id=user.id,
+                action="app_update",
+                target_type="subdomain",
+                target_id=sd.id,
+                details={"subdomain": sd.subdomain, "pull_ok": r.get("success")},
+                ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
+        )
+        await db.commit()
+    response = HTMLResponse("")
+    response.headers["HX-Redirect"] = f"/apps/{sd_id}"
+    return response
+
+
 @router.post("/apps/{sd_id}/stop", response_class=HTMLResponse)
 async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
