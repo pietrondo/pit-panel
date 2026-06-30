@@ -549,9 +549,6 @@ async def app_files_save(
     if not target.exists():
         return HTMLResponse("<div class='text-red-500'>File not found</div>", status_code=404)
 
-    if any(c in content for c in ['"', "'"]):
-        return HTMLResponse("Quotes are not allowed to prevent quote evasion.", status_code=400)
-
     try:
         safe_content = content.replace("\r", "")
         target.write_text(safe_content, encoding="utf-8")
