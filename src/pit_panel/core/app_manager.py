@@ -1,6 +1,7 @@
 """Application deployment from templates."""
 
 import json
+import logging
 import secrets
 import shutil
 from pathlib import Path
@@ -8,6 +9,7 @@ from string import Template
 from typing import Any, cast
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates-app"
+logger = logging.getLogger(__name__)
 
 
 class AppManager:
@@ -54,8 +56,12 @@ class AppManager:
     def delete_app(self, subdomain: str) -> bool:
         target_dir = self.apps_dir / subdomain
         if target_dir.exists() and target_dir.is_dir():
-            shutil.rmtree(target_dir)
-            return True
+            try:
+                shutil.rmtree(target_dir)
+                return True
+            except Exception as e:
+                logger.error("Failed to delete app directory %s: %s", target_dir, e)
+                return False
         return False
 
     def list_templates(self) -> list[str]:
