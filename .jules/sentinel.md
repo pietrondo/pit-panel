@@ -1,27 +1,4 @@
-## 2026-06-26 - Caddyfile Directive Injection
-
-**Vulnerability:** Caddyfile configuration injection via unescaped carriage return `\r` and newline `\n` characters, allowing malicious users to inject arbitrary Caddy directives.
-**Learning:** Depending exclusively on Regex character classes like `r'[\r\n"{}']` in `re.sub` might be less clear than explicit `str.replace` sequences, or there could be a discrepancy with how literal strings or specific forms input parsing worked. Explicit replacements prevent any ambiguity in newline sanitation for Caddyfile directive escaping.
-**Prevention:** Always use highly explicit sequences of `replace()` or strict whitelisting for configuration templates when interpolating user-controlled inputs. Additionally, write unit tests to explicitly verify injection payloads like `\r\n` are properly sanitized.
-## 2024-05-24 - Input Validation for System and Docker Commands
-**Vulnerability:** User inputs such as `api_token`, `container_id`, `base_domain`, and `panel_subdomain` were passed to system-level configuration files (Caddyfile, `.env`) and docker subprocess commands without strict sanitization.
-**Learning:** This allowed potential command injection (via dashed prefixes to `docker` commands) or escaping configuration file formats (via newlines and quotes in `.env` files). Relying on client-side or implicit validation is insufficient when the inputs eventually hit the shell, docker daemon, or system configurations.
-**Prevention:** Always implement strict server-side regex validation (e.g. `^[a-zA-Z0-9.-]+$`) for IDs and domain names, and explicitly block control characters and quotes (`\n`, `\r`, `"`, `'`) for tokens before writing them to configuration files or executing subprocess commands. Return an early 400 Bad Request to halt execution.
-## 2026-10-24 - Environment Variable Escaping in .env
-
-**Vulnerability:** User-controlled inputs (`api_var` and `api_token`) were written directly to `/etc/caddy/.env` without sanitization. This allowed attackers to inject newlines (`\n`) and quotes to escape the intended variable assignment and define arbitrary environment variables or execute commands if the file is sourced by a shell script.
-**Learning:** Even when writing to configuration files rather than executing commands directly, unsanitized input can lead to severe security risks (like command injection or unauthorized configuration) when those files are parsed by other tools (like Caddy or bash).
-**Prevention:** Always explicitly block and remove control characters (`\n`, `\r`) and quotes (`"`, `'`) from user inputs before interpolating them into environment variable configuration files (e.g., using explicit `.replace()` chains).
-## 2024-05-30 - Caddyfile Directive Injection
-
-**Learning:** When sanitizing user inputs for configuration file injection (like Caddyfile), ensure to strip backticks (`), single quotes ('), newlines (\n), and carriage returns (\r) in addition to double quotes and braces to fully prevent interpolation breakouts.
-**Action:** Always prefer explicit string replacements (`.replace()`) over regex for config sanitization to maximize strictness and clarity.
-
-## 2026-06-27 - Subprocess Pipe Bug
-**Vulnerability:** Mixing `bytes` and `str` across piped `subprocess.run` commands where `text=True` is set.
-**Learning:** When passing `r1.stdout` as `input` to `r2` where `r2` uses `text=True`, `r1` MUST also use `text=True` (and thus take string inputs instead of byte inputs). Otherwise, Python throws an `AttributeError: 'bytes' object has no attribute 'encode'`.
-**Prevention:** When mocking `|` operators with chained `subprocess.run`, strictly synchronize the `text=True` argument across the entire chain.
-## 2024-05-18 - [Sentinel] Fixed CRLF Injection and Timing Attack
-**Vulnerability:** CRLF injection in HTTP Headers and Timing Attack in Debug Token
-**Learning:** Input going to `http.client` should be sanitized (newlines stripped) and string comparison against sensitive tokens should use `secrets.compare_digest` with properly encoded byte-strings.
-**Prevention:** Ensure inputs to HTTP headers are stripped of CRLF, and use constant-time comparisons for token checks.
+## 2025-02-23 - Command Injection in fail2ban and systemctl endpoints
+**Vulnerability:** Command option injection through unvalidated user inputs passed to `systemctl` and `fail2ban-client` wrappers in `system_manage.py` and `security.py`. Although `shell=True` was avoided, the lack of `--` separator and regex validation allowed potential injection of malicious options (e.g., `-H` or `--help`) or other metacharacters.
+**Learning:** Even when avoiding `shell=True`, raw user input must never be passed directly as arguments to system utilities, especially when acting as the primary parameter (e.g., service or jail names). Python's `html.escape()` or similar escaping functions do not protect against command line option injection.
+**Prevention:** Strictly validate arguments using explicit regex patterns (e.g., `^[a-zA-Z0-9_-]+$`) to ensure only safe characters are permitted, and structurally segregate user inputs from utility options whenever possible.
