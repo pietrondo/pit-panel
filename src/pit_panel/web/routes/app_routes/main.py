@@ -543,3 +543,38 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
         app_port=app_info.get("default_port", ""),
         ssl_info=ssl_info,
     )
+
+
+@router.post("/apps/update-all", response_class=HTMLResponse)
+async def app_update_all(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+    result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
+    apps = result.scalars().all()
+    results = []
+    for sd in apps:
+        try:
+            r = await docker_mgr.run_compose_command(sd.subdomain, ["pull"])
+            pull_ok = r.get("success", False)
+            if pull_ok:
+                await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
+            results.append((sd.subdomain, pull_ok))
+        except Exception as e:
+            results.append((sd.subdomain, False))
+            logger.error(f"Update all failed for {sd.subdomain}: {e}")
+
+    ok_count = sum(1 for _, ok in results if ok)
+    total = len(results)
+    html = (
+        '<div class="p-3 rounded-lg bg-green-50 dark:bg-green-900/20'
+        ' border border-green-200 dark:border-green-800">'
+        f'<p class="text-sm text-green-700 dark:text-green-400">'
+        f'Updated {ok_count}/{total} apps</p></div>'
+    )
+    return HTMLResponse(html)
