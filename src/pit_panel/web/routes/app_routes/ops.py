@@ -402,7 +402,8 @@ async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depend
                     cmd = [
                         "sh",
                         "-c",
-                        f"PGPASSWORD={db_pass} pg_dump -U {db_user or 'postgres'} {db_name or 'postgres'}",
+                        f"PGPASSWORD={db_pass} pg_dump -U {db_user or 'postgres'} "
+                        f"{db_name or 'postgres'}",
                     ]  # noqa: E501
                 else:
                     cmd = ["pg_dump", "-U", db_user or "postgres", db_name or "postgres"]
