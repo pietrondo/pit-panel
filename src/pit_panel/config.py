@@ -65,6 +65,10 @@ class Settings(BaseSettings):  # type: ignore[misc]
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # Backup
+    backup_enabled: bool = False
+    backup_retention_days: int = 7
+
     # Docker
     docker_socket: str = "unix:///var/run/docker.sock"
 
@@ -114,6 +118,8 @@ class Settings(BaseSettings):  # type: ignore[misc]
             "secret_key": self.secret_key,
             "database_url": self.database_url,
             "debug": self.debug,
+            "backup_enabled": self.backup_enabled,
+            "backup_retention_days": self.backup_retention_days,
         }
         config_path.write_bytes(tomli_w.dumps(data).encode())
 

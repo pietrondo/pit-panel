@@ -235,3 +235,67 @@ async def test_unban_ip_address():
             ["sudo", "-n", "ufw", "delete", "deny", "from", "1.2.3.4"]
         )
         mock_unban_ip.assert_called_once_with(mock_db, "1.2.3.4", 1)
+
+
+@pytest.mark.asyncio
+async def test_run_cmd_sudo_with_password():
+    from pit_panel.config import Settings
+
+    test_settings = Settings(sudo_password="supersecurepassword")
+
+    with (
+        patch("pit_panel.config.get_settings", return_value=test_settings),
+        patch("asyncio.create_subprocess_exec") as mock_exec,
+    ):
+        mock_process = AsyncMock()
+        mock_process.communicate.return_value = (b"success\n", b"")
+        mock_exec.return_value = mock_process
+
+        result = await _run_cmd(["sudo", "-n", "ufw", "status"])
+
+        assert result == "success"
+
+        import asyncio
+
+        mock_exec.assert_called_once_with(
+            "sudo",
+            "-S",
+            "ufw",
+            "status",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        mock_process.communicate.assert_called_once_with(input=b"supersecurepassword\n")
+
+
+@pytest.mark.asyncio
+async def test_run_cmd_sudo_with_password_and_existing_input():
+    from pit_panel.config import Settings
+
+    test_settings = Settings(sudo_password="supersecurepassword")
+
+    with (
+        patch("pit_panel.config.get_settings", return_value=test_settings),
+        patch("asyncio.create_subprocess_exec") as mock_exec,
+    ):
+        mock_process = AsyncMock()
+        mock_process.communicate.return_value = (b"success\n", b"")
+        mock_exec.return_value = mock_process
+
+        result = await _run_cmd(["sudo", "-n", "ufw", "status"], input="custom_input")
+
+        assert result == "success"
+
+        import asyncio
+
+        mock_exec.assert_called_once_with(
+            "sudo",
+            "-S",
+            "ufw",
+            "status",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        mock_process.communicate.assert_called_once_with(input=b"supersecurepassword\ncustom_input")

@@ -35,6 +35,12 @@
                 <input type="text" name="panel_subdomain" value="{{ settings.panel_subdomain }}" required
                        class="input font-mono" pattern="[a-z0-9-]+">
             </div>
+            <div>
+                <label class="label">Sudo Password</label>
+                <input type="password" name="sudo_password" value="{{ settings.sudo_password }}"
+                       placeholder="Your sudo password for system management" class="input font-mono">
+                <p class="text-xs text-gray-500 mt-1">Required for system management (services, reboot, etc.)</p>
+            </div>
             <div class="flex items-center gap-4">
                 <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-lg transition-colors">Save Settings</button>
                 <span class="text-xs text-gray-500 dark:text-gray-400">
@@ -55,7 +61,6 @@
             <input type="hidden" name="base_domain" value="{{ settings.base_domain }}">
             <input type="hidden" name="panel_subdomain" value="{{ settings.panel_subdomain }}">
             <input type="hidden" name="abuseipdb_api_key" value="{{ settings.abuseipdb_api_key }}">
-            <input type="hidden" name="sudo_password" value="{{ settings.sudo_password }}">
             <div>
                 <label class="label">Bot Token</label>
                 <input type="password" name="telegram_bot_token" value="{{ settings.telegram_bot_token }}"

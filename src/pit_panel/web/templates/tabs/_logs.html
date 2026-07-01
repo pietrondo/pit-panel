@@ -1,12 +1,46 @@
 <div class="card">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Logs</h2>
-        <button class="btn-ghost text-xs"
-                hx-get="/apps/{{ sd.id }}/logs"
-                hx-target="closest .card"
-                hx-swap="outerHTML">Refresh</button>
+        <div class="flex items-center gap-2">
+            <button class="btn-ghost text-xs text-green-600" id="live-btn" onclick="toggleLive({{ sd.id }})">▶ Live</button>
+            <button class="btn-ghost text-xs"
+                    hx-get="/apps/{{ sd.id }}/logs"
+                    hx-target="closest .card"
+                    hx-swap="outerHTML">Refresh</button>
+        </div>
     </div>
     <div class="p-6">
-        <pre class="bg-gray-950 text-green-400 p-4 rounded-lg text-xs font-mono overflow-x-auto max-h-[500px] overflow-y-auto leading-relaxed whitespace-pre-wrap">{{ logs or 'No logs available' }}</pre>
+        <pre id="log-output" class="bg-gray-950 text-green-400 p-4 rounded-lg text-xs font-mono overflow-x-auto max-h-[500px] overflow-y-auto leading-relaxed whitespace-pre-wrap">{{ logs or 'No logs available' }}</pre>
     </div>
 </div>
+
+<script>
+let logWs = null;
+function toggleLive(sdId) {
+    const btn = document.getElementById('live-btn');
+    if (logWs) {
+        logWs.close();
+        logWs = null;
+        btn.textContent = '▶ Live';
+        btn.classList.remove('text-red-600');
+        btn.classList.add('text-green-600');
+        return;
+    }
+    btn.textContent = '■ Stop';
+    btn.classList.remove('text-green-600');
+    btn.classList.add('text-red-600');
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    logWs = new WebSocket(proto + '//' + location.host + '/apps/' + sdId + '/logs/ws');
+    logWs.onmessage = (e) => {
+        const el = document.getElementById('log-output');
+        el.textContent += e.data;
+        el.scrollTop = el.scrollHeight;
+    };
+    logWs.onclose = () => {
+        logWs = null;
+        btn.textContent = '▶ Live';
+        btn.classList.remove('text-red-600');
+        btn.classList.add('text-green-600');
+    };
+}
+</script>

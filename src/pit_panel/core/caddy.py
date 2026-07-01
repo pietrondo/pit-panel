@@ -215,6 +215,7 @@ class CaddyManager:
                 results.append(result)
                 if days is not None and days <= 7:
                     from pit_panel.core.notifier import notify_ssl_expiring
+
                     domains = (
                         cert["domains"].split(", ")
                         if isinstance(cert["domains"], str)

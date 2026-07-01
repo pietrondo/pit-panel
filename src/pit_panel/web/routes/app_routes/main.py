@@ -266,9 +266,11 @@ async def app_deploy(
 
     # Docker compose up
     compose_ok = False
+    compose_logs = ""
     try:
         result = await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
         compose_ok = result.get("success", False)
+        compose_logs = (result.get("stdout", "") + result.get("stderr", ""))[:500]
         if not compose_ok:
             error = f"Docker compose failed: {result.get('stderr', '')[:300]}"
     except Exception as e:
@@ -285,26 +287,34 @@ async def app_deploy(
                     if "=" in line:
                         k, v = line.split("=", 1)
                         env_vars[k.strip()] = v.strip()
-            wp_title = env_vars.get("WP_TITLE", "My Blog")
-            wp_user = env_vars.get("WP_ADMIN_USER", "admin")
-            wp_pass = env_vars.get("WP_ADMIN_PASSWORD", "admin")
-            wp_email = env_vars.get("WP_ADMIN_EMAIL", "admin@localhost")
-            wp_locale = env_vars.get("WP_LOCALE", "it_IT")
+            import shlex
+
+            wp_title = shlex.quote(env_vars.get("WP_TITLE", "My Blog"))
+            wp_user = shlex.quote(env_vars.get("WP_ADMIN_USER", "admin"))
+            wp_pass = shlex.quote(env_vars.get("WP_ADMIN_PASSWORD", "admin"))
+            wp_email = shlex.quote(env_vars.get("WP_ADMIN_EMAIL", "admin@localhost"))
+            wp_locale = shlex.quote(env_vars.get("WP_LOCALE", "it_IT"))
+            fqdn_q = shlex.quote(f"https://{fqdn}")
             await asyncio.sleep(8)
-            await docker_mgr.exec_command(sd.subdomain, "wordpress", [
-                "sh", "-c",
-                f"curl -sSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
-                f" -o /tmp/wp-cli.phar"
-                f" && php /tmp/wp-cli.phar core install"
-                f" --url=https://{fqdn}"
-                f" --title='{wp_title}'"
-                f" --admin_user={wp_user}"
-                f" --admin_password={wp_pass}"
-                f" --admin_email={wp_email}"
-                f" --locale={wp_locale}"
-                f" --skip-email"
-                f" && rm /tmp/wp-cli.phar"
-            ])
+            await docker_mgr.exec_command(
+                sd.subdomain,
+                "wordpress",
+                [
+                    "sh",
+                    "-c",
+                    f"curl -sSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+                    f" -o /tmp/wp-cli.phar"
+                    f" && php /tmp/wp-cli.phar core install"
+                    f" --url={fqdn_q}"
+                    f" --title={wp_title}"
+                    f" --admin_user={wp_user}"
+                    f" --admin_password={wp_pass}"
+                    f" --admin_email={wp_email}"
+                    f" --locale={wp_locale}"
+                    f" --skip-email"
+                    f" && rm /tmp/wp-cli.phar",
+                ],
+            )
         except Exception as e:
             logger.warning(f"WordPress auto-setup failed: {e}")
 
@@ -348,27 +358,31 @@ async def app_deploy(
 
     if compose_ok:
         from pit_panel.core.notifier import notify_app_deploy
+
         base_domain = sd.base_domain or settings.base_domain
         await notify_app_deploy(sd.subdomain, stack_type, f"{sd.subdomain}.{base_domain}")
 
+    logs_escaped = (compose_logs or "").replace("&", "&amp;").replace("<", "&lt;")
+    logs_escaped = logs_escaped.replace(">", "&gt;").replace("\n", "<br>")
+    pre_style = 'class="text-xs bg-gray-950 p-3 rounded overflow-auto max-h-60"'
     if error:
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
-        subdomains = result.scalars().all()
-        mgr2 = AppManager()
-        templates = mgr2.list_templates()
-        template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
-        return render(
-            "apps.html",
-            user=user,
-            settings=settings,
-            subdomains=subdomains,
-            templates=templates,
-            template_infos=template_infos,
-            error=error,
-            detected=None,
+        return HTMLResponse(
+            '<div class="card p-6 border-red-400 dark:border-red-700">'
+            '<h3 class="text-red-600 font-semibold mb-2">Deploy failed</h3>'
+            f'<p class="text-sm text-red-500 mb-3">{error}</p>'
+            f'<pre {pre_style} style="color:#fca5a5">{logs_escaped}</pre>'
+            "</div>"
         )
-
-    return RedirectResponse(f"/apps/{sd.id}", status_code=302)
+    fqdn = f"{sd.subdomain}.{sd.base_domain or settings.base_domain}"
+    return HTMLResponse(
+        '<div class="card p-6 border-green-400 dark:border-green-700">'
+        '<h3 class="text-green-600 font-semibold mb-2">Deploy successful!</h3>'
+        f'<p class="text-sm mb-1"><a href="/apps/{sd.id}" class="text-indigo-600 underline">'
+        "Open app details &rarr;</a></p>"
+        f'<p class="text-xs text-gray-500 mb-3">{fqdn}</p>'
+        f'<pre {pre_style} style="color:#86efac">{logs_escaped}</pre>'
+        "</div>"
+    )
 
 
 @router.post("/apps/deploy-from-repo", response_class=HTMLResponse)
@@ -522,8 +536,10 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
                     break
             else:
                 ssl_info = {
-                    "has_cert": True, "expires_in_days": None,
-                    "issuer": "Pending...", "not_after": "",
+                    "has_cert": True,
+                    "expires_in_days": None,
+                    "issuer": "Pending...",
+                    "not_after": "",
                 }
 
     needs_db = sd.app_type in ("wordpress", "ghost")
@@ -543,3 +559,38 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
         app_port=app_info.get("default_port", ""),
         ssl_info=ssl_info,
     )
+
+
+@router.post("/apps/update-all", response_class=HTMLResponse)
+async def app_update_all(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+    result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
+    apps = result.scalars().all()
+    results = []
+    for sd in apps:
+        try:
+            r = await docker_mgr.run_compose_command(sd.subdomain, ["pull"])
+            pull_ok = r.get("success", False)
+            if pull_ok:
+                await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
+            results.append((sd.subdomain, pull_ok))
+        except Exception as e:
+            results.append((sd.subdomain, False))
+            logger.error(f"Update all failed for {sd.subdomain}: {e}")
+
+    ok_count = sum(1 for _, ok in results if ok)
+    total = len(results)
+    html = (
+        '<div class="p-3 rounded-lg bg-green-50 dark:bg-green-900/20'
+        ' border border-green-200 dark:border-green-800">'
+        f'<p class="text-sm text-green-700 dark:text-green-400">'
+        f"Updated {ok_count}/{total} apps</p></div>"
+    )
+    return HTMLResponse(html)

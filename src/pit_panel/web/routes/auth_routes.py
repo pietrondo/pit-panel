@@ -53,6 +53,7 @@ async def login_post(
         ip = request.client.host if request.client else "unknown"
         await record_login_attempt(db, ip, username, False)
         from pit_panel.core.notifier import notify_login_failed
+
         await notify_login_failed(username, ip)
         return render("login.html", error="Invalid credentials")
 
@@ -101,6 +102,7 @@ async def login_post(
     ip = request.client.host if request.client else "unknown"
     await record_login_attempt(db, ip, username, True)
     from pit_panel.core.notifier import notify_login_success
+
     await notify_login_success(username, ip)
 
     resp = RedirectResponse("/", status_code=302)
