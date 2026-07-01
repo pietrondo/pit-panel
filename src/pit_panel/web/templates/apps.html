@@ -55,9 +55,19 @@
 
     <!-- Deployed Apps Tab -->
     <div x-show="active === 'deployed'" x-transition:enter.duration.200ms>
+        <div id="update-all-result"></div>
+        <div class="flex justify-end mb-2">
+            <button class="btn-ghost text-sm text-emerald-600 flex items-center gap-1.5"
+                    hx-post="/apps/update-all"
+                    hx-target="#update-all-result"
+                    hx-swap="innerHTML"
+                    hx-confirm="Update ALL apps? This will pull latest images and restart containers.">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Update All
+            </button>
+        </div>
         <!-- Deployed apps -->
         <div class="card" x-data="{ search: '' }">
-
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deployed Apps</h2>
                 <div class="relative">
@@ -182,7 +192,13 @@
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Deploy</h2>
                 </div>
                 <div class="p-6">
-                    <form method="POST" action="/apps/deploy" class="space-y-4" @submit="isSubmitting = true">
+                    <div id="deploy-result"></div>
+                    <form method="POST" action="/apps/deploy" class="space-y-4"
+                          hx-post="/apps/deploy"
+                          hx-target="#deploy-result"
+                          hx-swap="innerHTML"
+                          @submit="isSubmitting = true"
+                          hx-on::after-request="isSubmitting = false">
 
                     <div class="form-control">
                         <label class="label cursor-pointer justify-start gap-3">

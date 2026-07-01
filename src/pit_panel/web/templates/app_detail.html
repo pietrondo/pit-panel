@@ -163,7 +163,14 @@
                 <span class="w-3 h-3 rounded-full bg-gray-400"></span>
                 <span class="text-sm text-gray-500">No SSL certificate</span>
             </div>
-            <p class="text-xs text-gray-400">Caddy auto-provisions certificates when a route is created</p>
+            <p class="text-xs text-gray-400 mb-3">Caddy auto-provisions certificates when a route is created</p>
+            <button class="btn-ghost text-xs text-indigo-600"
+                    hx-post="/apps/{{ sd.id }}/renew-ssl"
+                    hx-target="#ssl-renew-result"
+                    hx-swap="innerHTML">
+                &#x21bb; Renew SSL
+            </button>
+            <span id="ssl-renew-result"></span>
             {% endif %}
         </div>
     </div>
