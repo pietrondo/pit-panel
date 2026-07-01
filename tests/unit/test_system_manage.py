@@ -143,4 +143,3 @@ def test_system_manage_services_no_nginx(client: TestClient, auth_headers: dict)
         assert b"Pit Panel" in response.content
         assert b"Nginx" not in response.content
         assert b"nginx" not in response.content
-

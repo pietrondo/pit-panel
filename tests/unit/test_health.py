@@ -90,6 +90,7 @@ async def test_docker_health_monitor_loop() -> None:
 
         async def mock_start(cid: str) -> dict[str, Any]:
             return {"success": True}
+
         mock_manager.container_start.side_effect = mock_start
 
         with patch("pit_panel.core.notifier.notify_system_alarm") as mock_notify:

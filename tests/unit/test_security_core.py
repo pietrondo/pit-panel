@@ -240,6 +240,7 @@ async def test_unban_ip_address():
 @pytest.mark.asyncio
 async def test_run_cmd_sudo_with_password():
     from pit_panel.config import Settings
+
     test_settings = Settings(sudo_password="supersecurepassword")
 
     with (
@@ -255,6 +256,7 @@ async def test_run_cmd_sudo_with_password():
         assert result == "success"
 
         import asyncio
+
         mock_exec.assert_called_once_with(
             "sudo",
             "-S",
@@ -270,6 +272,7 @@ async def test_run_cmd_sudo_with_password():
 @pytest.mark.asyncio
 async def test_run_cmd_sudo_with_password_and_existing_input():
     from pit_panel.config import Settings
+
     test_settings = Settings(sudo_password="supersecurepassword")
 
     with (
@@ -285,6 +288,7 @@ async def test_run_cmd_sudo_with_password_and_existing_input():
         assert result == "success"
 
         import asyncio
+
         mock_exec.assert_called_once_with(
             "sudo",
             "-S",

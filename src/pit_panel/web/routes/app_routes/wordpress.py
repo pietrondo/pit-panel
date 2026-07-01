@@ -37,9 +37,15 @@ async def _run_wp_cli(settings, subdomain: str, wp_args: list[str]) -> dict:
     cwd = os.path.join(settings.apps_dir, subdomain)
     # Ensure wp-cli phar is available
     dl_proc = await asyncio.create_subprocess_exec(
-        "docker", "compose", "-f", os.path.join(cwd, "docker-compose.yml"),
-        "exec", "-T", "wordpress",
-        "sh", "-c",
+        "docker",
+        "compose",
+        "-f",
+        os.path.join(cwd, "docker-compose.yml"),
+        "exec",
+        "-T",
+        "wordpress",
+        "sh",
+        "-c",
         "test -f /tmp/wp-cli.phar || curl -sSLo /tmp/wp-cli.phar"
         " https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar",
         cwd=cwd,
@@ -47,9 +53,17 @@ async def _run_wp_cli(settings, subdomain: str, wp_args: list[str]) -> dict:
     await dl_proc.wait()
 
     proc = await asyncio.create_subprocess_exec(
-        "docker", "compose", "-f", os.path.join(cwd, "docker-compose.yml"),
-        "exec", "-T", "wordpress",
-        "php", "/tmp/wp-cli.phar", *wp_args, "--allow-root",
+        "docker",
+        "compose",
+        "-f",
+        os.path.join(cwd, "docker-compose.yml"),
+        "exec",
+        "-T",
+        "wordpress",
+        "php",
+        "/tmp/wp-cli.phar",
+        *wp_args,
+        "--allow-root",
         cwd=cwd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -137,9 +151,7 @@ async def app_wp_update_core(request: Request, sd_id: int, db: AsyncSession = De
 
 
 @router.get("/apps/{sd_id}/wp-auto-login")
-async def app_wp_auto_login(
-    request: Request, sd_id: int, db: AsyncSession = Depends(get_db)
-):
+async def app_wp_auto_login(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
         return RedirectResponse(url=f"/auth/login?next=/apps/{sd_id}")
@@ -157,23 +169,33 @@ async def app_wp_auto_login(
 
     # Step 1: ensure WP-CLI phar is available
     try:
-        await docker_mgr.exec_command(sd.subdomain, "wordpress", [
-            "sh", "-c",
-            "test -f /tmp/wp-cli.phar || curl -sSLo /tmp/wp-cli.phar"
-            " https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
-        ])
+        await docker_mgr.exec_command(
+            sd.subdomain,
+            "wordpress",
+            [
+                "sh",
+                "-c",
+                "test -f /tmp/wp-cli.phar || curl -sSLo /tmp/wp-cli.phar"
+                " https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar",
+            ],
+        )
     except Exception as e:
         logger.warning(f"WP-CLI download failed for {sd.subdomain}: {e}")
 
     # Step 2: fix site URL
     try:
-        await docker_mgr.exec_command(sd.subdomain, "wordpress", [
-            "sh", "-c",
-            f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-            f" option update siteurl 'https://{fqdn}'"
-            f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-            f" option update home 'https://{fqdn}'"
-        ])
+        await docker_mgr.exec_command(
+            sd.subdomain,
+            "wordpress",
+            [
+                "sh",
+                "-c",
+                f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+                f" option update siteurl 'https://{fqdn}'"
+                f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+                f" option update home 'https://{fqdn}'",
+            ],
+        )
     except Exception as e:
         logger.warning(f"WP-CLI site URL fix failed for {sd.subdomain}: {e}")
 
@@ -193,14 +215,25 @@ header('Location: /wp-admin/');
 """
         handler_path.write_text(handler_code)
         try:
-            await docker_mgr.exec_command(sd.subdomain, "wordpress", [
-                "sh", "-c", "mkdir -p wp-content",
-            ])
+            await docker_mgr.exec_command(
+                sd.subdomain,
+                "wordpress",
+                [
+                    "sh",
+                    "-c",
+                    "mkdir -p wp-content",
+                ],
+            )
             b64 = base64.b64encode(handler_code.encode()).decode()
-            await docker_mgr.exec_command(sd.subdomain, "wordpress", [
-                "sh", "-c",
-                f"echo '{b64}' | base64 -d > wp-content/pit-auth.php",
-            ])
+            await docker_mgr.exec_command(
+                sd.subdomain,
+                "wordpress",
+                [
+                    "sh",
+                    "-c",
+                    f"echo '{b64}' | base64 -d > wp-content/pit-auth.php",
+                ],
+            )
             logger.info("wp_auto_login[%s]: auth handler installed", sd.subdomain)
         except Exception as e:
             logger.warning(f"Auth handler install failed for {sd.subdomain}: {e}")
@@ -208,32 +241,42 @@ header('Location: /wp-admin/');
     # Step 4: generate auth cookies and store as transient
     token = base64.urlsafe_b64encode(os.urandom(12)).rstrip(b"=").decode()
     php_code = (
-        '$id=1;$exp=time()+86400;'
+        "$id=1;$exp=time()+86400;"
         '$li=wp_generate_auth_cookie($id,$exp,"logged_in");'
         '$sa=wp_generate_auth_cookie($id,$exp,"secure_auth");'
         '$au=wp_generate_auth_cookie($id,$exp,"auth");'
-        'set_transient('
-        f'  \'pit_{token}\','
-        '  json_encode(array('
-        '    LOGGED_IN_COOKIE=>$li,'
-        '    SECURE_AUTH_COOKIE=>$sa,'
-        '    AUTH_COOKIE=>$au'
-        '  )),'
-        '  30'
-        ');'
+        "set_transient("
+        f"  'pit_{token}',"
+        "  json_encode(array("
+        "    LOGGED_IN_COOKIE=>$li,"
+        "    SECURE_AUTH_COOKIE=>$sa,"
+        "    AUTH_COOKIE=>$au"
+        "  )),"
+        "  30"
+        ");"
         'echo json_encode(array("ok"=>true));'
     )
     try:
-        r = await docker_mgr.exec_command(sd.subdomain, "wordpress", [
-            "php", "-d", "memory_limit=256M", "/tmp/wp-cli.phar",
-            "--allow-root", "eval", php_code,
-        ])
+        r = await docker_mgr.exec_command(
+            sd.subdomain,
+            "wordpress",
+            [
+                "php",
+                "-d",
+                "memory_limit=256M",
+                "/tmp/wp-cli.phar",
+                "--allow-root",
+                "eval",
+                php_code,
+            ],
+        )
         if r.get("success"):
             logger.info("wp_auto_login[%s]: transient stored, redirecting to blog", sd.subdomain)
             return RedirectResponse(url=f"https://{fqdn}/wp-content/pit-auth.php?token={token}")
         logger.warning(
             "wp_auto_login[%s]: WP-CLI transient failed: %s",
-            sd.subdomain, r.get("stderr", "")[:200],
+            sd.subdomain,
+            r.get("stderr", "")[:200],
         )
     except Exception as e:
         logger.warning(f"wp_auto_login[%s]: transient error: {e}", sd.subdomain)
@@ -243,9 +286,7 @@ header('Location: /wp-admin/');
 
 
 @router.post("/apps/{sd_id}/wp-fix-url", response_class=HTMLResponse)
-async def app_wp_fix_url(
-    request: Request, sd_id: int, db: AsyncSession = Depends(get_db)
-):
+async def app_wp_fix_url(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
         response = HTMLResponse("Unauthorized", status_code=401)
@@ -265,13 +306,18 @@ async def app_wp_fix_url(
     success = False
     error_msg = ""
     try:
-        r = await docker_mgr.exec_command(sd.subdomain, "wordpress", [
-            "sh", "-c",
-            f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-            f" option update siteurl 'https://{fqdn}'"
-            f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-            f" option update home 'https://{fqdn}'"
-        ])
+        r = await docker_mgr.exec_command(
+            sd.subdomain,
+            "wordpress",
+            [
+                "sh",
+                "-c",
+                f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+                f" option update siteurl 'https://{fqdn}'"
+                f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
+                f" option update home 'https://{fqdn}'",
+            ],
+        )
         success = r.get("success", False)
         if not success:
             error_msg = r.get("stderr", "Unknown error")[:300]
@@ -283,9 +329,18 @@ async def app_wp_fix_url(
     return HTMLResponse(f'<p class="text-sm {cls}">{msg}</p>')
 
 
-@router.api_route("/apps/{sd_id}/proxy/{service_name:path}", methods=[
-    "GET", "POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS",
-])
+@router.api_route(
+    "/apps/{sd_id}/proxy/{service_name:path}",
+    methods=[
+        "GET",
+        "POST",
+        "HEAD",
+        "PUT",
+        "DELETE",
+        "PATCH",
+        "OPTIONS",
+    ],
+)
 async def app_proxy_service(
     request: Request, sd_id: int, service_name: str, db: AsyncSession = Depends(get_db)
 ):
@@ -321,6 +376,7 @@ async def app_proxy_service(
         return Response(f"Invalid port for '{name}'", status_code=500)
 
     import httpx
+
     prefix = f"/apps/{sd_id}/proxy/{name}"
     target_url = f"http://127.0.0.1:{target_port}/{sub_path}"
     qs = request.scope.get("query_string", b"").decode()
@@ -328,10 +384,16 @@ async def app_proxy_service(
         target_url += f"?{qs}"
 
     headers = {}
-    hop_by_hop = frozenset({
-        "host", "connection", "transfer-encoding",
-        "content-length", "keep-alive", "upgrade",
-    })
+    hop_by_hop = frozenset(
+        {
+            "host",
+            "connection",
+            "transfer-encoding",
+            "content-length",
+            "keep-alive",
+            "upgrade",
+        }
+    )
     for key, value in request.headers.items():
         if key.lower() in hop_by_hop:
             continue
@@ -372,12 +434,19 @@ async def app_proxy_service(
     return Response(content=content, status_code=resp.status_code, headers=resp_headers)
 
 
-@router.api_route("/apps/{sd_id}/wp/{path:path}", methods=[
-    "GET", "POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS",
-])
-async def app_wp_proxy(
-    request: Request, sd_id: int, path: str, db: AsyncSession = Depends(get_db)
-):
+@router.api_route(
+    "/apps/{sd_id}/wp/{path:path}",
+    methods=[
+        "GET",
+        "POST",
+        "HEAD",
+        "PUT",
+        "DELETE",
+        "PATCH",
+        "OPTIONS",
+    ],
+)
+async def app_wp_proxy(request: Request, sd_id: int, path: str, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
         return Response("Unauthorized", status_code=401)

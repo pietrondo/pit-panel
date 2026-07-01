@@ -320,7 +320,8 @@ async def ssl_renew(
     # Ensure Caddy route exists for this domain
     subdomain_name = (
         domain.replace(f".{settings.base_domain}", "")
-        if settings.base_domain else domain.split(".")[0]
+        if settings.base_domain
+        else domain.split(".")[0]
     )
     result_sd = await db.execute(
         select(Subdomain).where(

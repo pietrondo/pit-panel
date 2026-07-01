@@ -44,7 +44,6 @@ class AppManager:
             vars_dict.setdefault("WP_LOCALE", "it_IT")
             vars_dict.setdefault("PMA_PORT", str(int(vars_dict.get("PORT", 8081)) + 1))
 
-
         for file_path in template_dir.iterdir():
             if file_path.suffix == ".tpl":
                 template = Template(file_path.read_text())

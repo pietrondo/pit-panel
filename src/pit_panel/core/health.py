@@ -24,6 +24,7 @@ async def check_post_update(base_url: str = "http://127.0.0.1:8080") -> bool:
 
 async def docker_health_monitor_loop() -> None:
     import logging
+
     logger = logging.getLogger(__name__)
     from pit_panel.core.docker_ops import DockerManager
     from pit_panel.core.notifier import notify_system_alarm

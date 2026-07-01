@@ -32,6 +32,7 @@ def client(monkeypatch):
             await conn.run_sync(Base.metadata.create_all)
 
     import asyncio
+
     asyncio.run(create_tables())
 
     sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
@@ -41,6 +42,7 @@ def client(monkeypatch):
     app = create_app(s)
     return TestClient(app)
 
+
 @pytest.fixture
 def auth_headers(monkeypatch):
     async def mock_get_admin(*args, **kwargs):
@@ -48,6 +50,7 @@ def auth_headers(monkeypatch):
 
     monkeypatch.setattr("pit_panel.web.routes.file_manager.get_admin", mock_get_admin)
     return {}
+
 
 def test_path_validation():
     # Test valid paths
@@ -62,6 +65,7 @@ def test_path_validation():
     with pytest.raises(PermissionError):
         # Even if prepended by allowed root
         verify_safe_path(os.path.join(temp_dir, "../../../../../etc/passwd"))
+
 
 def test_unauthenticated_access(client):
     # Verify redirects/401s for unauthenticated users
@@ -79,15 +83,11 @@ def test_unauthenticated_access(client):
     r = client.get("/api/file-manager/file?path=dummy")
     assert r.status_code == 401
 
-    r = client.post(
-        "/api/file-manager/save",
-        json={"path": "dummy", "content": "dummy"}
-    )
+    r = client.post("/api/file-manager/save", json={"path": "dummy", "content": "dummy"})
     assert r.status_code == 401
 
     r = client.post(
-        "/api/file-manager/create",
-        json={"parent_path": "dummy", "name": "dummy", "type": "file"}
+        "/api/file-manager/create", json={"parent_path": "dummy", "name": "dummy", "type": "file"}
     )
     assert r.status_code == 401
 
@@ -97,9 +97,10 @@ def test_unauthenticated_access(client):
     r = client.post(
         "/api/file-manager/upload",
         data={"parent_path": "dummy"},
-        files={"file": ("test.txt", b"content")}
+        files={"file": ("test.txt", b"content")},
     )
     assert r.status_code == 401
+
 
 def test_list_files(client, auth_headers):
     temp_dir = tempfile.gettempdir()
@@ -110,6 +111,7 @@ def test_list_files(client, auth_headers):
     assert "items" in data
     assert "path" in data
 
+
 def test_file_crud_operations(client, auth_headers):
     # Create a temporary file to test file operations
     temp_dir = tempfile.gettempdir()
@@ -119,20 +121,18 @@ def test_file_crud_operations(client, auth_headers):
         os.unlink(test_file_path)
 
     # 1. Create file via endpoint
-    r = client.post("/api/file-manager/create", json={
-        "parent_path": temp_dir,
-        "name": "pit_panel_test_crud.txt",
-        "type": "file"
-    })
+    r = client.post(
+        "/api/file-manager/create",
+        json={"parent_path": temp_dir, "name": "pit_panel_test_crud.txt", "type": "file"},
+    )
     assert r.status_code == 200
     assert r.json()["status"] == "success"
     assert os.path.exists(test_file_path)
 
     # 2. Save content to file
-    r = client.post("/api/file-manager/save", json={
-        "path": test_file_path,
-        "content": "hello file manager!"
-    })
+    r = client.post(
+        "/api/file-manager/save", json={"path": test_file_path, "content": "hello file manager!"}
+    )
     assert r.status_code == 200
     assert r.json()["status"] == "success"
 
@@ -143,12 +143,11 @@ def test_file_crud_operations(client, auth_headers):
     assert data["content"] == "hello file manager!"
 
     # 4. Delete file
-    r = client.post("/api/file-manager/delete", json={
-        "path": test_file_path
-    })
+    r = client.post("/api/file-manager/delete", json={"path": test_file_path})
     assert r.status_code == 200
     assert r.json()["status"] == "success"
     assert not os.path.exists(test_file_path)
+
 
 def test_create_directory_and_upload(client, auth_headers):
     temp_dir = tempfile.gettempdir()
@@ -158,20 +157,19 @@ def test_create_directory_and_upload(client, auth_headers):
         shutil.rmtree(test_sub_dir)
 
     # Create directory
-    r = client.post("/api/file-manager/create", json={
-        "parent_path": temp_dir,
-        "name": "pit_panel_test_dir",
-        "type": "directory"
-    })
+    r = client.post(
+        "/api/file-manager/create",
+        json={"parent_path": temp_dir, "name": "pit_panel_test_dir", "type": "directory"},
+    )
     assert r.status_code == 200
     assert os.path.exists(test_sub_dir)
 
     # Upload file to that directory
-    r = client.post("/api/file-manager/upload", data={
-        "parent_path": test_sub_dir
-    }, files={
-        "file": ("upload.txt", b"uploaded content")
-    })
+    r = client.post(
+        "/api/file-manager/upload",
+        data={"parent_path": test_sub_dir},
+        files={"file": ("upload.txt", b"uploaded content")},
+    )
     assert r.status_code == 200
 
     uploaded_file_path = os.path.join(test_sub_dir, "upload.txt")
@@ -182,6 +180,7 @@ def test_create_directory_and_upload(client, auth_headers):
     # Cleanup
     shutil.rmtree(test_sub_dir)
 
+
 def test_websocket_terminal_unauthorized(client):
     # If not authorized, WS should be closed/rejected
     with client.websocket_connect("/system/terminal/ws") as ws:
@@ -190,10 +189,12 @@ def test_websocket_terminal_unauthorized(client):
         with pytest.raises(WebSocketDisconnect):
             ws.receive_text()
 
+
 def test_websocket_terminal_authorized(client, monkeypatch):
     # Mock WebSocket authentication to return True
     async def mock_check_ws_admin(*args, **kwargs):
         return True
+
     monkeypatch.setattr("pit_panel.web.routes.file_manager.check_ws_admin", mock_check_ws_admin)
 
     # Mock subprocess execution
@@ -238,6 +239,7 @@ def test_websocket_terminal_authorized(client, monkeypatch):
 
         # Wait for the async loop to process and write the text
         import time
+
         for _ in range(20):
             if mock_proc.stdin.write.called:
                 break
