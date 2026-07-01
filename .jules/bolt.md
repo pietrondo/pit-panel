@@ -29,3 +29,6 @@
 ## 2025-02-18 - Optimized multiple sequential subprocesses
 **Learning:** Found an unoptimized sequence of synchronous `subprocess.run` calls inside an async route handler in `src/pit_panel/web/routes/debug.py`. This blocks the main thread sequentially and increases response times.
 **Action:** Always migrate these to `async def` functions using `asyncio.create_subprocess_exec` and await them concurrently using `asyncio.gather()` when their order does not matter and they don't depend on one another. This provides a significant speed boost to response times by running the subprocesses in parallel.
+## 2025-02-18 - Zombie Process Leak with asyncio.wait_for
+**Learning:** When using `asyncio.create_subprocess_exec` wrapped in `asyncio.wait_for`, catching `asyncio.TimeoutError` is not sufficient to stop the underlying subprocess. If you only catch the timeout and return, the child process will continue running in the background as an orphaned/zombie process, leading to resource leaks.
+**Action:** Always explicitly call `proc.kill()` (and optionally `await proc.communicate()` to reap it cleanly) inside the `except asyncio.TimeoutError:` block to ensure the subprocess is terminated.
