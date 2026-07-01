@@ -1,3 +1,7 @@
+## 2026-07-01 - Concurrency limit when refactoring sequential IO-bound tasks
+**Learning:** When migrating sequential I/O-bound processes (like updating multiple Docker containers) to concurrent execution via `asyncio.gather`, a strict limit on concurrency must be introduced to avoid exhausting system resources (e.g. CPU, RAM, Network I/O). In Python, using an `asyncio.Semaphore` is critical for safely throttling these operations.
+**Action:** Always incorporate an `asyncio.Semaphore` or similar concurrency control mechanism when implementing `asyncio.gather` for potentially unbound and resource-intensive asynchronous operations.
+
 ## 2025-02-12 - Update session token_hash to match cookie
 **Learning:** Found an existing fetch-and-update pattern (`select()` followed by modifying object and `commit()`) that was redundant because the session record already had the correct `token_hash` when it was created. Even if we had to update it, using a direct SQLAlchemy `update()` statement is more efficient than the fetch-and-update pattern because it avoids a redundant database read.
 **Action:** Replaced the fetch-and-update pattern with a direct `update()` statement.

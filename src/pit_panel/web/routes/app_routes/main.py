@@ -573,17 +573,23 @@ async def app_update_all(request: Request, db: AsyncSession = Depends(get_db)):
     docker_mgr = DockerManager(settings.apps_dir)
     result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
     apps = result.scalars().all()
-    results = []
-    for sd in apps:
-        try:
-            r = await docker_mgr.run_compose_command(sd.subdomain, ["pull"])
-            pull_ok = r.get("success", False)
-            if pull_ok:
-                await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
-            results.append((sd.subdomain, pull_ok))
-        except Exception as e:
-            results.append((sd.subdomain, False))
-            logger.error(f"Update all failed for {sd.subdomain}: {e}")
+
+    # Limit concurrency to 3 simultaneous docker operations to avoid resource exhaustion
+    semaphore = asyncio.Semaphore(3)
+
+    async def _update_app(sd: Subdomain) -> tuple[str, bool]:
+        async with semaphore:
+            try:
+                r = await docker_mgr.run_compose_command(sd.subdomain, ["pull"])
+                pull_ok = r.get("success", False)
+                if pull_ok:
+                    await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
+                return (sd.subdomain, pull_ok)
+            except Exception as e:
+                logger.error(f"Update all failed for {sd.subdomain}: {e}")
+                return (sd.subdomain, False)
+
+    results = await asyncio.gather(*[_update_app(sd) for sd in apps])
 
     ok_count = sum(1 for _, ok in results if ok)
     total = len(results)
