@@ -1,0 +1,9 @@
+{
+  "name": "plausible",
+  "display_name": "Plausible",
+  "description": "Simple, privacy-friendly Google Analytics alternative.",
+  "icon": "📊",
+  "version": "v2.1",
+  "default_port": 8000,
+  "requires_db": true
+}
