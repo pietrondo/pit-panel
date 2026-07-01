@@ -91,6 +91,8 @@ async def test_settings_update_unauthenticated(monkeypatch):
         panel_subdomain="panel",
         abuseipdb_api_key="",
         sudo_password="",
+        telegram_bot_token="",
+        telegram_chat_id="",
         db=mock_db,
     )
 
@@ -130,6 +132,10 @@ async def test_settings_update_existing_settings(monkeypatch):
     mock_result_abuseipdb.scalar_one_or_none.return_value = mock_row_abuseipdb
     mock_result_sudo = MagicMock()
     mock_result_sudo.scalar_one_or_none.return_value = mock_row_sudo
+    mock_result_telegram_token = MagicMock()
+    mock_result_telegram_token.scalar_one_or_none.return_value = MagicMock()
+    mock_result_telegram_chat = MagicMock()
+    mock_result_telegram_chat.scalar_one_or_none.return_value = MagicMock()
 
     # Mock DB select for AuditLog
     mock_result_audit = MagicMock()
@@ -137,13 +143,15 @@ async def test_settings_update_existing_settings(monkeypatch):
     mock_result_audit.scalars.return_value.all.return_value = [mock_audit]
 
     # Return different mock results for multiple execute calls
-    # Route loops 5 keys + 1 audit = 6 db.execute() calls
+    # Route loops 7 keys + 1 audit = 8 db.execute() calls
     mock_db.execute.side_effect = [
         mock_result_base,
         mock_result_panel,
         mock_result_host,
         mock_result_abuseipdb,
         mock_result_sudo,
+        mock_result_telegram_token,
+        mock_result_telegram_chat,
         mock_result_audit,
     ]
 
@@ -164,6 +172,8 @@ async def test_settings_update_existing_settings(monkeypatch):
         panel_subdomain=" newpanel ",
         abuseipdb_api_key="",
         sudo_password="",
+        telegram_bot_token="",
+        telegram_chat_id="",
         db=mock_db,
     )
 
@@ -220,8 +230,10 @@ async def test_settings_update_new_settings(monkeypatch):
     mock_result_audit.scalars.return_value.all.return_value = [mock_audit]
 
     # Return different mock results for multiple execute calls
-    # Route loops 5 keys + 1 audit = 6 db.execute() calls
+    # Route loops 7 keys + 1 audit = 8 db.execute() calls
     mock_db.execute.side_effect = [
+        mock_result_settings,
+        mock_result_settings,
         mock_result_settings,
         mock_result_settings,
         mock_result_settings,
@@ -247,25 +259,40 @@ async def test_settings_update_new_settings(monkeypatch):
         panel_subdomain="mypanel",
         abuseipdb_api_key="",
         sudo_password="",
+        telegram_bot_token="",
+        telegram_chat_id="",
         db=mock_db,
     )
 
-    # Assert db.add was called for all 5 settings
-    assert mock_db.add.call_count == 5
+    # Assert db.add was called for all 7 settings
+    assert mock_db.add.call_count == 7
     added_objects = [call.args[0] for call in mock_db.add.call_args_list]
 
     # Check added SystemSettings objects
     keys = [obj.key for obj in added_objects]
-    assert keys == ["base_domain", "panel_subdomain", "host", "abuseipdb_api_key", "sudo_password"]
+    assert keys == [
+        "base_domain",
+        "panel_subdomain",
+        "host",
+        "abuseipdb_api_key",
+        "sudo_password",
+        "telegram_bot_token",
+        "telegram_chat_id",
+    ]
 
     values = [obj.value for obj in added_objects]
     assert values == [
-        {"v": "example.com"}, {"v": "mypanel"}, {"v": "127.0.0.1"},
-        {"v": ""}, {"v": ""},
+        {"v": "example.com"},
+        {"v": "mypanel"},
+        {"v": "127.0.0.1"},
+        {"v": ""},
+        {"v": ""},
+        {"v": ""},
+        {"v": ""},
     ]
 
     updated_bys = [obj.updated_by for obj in added_objects]
-    assert updated_bys == [user.id, user.id, user.id, user.id, user.id]
+    assert updated_bys == [user.id] * 7
 
     # Assert commit called
     mock_db.commit.assert_awaited_once()
@@ -316,6 +343,10 @@ async def test_settings_update_empty_panel(monkeypatch):
     mock_result_abuseipdb.scalar_one_or_none.return_value = mock_row_abuseipdb
     mock_result_sudo = MagicMock()
     mock_result_sudo.scalar_one_or_none.return_value = mock_row_sudo
+    mock_result_telegram_token = MagicMock()
+    mock_result_telegram_token.scalar_one_or_none.return_value = MagicMock()
+    mock_result_telegram_chat = MagicMock()
+    mock_result_telegram_chat.scalar_one_or_none.return_value = MagicMock()
 
     # Mock DB select for AuditLog
     mock_result_audit = MagicMock()
@@ -323,13 +354,15 @@ async def test_settings_update_empty_panel(monkeypatch):
     mock_result_audit.scalars.return_value.all.return_value = [mock_audit]
 
     # Return different mock results for multiple execute calls
-    # Route loops 5 keys + 1 audit = 6 db.execute() calls
+    # Route loops 7 keys + 1 audit = 8 db.execute() calls
     mock_db.execute.side_effect = [
         mock_result_base,
         mock_result_panel,
         mock_result_host,
         mock_result_abuseipdb,
         mock_result_sudo,
+        mock_result_telegram_token,
+        mock_result_telegram_chat,
         mock_result_audit,
     ]
 
@@ -350,6 +383,8 @@ async def test_settings_update_empty_panel(monkeypatch):
         panel_subdomain="   ",
         abuseipdb_api_key="",
         sudo_password="",
+        telegram_bot_token="",
+        telegram_chat_id="",
         db=mock_db,
     )
 

@@ -18,12 +18,16 @@ from pit_panel.web.limiter import limiter
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    from pit_panel.core.backup import scheduled_backup_loop
     from pit_panel.core.blocklist import daily_blocklist_import
     from pit_panel.core.caddy import ssl_auto_renew_loop
+    from pit_panel.core.health import docker_health_monitor_loop
 
     tasks = [
         asyncio.create_task(daily_blocklist_import()),  # type: ignore[no-untyped-call]
         asyncio.create_task(ssl_auto_renew_loop()),  # type: ignore[no-untyped-call]
+        asyncio.create_task(docker_health_monitor_loop()),  # type: ignore[no-untyped-call]
+        asyncio.create_task(scheduled_backup_loop()),  # type: ignore[no-untyped-call]
     ]
     yield
     for t in tasks:
@@ -96,6 +100,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dashboard_router,
         debug_api_router,
         debug_router,
+        file_manager_router,
         logs_router,
         security_router,
         settings_router,
@@ -111,6 +116,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(dashboard_router)
     app.include_router(debug_router)
     app.include_router(debug_api_router)
+    app.include_router(file_manager_router)
     app.include_router(logs_router)
     app.include_router(security_router)
     app.include_router(settings_router)

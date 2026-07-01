@@ -42,6 +42,8 @@ async def settings_update(
     panel_subdomain: str = Form("panel"),
     abuseipdb_api_key: str = Form(""),
     sudo_password: str = Form(""),
+    telegram_bot_token: str = Form(""),
+    telegram_chat_id: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_admin(request, db)
@@ -64,6 +66,8 @@ async def settings_update(
         ("host", new_host),
         ("abuseipdb_api_key", abuseipdb_api_key.strip()),
         ("sudo_password", sudo_password),
+        ("telegram_bot_token", telegram_bot_token.strip()),
+        ("telegram_chat_id", telegram_chat_id.strip()),
     ]:
         result = await db.execute(select(SystemSettings).where(SystemSettings.key == key))
         row = result.scalar_one_or_none()
@@ -81,6 +85,8 @@ async def settings_update(
     settings.host = new_host
     settings.abuseipdb_api_key = abuseipdb_api_key.strip()
     settings.sudo_password = sudo_password
+    settings.telegram_bot_token = telegram_bot_token.strip()
+    settings.telegram_chat_id = telegram_chat_id.strip()
     settings.save_config_file()
 
     result = await db.execute(select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50))
@@ -106,3 +112,17 @@ async def audit_log(request: Request, db: AsyncSession = Depends(get_db)):
     entries = result.scalars().all()
 
     return render("audit.html", user=user, entries=entries)
+
+
+@router.post("/settings/test-notification", response_class=HTMLResponse)
+async def settings_test_notification(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    from pit_panel.core.notifier import notify_test
+
+    ok = await notify_test()
+    if ok:
+        return HTMLResponse("<span class='text-green-600 text-xs'>Sent ✓</span>")
+    return HTMLResponse("<span class='text-red-500 text-xs'>Failed</span>")

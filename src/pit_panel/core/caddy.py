@@ -213,6 +213,15 @@ class CaddyManager:
                 logger.info(f"Auto-renewing certificate for {cert['domains']} ({days} days left)")
                 result = await self.renew_certificate(cert["domains"])
                 results.append(result)
+                if days is not None and days <= 7:
+                    from pit_panel.core.notifier import notify_ssl_expiring
+
+                    domains = (
+                        cert["domains"].split(", ")
+                        if isinstance(cert["domains"], str)
+                        else [cert["domains"]]
+                    )
+                    await notify_ssl_expiring(domains, days)
         if not results:
             logger.info(f"Auto-renew: no certificates expiring within {renew_days} days")
         return results

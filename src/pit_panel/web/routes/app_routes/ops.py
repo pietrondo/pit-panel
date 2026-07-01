@@ -73,9 +73,58 @@ async def app_update(request: Request, sd_id: int, db: AsyncSession = Depends(ge
             )
         )
         await db.commit()
+        if r.get("success"):
+            from pit_panel.core.notifier import notify_app_update
+
+            await notify_app_update(sd.subdomain)
     response = HTMLResponse("")
     response.headers["HX-Redirect"] = f"/apps/{sd_id}"
     return response
+
+
+@router.post("/apps/{sd_id}/renew-ssl", response_class=HTMLResponse)
+async def app_renew_ssl(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse(
+            "<span class='text-red-500 text-xs'>App not found</span>", status_code=404
+        )  # noqa: E501
+
+    settings = get_settings()
+    base_domain = sd.base_domain or settings.base_domain
+    fqdn = f"{sd.subdomain}.{base_domain}"
+    caddy = CaddyManager(settings.caddy_admin_url)
+
+    # Step 1: ensure Caddy route exists (may have been missed during deploy)
+    port = 80
+    if sd.app_type:
+        meta = AppManager(settings.apps_dir).get_template_info(sd.app_type)
+        port = meta.get("default_port", 80)
+    try:
+        await caddy.add_subdomain(sd.subdomain, base_domain, port=port)
+    except Exception as e:
+        logger.warning(f"Caddy route add failed for {fqdn}: {e}")
+
+    # Step 2: reload config to trigger certificate provisioning
+    try:
+        r = await caddy.renew_certificate(fqdn)
+        if r.get("success"):
+            return HTMLResponse(
+                '<span class="text-green-600 text-xs font-medium">SSL renewed ✓</span>'
+            )
+        return HTMLResponse(
+            f'<span class="text-red-500 text-xs">Failed: {r.get("error", "?")}</span>'
+        )
+    except Exception as e:
+        logger.error(f"SSL renew failed for {fqdn}: {e}")
+        return HTMLResponse(f'<span class="text-red-500 text-xs">Error: {e}</span>')
 
 
 @router.post("/apps/{sd_id}/stop", response_class=HTMLResponse)
@@ -202,6 +251,9 @@ async def app_delete(request: Request, sd_id: int, db: AsyncSession = Depends(ge
             )
         )
         await db.commit()
+        from pit_panel.core.notifier import notify_app_delete
+
+        await notify_app_delete(sd.subdomain, old_app_type or "unknown")
     return RedirectResponse("/apps", status_code=302)
 
 
@@ -251,10 +303,68 @@ async def app_backup_get(request: Request, sd_id: int, db: AsyncSession = Depend
                 dt = datetime.datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
                 backups.append({"name": f.stem.replace(".tar", ""), "size": sz_str, "date": dt})
     import json as _json
+
     return render(
-        "tabs/_backup.html", request=request, sd=sd, backups=backups,
+        "tabs/_backup.html",
+        request=request,
+        sd=sd,
+        backups=backups,
         backups_json=_json.dumps(backups),
     )
+
+
+def _get_db_service_info(compose_path: Path, env_path: Path) -> tuple | None:
+    """Return (service_name, db_type, user, password, db_name) from docker-compose.yml."""
+    import yaml
+
+    try:
+        with open(compose_path) as f:
+            data = yaml.safe_load(f)
+        if not data or "services" not in data:
+            return None
+        env_vars = {}
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    env_vars[k.strip()] = v.strip().strip('"').strip("'")
+
+        def _resolve(key: str, cfg: dict) -> str:
+            val = cfg.get(key, "")
+            if isinstance(val, str) and val.startswith("${") and val.endswith("}"):
+                inner = val[2:-1]
+                if ":-" in inner:
+                    inner, default = inner.split(":-", 1)
+                    return env_vars.get(inner, default)
+                return env_vars.get(inner, val)
+            if isinstance(val, str) and val.startswith("$"):
+                return env_vars.get(val[1:], val)
+            return str(val or "")
+
+        for name, svc in data["services"].items():
+            image = svc.get("image", "").lower()
+            cfg = svc.get("environment", {})
+            if isinstance(cfg, list):
+                cfg = {kv.split("=", 1)[0]: kv.split("=", 1)[1] for kv in cfg if "=" in kv}
+            if "postgres" in image:
+                return (
+                    name,
+                    "postgres",
+                    _resolve("POSTGRES_USER", cfg),
+                    _resolve("POSTGRES_PASSWORD", cfg),
+                    _resolve("POSTGRES_DB", cfg),
+                )
+            if "mysql" in image or "mariadb" in image:
+                u = _resolve("MYSQL_USER", cfg)
+                p = _resolve("MYSQL_PASSWORD", cfg)
+                dbn = _resolve("MYSQL_DATABASE", cfg)
+                if not u:
+                    u = "root"
+                    p = _resolve("MYSQL_ROOT_PASSWORD", cfg) or p
+                return name, "mysql", u, p, dbn
+        return None
+    except Exception:
+        return None
 
 
 @router.post("/apps/{sd_id}/backup/run", response_class=HTMLResponse)
@@ -272,32 +382,80 @@ async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depend
     app_dir = Path(settings.apps_dir) / sd.subdomain
     backup_dir = Path(settings.data_dir) / "backups" / sd.subdomain
     backup_dir.mkdir(parents=True, exist_ok=True)
+    docker_mgr = DockerManager(settings.apps_dir)
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     name = f"{sd.subdomain}_{ts}"
     path = backup_dir / f"{name}.tar.gz"
 
     try:
+        # DB dump if applicable
+        db_dump = None
+        db_info = _get_db_service_info(
+            Path(settings.apps_dir) / sd.subdomain / "docker-compose.yml",
+            Path(settings.apps_dir) / sd.subdomain / ".env",
+        )
+        if db_info:
+            svc_name, db_type, db_user, db_pass, db_name = db_info
+            dump_text = None
+            if db_type == "postgres":
+                if db_pass:
+                    cmd = [
+                        "sh",
+                        "-c",
+                        f"PGPASSWORD={db_pass} pg_dump -U {db_user or 'postgres'} "
+                        f"{db_name or 'postgres'}",
+                    ]  # noqa: E501
+                else:
+                    cmd = ["pg_dump", "-U", db_user or "postgres", db_name or "postgres"]
+                r = await docker_mgr.exec_command(sd.subdomain, svc_name, cmd)
+                dump_text = r.get("stdout") if r.get("success") else None
+            elif "mysql" in db_type:
+                pw_flag = f"-p{db_pass}" if db_pass else ""
+                cmd = [
+                    "mysqldump",
+                    "--hex-blob",
+                    "-u",
+                    db_user or "root",
+                    pw_flag,
+                    db_name or "mysql",
+                ]
+                r = await docker_mgr.exec_command(sd.subdomain, svc_name, cmd)
+                dump_text = r.get("stdout") if r.get("success") else None
+            if dump_text:
+                db_dump = backup_dir / f"{name}_db_dump.sql"
+                db_dump.write_text(dump_text)
+
         with tarfile.open(path, "w:gz") as tar:
             tar.add(app_dir, arcname=sd.subdomain)
+            if db_dump and db_dump.exists():
+                tar.add(db_dump, arcname=f"{sd.subdomain}/database_dump.sql")
+                db_dump.unlink()
         size = path.stat().st_size
         sz_mb = size / 1024 / 1024
         size_str = f"{sz_mb:.1f} MB" if sz_mb > 1 else f"{size / 1024:.0f} KB"
 
         db.add(
             AuditLog(
-                user_id=user.id, action="app_backup", target_type="subdomain",
-                target_id=sd.id, details={"name": name, "size": size},
+                user_id=user.id,
+                action="app_backup",
+                target_type="subdomain",
+                target_id=sd.id,
+                details={"name": name, "size": size},
                 ip=request.client.host if request.client else None,
                 user_agent=request.headers.get("user-agent"),
             )
         )
         await db.commit()
 
+        from pit_panel.core.notifier import notify_app_backup
+
+        await notify_app_backup(sd.subdomain, name, size_str)
+
         html_ok = (
             '<div class="px-6 py-3 bg-green-50 dark:bg-green-900/20'
             ' border-b border-green-200 dark:border-green-800">'
             f'<p class="text-sm text-green-700 dark:text-green-400">'
-            f'Backup created: {name} ({size_str})</p></div>'
+            f"Backup created: {name} ({size_str})</p></div>"
         )
         return HTMLResponse(html_ok)
     except Exception as e:
@@ -308,6 +466,62 @@ async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depend
             f'<p class="text-sm text-red-600">Backup failed: {e}</p></div>'
         )
         return HTMLResponse(html_err)
+
+
+@router.post("/apps/{sd_id}/backup/restore", response_class=HTMLResponse)
+async def app_backup_restore(
+    request: Request, sd_id: int, name: str = Form(...), db: AsyncSession = Depends(get_db)
+):
+    user = await get_user(request, db)
+    if not user:
+        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>", status_code=401)
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse("<p class='text-red-500'>App not found</p>", status_code=404)
+
+    settings = get_settings()
+    backup_path = Path(settings.data_dir) / "backups" / sd.subdomain / f"{name}.tar.gz"
+    if not backup_path.exists():
+        return HTMLResponse("<p class='text-red-500'>Backup not found</p>", status_code=404)
+
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    try:
+        await docker_mgr.run_compose_command(sd.subdomain, ["down"])
+        import tarfile as _tf
+
+        with _tf.open(backup_path, "r:gz") as tar:
+            tar.extractall(Path(settings.apps_dir), filter="fully_trusted")
+        await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
+
+        db.add(
+            AuditLog(
+                user_id=user.id,
+                action="app_backup_restore",
+                target_type="subdomain",
+                target_id=sd.id,
+                details={"backup": name},
+                ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
+        )
+        await db.commit()
+
+        return HTMLResponse(
+            '<div class="px-6 py-3 bg-green-50 dark:bg-green-900/20'
+            ' border-b border-green-200 dark:border-green-800">'
+            f'<p class="text-sm text-green-700 dark:text-green-400">'
+            f"Restored: {name}</p></div>"
+        )
+    except Exception as e:
+        logger.error(f"Restore failed for {sd.subdomain}: {e}")
+        return HTMLResponse(
+            '<div class="px-6 py-3 bg-red-50 dark:bg-red-900/20'
+            ' border-b border-red-200 dark:border-red-800">'
+            f'<p class="text-sm text-red-600">Restore failed: {e}</p></div>'
+        )
 
 
 @router.get("/apps/{sd_id}/logs", response_class=HTMLResponse)
@@ -333,6 +547,67 @@ async def app_logs_get(request: Request, sd_id: int, db: AsyncSession = Depends(
         logs = "Error fetching logs"
 
     return render("tabs/_logs.html", request=request, sd=sd, logs=logs)
+
+
+@router.websocket("/apps/{sd_id}/logs/ws")
+async def app_logs_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = Depends(get_db)):
+    await websocket.accept()
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        await websocket.send_text("ERROR: App not found")
+        await websocket.close()
+        return
+
+    settings = get_settings()
+    compose_path = Path(settings.apps_dir) / sd.subdomain / "docker-compose.yml"
+    cwd = str(Path(settings.apps_dir) / sd.subdomain)
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker",
+            "compose",
+            "-f",
+            str(compose_path),
+            "logs",
+            "--tail=50",
+            "--follow",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=cwd,
+        )
+    except OSError as e:
+        await websocket.send_text(f"ERROR: {e}")
+        await websocket.close()
+        return
+
+    async def reader():
+        try:
+            while True:
+                data = await proc.stdout.read(4096)
+                if not data:
+                    break
+                await websocket.send_text(data.decode(errors="replace"))
+        except Exception:
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await websocket.close()
+
+    async def writer():
+        try:
+            while True:
+                await websocket.receive_text()
+        except (WebSocketDisconnect, Exception):
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                proc.kill()
+
+    await asyncio.gather(reader(), writer())
 
 
 @router.get("/apps/{sd_id}/env", response_class=HTMLResponse)
@@ -493,31 +768,45 @@ async def app_files_get(request: Request, sd_id: int, db: AsyncSession = Depends
         except (UnicodeDecodeError, OSError):
             content = "(binary file — preview not available)"
         return render(
-            "partials/_file_content.html", request=request, sd=sd, path=str(rel), content=content,
+            "partials/_file_content.html",
+            request=request,
+            sd=sd,
+            path=str(rel),
+            content=content,
         )
 
     entries = []
     try:
         for e in sorted(current.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
-            entries.append({
-                "name": e.name,
-                "is_dir": e.is_dir(),
-                "size": e.stat().st_size if e.is_file() else 0,
-            })
+            entries.append(
+                {
+                    "name": e.name,
+                    "is_dir": e.is_dir(),
+                    "size": e.stat().st_size if e.is_file() else 0,
+                }
+            )
     except OSError:
         return HTMLResponse("<div class='text-red-500'>Cannot read directory</div>")
 
     parent = str(Path(rel).parent) if rel else ""
     return render(
-        "partials/_files.html", request=request, sd=sd, entries=entries,
-        current=rel, parent=parent, app_dir_name=app_dir.name,
+        "partials/_files.html",
+        request=request,
+        sd=sd,
+        entries=entries,
+        current=rel,
+        parent=parent,
+        app_dir_name=app_dir.name,
     )
 
 
 @router.post("/apps/{sd_id}/files/save", response_class=HTMLResponse)
 async def app_files_save(
-    request: Request, sd_id: int, path: str = Form(...),
-    content: str = Form(...), db: AsyncSession = Depends(get_db),
+    request: Request,
+    sd_id: int,
+    path: str = Form(...),
+    content: str = Form(...),
+    db: AsyncSession = Depends(get_db),
 ):
     user = await get_user(request, db)
     if not user:
@@ -541,9 +830,6 @@ async def app_files_save(
     if not target.exists():
         return HTMLResponse("<div class='text-red-500'>File not found</div>", status_code=404)
 
-    if any(c in content for c in ['"', "'"]):
-        return HTMLResponse("Quotes are not allowed to prevent quote evasion.", status_code=400)
-
     try:
         safe_content = content.replace("\r", "")
         target.write_text(safe_content, encoding="utf-8")
@@ -556,6 +842,7 @@ async def app_files_save(
 def _find_main_service(compose_path: Path) -> str | None:
     """Return the first non-db service name from docker-compose.yml."""
     import yaml
+
     try:
         with open(compose_path) as f:
             data = yaml.safe_load(f)
@@ -606,8 +893,13 @@ async def app_terminal_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = D
 
     try:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", str(compose_path),
-            "exec", "-T", service,
+            "docker",
+            "compose",
+            "-f",
+            str(compose_path),
+            "exec",
+            "-T",
+            service,
             "sh",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,

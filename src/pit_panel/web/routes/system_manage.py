@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pit_panel.config import get_settings
 from pit_panel.core.sudo_ops import run_sudo
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
@@ -17,16 +18,15 @@ SERVICES = [
     ("docker", "Docker"),
     ("fail2ban", "Fail2Ban"),
     ("ssh", "SSH"),
-    ("nginx", "Nginx"),
 ]
 
 STATIC_COMMANDS = {
     "restart_caddy": ["/usr/bin/systemctl", "restart", "caddy"],
     "restart_panel": ["/usr/bin/systemctl", "restart", "pit-panel"],
-    "apt_update": ["/usr/bin/apt-get", "update"],
-    "apt_upgrade": ["/usr/bin/apt-get", "upgrade", "-y"],
-    "apt_dist_upgrade": ["/usr/bin/apt-get", "dist-upgrade", "-y"],
-    "apt_list_upgradable": ["/usr/bin/apt", "list", "--upgradable"],
+    "apt_update": ["/usr/bin/apt-get", "update", "-q"],
+    "apt_upgrade": ["/usr/bin/apt-get", "upgrade", "-y", "-q"],
+    "apt_dist_upgrade": ["/usr/bin/apt-get", "dist-upgrade", "-y", "-q"],
+    "apt_list_upgradable": ["/usr/bin/apt", "list", "--upgradable", "-q"],
     "df": ["/usr/bin/df", "-h"],
     "free": ["/usr/bin/free", "-m"],
     "uptime": ["/usr/bin/uptime"],
@@ -34,12 +34,7 @@ STATIC_COMMANDS = {
     "journal_caddy": ["/usr/bin/journalctl", "-u", "caddy", "-n", "100", "--no-pager"],
     "journal_docker": ["/usr/bin/journalctl", "-u", "docker", "-n", "100", "--no-pager"],
     "journal_ssh": ["/usr/bin/journalctl", "-u", "ssh", "-n", "50", "--no-pager"],
-    "docker_ps": [
-        "/usr/bin/docker",
-        "ps",
-        "--format",
-        "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}",
-    ],  # noqa: E501
+    "docker_ps": ["/usr/bin/docker", "ps"],
     "reboot": ["/usr/sbin/reboot"],
 }
 
@@ -47,15 +42,25 @@ STATIC_COMMANDS = {
 def _resolve_cmd(action: str) -> list[str] | None:
     if action in STATIC_COMMANDS:
         return STATIC_COMMANDS[action]
+
+    valid_services = {svc for svc, _ in SERVICES}
+
     if action.startswith("service_restart_"):
-        return ["/usr/bin/systemctl", "restart", action.removeprefix("service_restart_")]
+        svc = action.removeprefix("service_restart_")
+        if svc in valid_services:
+            return ["/usr/bin/systemctl", "restart", svc]
     if action.startswith("service_stop_"):
-        return ["/usr/bin/systemctl", "stop", action.removeprefix("service_stop_")]
+        svc = action.removeprefix("service_stop_")
+        if svc in valid_services:
+            return ["/usr/bin/systemctl", "stop", svc]
     if action.startswith("service_start_"):
-        return ["/usr/bin/systemctl", "start", action.removeprefix("service_start_")]
+        svc = action.removeprefix("service_start_")
+        if svc in valid_services:
+            return ["/usr/bin/systemctl", "start", svc]
     if action.startswith("journal_"):
-        svc_name = action.removeprefix("journal_")
-        return ["/usr/bin/journalctl", "-u", svc_name, "-n", "100", "--no-pager"]
+        svc = action.removeprefix("journal_")
+        if svc in valid_services:
+            return ["/usr/bin/journalctl", "-u", svc, "-n", "100", "--no-pager"]
     return None
 
 
@@ -64,7 +69,7 @@ async def system_manage_page(request: Request, db: AsyncSession = Depends(get_db
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    return render("system_manage.html", user=user)
+    return render("system_manage.html", user=user, settings=get_settings())
 
 
 @router.post("/system/manage/action", response_class=HTMLResponse)

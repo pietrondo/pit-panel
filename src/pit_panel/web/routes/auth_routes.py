@@ -50,9 +50,11 @@ async def login_post(
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(password, user.password_hash):
-        await record_login_attempt(
-            db, request.client.host if request.client else "unknown", username, False
-        )
+        ip = request.client.host if request.client else "unknown"
+        await record_login_attempt(db, ip, username, False)
+        from pit_panel.core.notifier import notify_login_failed
+
+        await notify_login_failed(username, ip)
         return render("login.html", error="Invalid credentials")
 
     if user.totp_enabled:
@@ -97,9 +99,11 @@ async def login_post(
     user.last_login = datetime.datetime.now(datetime.UTC)
     await db.commit()
 
-    await record_login_attempt(
-        db, request.client.host if request.client else "unknown", username, True
-    )
+    ip = request.client.host if request.client else "unknown"
+    await record_login_attempt(db, ip, username, True)
+    from pit_panel.core.notifier import notify_login_success
+
+    await notify_login_success(username, ip)
 
     resp = RedirectResponse("/", status_code=302)
     is_https = request.url.scheme == "https" or (

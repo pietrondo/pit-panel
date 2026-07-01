@@ -19,7 +19,14 @@
                     <span class="text-gray-900 dark:text-white">{{ b.name }}</span>
                     <span class="text-gray-500 ml-2">{{ b.size }}</span>
                 </div>
-                <span class="text-xs text-gray-400">{{ b.date }}</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-400">{{ b.date }}</span>
+                    <form method="POST" action="/apps/{{ sd.id }}/backup/restore" class="inline"
+                          onsubmit="return confirm('Restore backup {{ b.name }}? This will replace current files and restart the app.')">
+                        <input type="hidden" name="name" value="{{ b.name }}">
+                        <button class="text-xs text-orange-600 hover:text-orange-800 dark:text-orange-400">Restore</button>
+                    </form>
+                </div>
             </div>
             {% endfor %}
         </div>
