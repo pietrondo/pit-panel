@@ -43,8 +43,13 @@ class DockerManager:
         subdomain: str,
         service: str,
         cmd: list[str],
+        env: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         path = self.apps_dir / subdomain
+        env_args = []
+        if env:
+            for k, v in env.items():
+                env_args.extend(["-e", f"{k}={v}"])
         try:
             proc = await asyncio.create_subprocess_exec(
                 "docker",
@@ -53,6 +58,7 @@ class DockerManager:
                 str(path / "docker-compose.yml"),
                 "exec",
                 "-T",
+                *env_args,
                 service,
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,

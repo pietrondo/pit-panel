@@ -1,0 +1,10 @@
+{
+    "name": "kavita",
+    "display_name": "Kavita",
+    "version": "latest",
+    "description": "Ebook/comic/manga reader moderno e veloce. Leggi nel browser, segna progresso, organizzazione per serie, preferiti, multi-utente.",
+    "icon": "📖",
+    "requires_db": false,
+    "default_port": 8089,
+    "admin_path": "/"
+}

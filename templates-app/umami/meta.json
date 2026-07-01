@@ -1,0 +1,9 @@
+{
+  "name": "umami",
+  "display_name": "Umami",
+  "description": "A simple, fast, privacy-focused alternative to Google Analytics.",
+  "icon": "📈",
+  "version": "latest",
+  "default_port": 3000,
+  "requires_db": true
+}

@@ -1,6 +1,7 @@
 """SSL certificate management routes via Caddy admin API."""
 
 import contextlib
+import logging
 import re
 import subprocess
 from dataclasses import dataclass
@@ -12,11 +13,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
+from pit_panel.core.app_manager import AppManager
 from pit_panel.core.caddy import CaddyManager, get_last_ssl_renew_check
 from pit_panel.db.models import Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
 from pit_panel.web.render import render
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -312,6 +316,29 @@ async def ssl_renew(
 
     settings = get_settings()
     caddy = CaddyManager(settings.caddy_admin_url)
+
+    # Ensure Caddy route exists for this domain
+    subdomain_name = (
+        domain.replace(f".{settings.base_domain}", "")
+        if settings.base_domain
+        else domain.split(".")[0]
+    )
+    result_sd = await db.execute(
+        select(Subdomain).where(
+            Subdomain.subdomain == subdomain_name,
+            Subdomain.base_domain == settings.base_domain,
+        )
+    )
+    sd = result_sd.scalar_one_or_none()
+    port = 80
+    if sd and sd.app_type:
+        meta = AppManager(settings.apps_dir).get_template_info(sd.app_type)
+        port = meta.get("default_port", 80)
+    try:
+        await caddy.add_subdomain(subdomain_name, settings.base_domain, port=port)
+    except Exception as e:
+        logger.warning(f"add_subdomain failed for {subdomain_name}: {e}")
+
     result = await caddy.renew_certificate(domain)
 
     certs = await caddy.get_certificates()
@@ -326,6 +353,66 @@ async def ssl_renew(
         subdomains=subdomains,
         certs=certs,
         renew_result=result,
+        caddy_running=_check_caddy_running(),
+        port80_free=_check_port80(),
+        acme_providers=ACME_PROVIDERS,
+        providers=DNS_PROVIDERS,
+        current_caddyfile=(
+            Path(CADDYFILE_PATH).read_text()[:2000] if Path(CADDYFILE_PATH).exists() else ""
+        ),
+        caddy_result=None,
+        last_ssl_renew_check=get_last_ssl_renew_check(),
+    )
+
+
+@router.post("/ssl/renew-all", response_class=HTMLResponse)
+async def ssl_renew_all(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    settings = get_settings()
+    caddy = CaddyManager(settings.caddy_admin_url)
+    mgr = AppManager(settings.apps_dir)
+
+    result_sd = await db.execute(
+        select(Subdomain).where(
+            Subdomain.is_main_domain.is_(False),
+            Subdomain.app_type.isnot(None),
+        )
+    )
+    apps = result_sd.scalars().all()
+
+    ok = 0
+    fail = 0
+    for sd in apps:
+        base = sd.base_domain or settings.base_domain
+        fqdn = f"{sd.subdomain}.{base}"
+        meta = mgr.get_template_info(sd.app_type) if sd.app_type else {}
+        port = meta.get("default_port", 80)
+        try:
+            await caddy.add_subdomain(sd.subdomain, base, port=port)
+            ok += 1
+        except Exception as e:
+            logger.warning(f"add_subdomain failed for {fqdn}: {e}")
+            fail += 1
+
+    if ok:
+        await caddy.renew_certificate(settings.effective_domain)
+
+    certs = await caddy.get_certificates()
+    subdomains_result = await db.execute(
+        select(Subdomain).where(Subdomain.is_main_domain.is_(False)).limit(50)
+    )
+    subdomains = subdomains_result.scalars().all()
+
+    return render(
+        "ssl.html",
+        user=user,
+        settings=settings,
+        subdomains=subdomains,
+        certs=certs,
+        renew_result={"success": ok > 0, "ok": ok, "fail": fail},
         caddy_running=_check_caddy_running(),
         port80_free=_check_port80(),
         acme_providers=ACME_PROVIDERS,

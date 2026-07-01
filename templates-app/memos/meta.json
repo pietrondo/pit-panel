@@ -1,0 +1,10 @@
+{
+    "name": "memos",
+    "display_name": "Memos",
+    "version": "latest",
+    "description": "Lightweight note-taking app. Markdown, tags, search, pinning, e condivisione. Simile a Notion/Twitter per appunti.",
+    "icon": "📝",
+    "requires_db": false,
+    "default_port": 8084,
+    "admin_path": "/"
+}

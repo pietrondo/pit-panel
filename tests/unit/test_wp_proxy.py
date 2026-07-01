@@ -134,9 +134,7 @@ async def test_auto_login_returns_none_on_missing_password(tmp_path):
 async def test_auto_login_subprocess_fails(tmp_path):
     app_dir = tmp_path / "blog"
     app_dir.mkdir()
-    (app_dir / ".env").write_text(
-        "WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n"
-    )
+    (app_dir / ".env").write_text("WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n")
 
     with patch("pit_panel.core.wp_proxy.asyncio.create_subprocess_exec") as mock_sub:
         proc = AsyncMock()
@@ -151,16 +149,15 @@ async def test_auto_login_subprocess_fails(tmp_path):
 @pytest.mark.asyncio
 async def test_auto_login_returns_none_on_no_cookies(tmp_path):
 
-
     app_dir = tmp_path / "blog"
     app_dir.mkdir()
-    (app_dir / ".env").write_text(
-        "WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n"
-    )
+    (app_dir / ".env").write_text("WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n")
 
     with patch("pit_panel.core.wp_proxy.asyncio.create_subprocess_exec") as mock_sub:
         proc = AsyncMock()
-        proc.communicate = AsyncMock(return_value=(json.dumps({"cookies": [], "redirect_to": "/wp-admin/"}).encode(), b""))  # noqa: E501
+        proc.communicate = AsyncMock(
+            return_value=(json.dumps({"cookies": [], "redirect_to": "/wp-admin/"}).encode(), b"")
+        )  # noqa: E501
         proc.returncode = 0
         mock_sub.return_value = proc
 
@@ -178,20 +175,19 @@ def test_auto_login_php_code_uses_arrow_syntax():
 @pytest.mark.asyncio
 async def test_auto_login_success(tmp_path):
 
-
     app_dir = tmp_path / "blog"
     app_dir.mkdir()
-    (app_dir / ".env").write_text(
-        "WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n"
-    )
+    (app_dir / ".env").write_text("WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n")
 
-    cookie_json = json.dumps({
-        "cookies": [
-            "wordpress_logged_in_abc=token; Path=/; HttpOnly",
-            "wordpress_sec_abc=token; Path=/wp-admin; HttpOnly",
-        ],
-        "redirect_to": "/wp-admin/",
-    })
+    cookie_json = json.dumps(
+        {
+            "cookies": [
+                "wordpress_logged_in_abc=token; Path=/; HttpOnly",
+                "wordpress_sec_abc=token; Path=/wp-admin; HttpOnly",
+            ],
+            "redirect_to": "/wp-admin/",
+        }
+    )
 
     with patch("pit_panel.core.wp_proxy.asyncio.create_subprocess_exec") as mock_sub:
         proc = AsyncMock()

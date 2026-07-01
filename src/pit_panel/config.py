@@ -65,6 +65,10 @@ class Settings(BaseSettings):  # type: ignore[misc]
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # Backup
+    backup_enabled: bool = False
+    backup_retention_days: int = 7
+
     # Docker
     docker_socket: str = "unix:///var/run/docker.sock"
 

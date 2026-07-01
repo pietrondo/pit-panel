@@ -15,7 +15,7 @@ ExecStartPre=/bin/chown pit-panel:pit-panel /var/lib/pit-panel /opt/pit-panel/ap
 ExecStartPre=-/usr/bin/sudo -n /usr/sbin/usermod -a -G systemd-journal pit-panel
 ExecStartPre=-/usr/bin/sudo -n /usr/sbin/usermod -a -G docker pit-panel
 ExecStart=/opt/pit-panel/.venv/bin/python -c "from pit_panel.main import main; main()"
-Restart=on-failure
+Restart=always
 RestartSec=10
 
 # Sandboxing (compatible with Python + sudo for upgrades)

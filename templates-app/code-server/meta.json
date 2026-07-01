@@ -1,0 +1,10 @@
+{
+    "name": "code-server",
+    "display_name": "Etherpad",
+    "version": "latest",
+    "description": "Editor di testo collaborativo leggero. Formattazione rich text, markdown, code snippets, export PDF/HTML.",
+    "icon": "📝",
+    "requires_db": false,
+    "default_port": 8085,
+    "admin_path": "/"
+}

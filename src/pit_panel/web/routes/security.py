@@ -439,7 +439,13 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
     import subprocess
 
     form = await request.form()
-    jail = form.get("jail", "")
+    jail = str(form.get("jail", ""))
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        return HTMLResponse(
+            '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
+        )
     jail_escaped = __import__("html").escape(jail)
 
     try:
@@ -470,7 +476,20 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        return HTMLResponse(
+            '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
+        )
+
     import html
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        return HTMLResponse(
+            '<div class="text-xs text-red-500">Invalid jail name</div>', status_code=400
+        )
 
     jailed = await _fail2ban_jail_banned(jail)
     jail_e = html.escape(jail)
@@ -504,8 +523,22 @@ async def security_fail2ban_unban(request: Request, db: AsyncSession = Depends(g
         return HTMLResponse("Unauthorized", status_code=401)
 
     form = await request.form()
-    jail = form.get("jail", "")
-    ip = form.get("ip", "")
+    jail = str(form.get("jail", ""))
+    ip = str(form.get("ip", ""))
+    import ipaddress
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        return HTMLResponse(
+            '<div class="text-xs text-red-600">❌ Invalid jail name</div>', status_code=400
+        )
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        return HTMLResponse(
+            '<div class="text-xs text-red-600">❌ Invalid IP address</div>', status_code=400
+        )
+
     ok = await _fail2ban_unban(jail, ip)
     if ok:
         return HTMLResponse(

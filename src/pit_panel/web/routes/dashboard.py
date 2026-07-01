@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
+from pit_panel.core.docker_ops import DockerManager
 from pit_panel.db.models import Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
@@ -70,9 +71,16 @@ def _ram_usage() -> dict[str, Any]:
 
 
 async def _stats_context() -> dict[str, Any]:
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+    containers = await docker_mgr.ps_all()
+    running_containers = sum(1 for c in containers if c.get("State") == "running")
+
     return {
         "subdomain_count": 0,
         "apps_running": 0,
+        "containers_total": len(containers),
+        "containers_running": running_containers,
         "disk_usage": _disk_usage(),
         "cpu": _cpu_usage(),
         "ram": _ram_usage(),
@@ -104,9 +112,16 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     total_subdomains = row.total if row else 0
     apps_running = row.running if row else 0
 
+    docker_mgr = DockerManager(settings.apps_dir)
+    all_containers = await docker_mgr.ps_all()
+    containers_total = len(all_containers)
+    containers_running = sum(1 for c in all_containers if c.get("State") == "running")
+
     stats = {
         "subdomain_count": total_subdomains,
         "apps_running": apps_running,
+        "containers_total": containers_total,
+        "containers_running": containers_running,
         "disk_usage": _disk_usage(),
         "cpu": _cpu_usage(),
         "ram": _ram_usage(),
@@ -137,9 +152,17 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
         )
     ).first()
 
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+    all_containers = await docker_mgr.ps_all()
+    containers_total = len(all_containers)
+    containers_running = sum(1 for c in all_containers if c.get("State") == "running")
+
     stats = {
         "subdomain_count": row.total if row else 0,
         "apps_running": row.running if row else 0,
+        "containers_total": containers_total,
+        "containers_running": containers_running,
         "disk_usage": _disk_usage(),
         "cpu": _cpu_usage(),
         "ram": _ram_usage(),

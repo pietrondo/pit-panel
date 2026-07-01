@@ -16,6 +16,7 @@ async def test_internal_lifespan_creates_cancels_task():
 
     with (
         patch("asyncio.create_task", return_value=mock_task) as mock_create,
+        patch("pit_panel.core.backup.scheduled_backup_loop", new_callable=MagicMock),
         patch("pit_panel.core.blocklist.daily_blocklist_import", new_callable=MagicMock),
         patch("pit_panel.core.caddy.ssl_auto_renew_loop", new_callable=MagicMock),
         patch("pit_panel.core.health.docker_health_monitor_loop", new_callable=MagicMock),

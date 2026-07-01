@@ -81,6 +81,51 @@ async def app_update(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     return response
 
 
+@router.post("/apps/{sd_id}/renew-ssl", response_class=HTMLResponse)
+async def app_renew_ssl(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        return HTMLResponse(
+            "<span class='text-red-500 text-xs'>App not found</span>", status_code=404
+        )  # noqa: E501
+
+    settings = get_settings()
+    base_domain = sd.base_domain or settings.base_domain
+    fqdn = f"{sd.subdomain}.{base_domain}"
+    caddy = CaddyManager(settings.caddy_admin_url)
+
+    # Step 1: ensure Caddy route exists (may have been missed during deploy)
+    port = 80
+    if sd.app_type:
+        meta = AppManager(settings.apps_dir).get_template_info(sd.app_type)
+        port = meta.get("default_port", 80)
+    try:
+        await caddy.add_subdomain(sd.subdomain, base_domain, port=port)
+    except Exception as e:
+        logger.warning(f"Caddy route add failed for {fqdn}: {e}")
+
+    # Step 2: reload config to trigger certificate provisioning
+    try:
+        r = await caddy.renew_certificate(fqdn)
+        if r.get("success"):
+            return HTMLResponse(
+                '<span class="text-green-600 text-xs font-medium">SSL renewed ✓</span>'
+            )
+        return HTMLResponse(
+            f'<span class="text-red-500 text-xs">Failed: {r.get("error", "?")}</span>'
+        )
+    except Exception as e:
+        logger.error(f"SSL renew failed for {fqdn}: {e}")
+        return HTMLResponse(f'<span class="text-red-500 text-xs">Error: {e}</span>')
+
+
 @router.post("/apps/{sd_id}/stop", response_class=HTMLResponse)
 async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
@@ -267,20 +312,6 @@ async def app_backup_get(request: Request, sd_id: int, db: AsyncSession = Depend
     )
 
 
-@router.post("/apps/{sd_id}/backup/run", response_class=HTMLResponse)
-async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
-    user = await get_user(request, db)
-    if not user:
-        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>", status_code=401)
-
-    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
-    sd = result.scalar_one_or_none()
-    if not sd:
-        return HTMLResponse("<p class='text-red-500'>App not found</p>", status_code=404)
-
-    settings = get_settings()
-    from pit_panel.core.backup import perform_app_backup
-
     backup_result = await perform_app_backup(
         sd=sd,
         db=db,
@@ -336,7 +367,7 @@ async def app_backup_restore(
         import tarfile as _tf
 
         with _tf.open(backup_path, "r:gz") as tar:
-            tar.extractall(Path(settings.apps_dir))
+            tar.extractall(Path(settings.apps_dir), filter="fully_trusted")
         await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
 
         db.add(
@@ -390,6 +421,67 @@ async def app_logs_get(request: Request, sd_id: int, db: AsyncSession = Depends(
         logs = "Error fetching logs"
 
     return render("tabs/_logs.html", request=request, sd=sd, logs=logs)
+
+
+@router.websocket("/apps/{sd_id}/logs/ws")
+async def app_logs_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = Depends(get_db)):
+    await websocket.accept()
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd:
+        await websocket.send_text("ERROR: App not found")
+        await websocket.close()
+        return
+
+    settings = get_settings()
+    compose_path = Path(settings.apps_dir) / sd.subdomain / "docker-compose.yml"
+    cwd = str(Path(settings.apps_dir) / sd.subdomain)
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker",
+            "compose",
+            "-f",
+            str(compose_path),
+            "logs",
+            "--tail=50",
+            "--follow",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=cwd,
+        )
+    except OSError as e:
+        await websocket.send_text(f"ERROR: {e}")
+        await websocket.close()
+        return
+
+    async def reader():
+        try:
+            while True:
+                data = await proc.stdout.read(4096)
+                if not data:
+                    break
+                await websocket.send_text(data.decode(errors="replace"))
+        except Exception:
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await websocket.close()
+
+    async def writer():
+        try:
+            while True:
+                await websocket.receive_text()
+        except (WebSocketDisconnect, Exception):
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                proc.kill()
+
+    await asyncio.gather(reader(), writer())
 
 
 @router.get("/apps/{sd_id}/env", response_class=HTMLResponse)
