@@ -102,6 +102,18 @@ def test_unauthenticated_access(client):
     assert r.status_code == 401
 
 
+def test_file_manager_page(client, auth_headers):
+    r = client.get("/system/file-manager")
+    assert r.status_code == 200
+    assert b"File Manager" in r.content
+
+
+def test_system_terminal_page(client, auth_headers):
+    r = client.get("/system/terminal")
+    assert r.status_code == 200
+    assert b"Terminal" in r.content
+
+
 def test_list_files(client, auth_headers):
     temp_dir = tempfile.gettempdir()
     r = client.get(f"/api/file-manager/list?path={temp_dir}")

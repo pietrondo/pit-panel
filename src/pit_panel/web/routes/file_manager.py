@@ -113,7 +113,7 @@ async def system_terminal_page(request: Request, db: AsyncSession = Depends(get_
     if not user:
         return RedirectResponse("/login", status_code=302)
     return render(
-        "system_terminal.html", {"request": request, "user": user, "title": "System Terminal"}
+        "system_terminal.html", request=request, user=user, title="System Terminal"
     )
 
 
