@@ -144,11 +144,11 @@ async def _ensure_fail2ban_jails():
         timeout=10,
         input=content,
     )
-    await _run_cmd(["sudo", "-n", "systemctl", "restart", "fail2ban"])
+    await _run_cmd(["sudo", "-n", "/usr/bin/systemctl", "restart", "fail2ban"])
 
 
 async def _fail2ban_jail_banned(jail: str) -> list[dict[str, str]]:
-    out = await _run_cmd(["sudo", "-n", "fail2ban-client", "status", jail], timeout=10)
+    out = await _run_cmd(["sudo", "-n", "/usr/bin/fail2ban-client", "status", jail], timeout=10)
     ips = []
     for line in out.split("\n"):
         line = line.strip()
