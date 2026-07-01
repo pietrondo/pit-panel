@@ -271,15 +271,24 @@ async def test_settings_update_new_settings(monkeypatch):
     # Check added SystemSettings objects
     keys = [obj.key for obj in added_objects]
     assert keys == [
-        "base_domain", "panel_subdomain", "host",
-        "abuseipdb_api_key", "sudo_password",
-        "telegram_bot_token", "telegram_chat_id",
+        "base_domain",
+        "panel_subdomain",
+        "host",
+        "abuseipdb_api_key",
+        "sudo_password",
+        "telegram_bot_token",
+        "telegram_chat_id",
     ]
 
     values = [obj.value for obj in added_objects]
     assert values == [
-        {"v": "example.com"}, {"v": "mypanel"}, {"v": "127.0.0.1"},
-        {"v": ""}, {"v": ""}, {"v": ""}, {"v": ""},
+        {"v": "example.com"},
+        {"v": "mypanel"},
+        {"v": "127.0.0.1"},
+        {"v": ""},
+        {"v": ""},
+        {"v": ""},
+        {"v": ""},
     ]
 
     updated_bys = [obj.updated_by for obj in added_objects]

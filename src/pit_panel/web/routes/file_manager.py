@@ -39,6 +39,7 @@ ALLOWED_ROOTS = [
     Path(tempfile.gettempdir()).resolve(),
 ]
 
+
 def verify_safe_path(path_str: str) -> Path:
     if not path_str:
         raise PermissionError("Empty path")
@@ -55,12 +56,14 @@ def verify_safe_path(path_str: str) -> Path:
             continue
     raise PermissionError("Path access denied: outside allowed directories")
 
+
 async def check_ws_admin(websocket: WebSocket, db: AsyncSession) -> bool:
     cookie = websocket.cookies.get(SESSION_COOKIE)
     if not cookie:
         cookie_header = websocket.headers.get("cookie", "")
         if cookie_header:
             from http.cookies import SimpleCookie
+
             c = SimpleCookie()
             c.load(cookie_header)
             if SESSION_COOKIE in c:
@@ -80,17 +83,21 @@ async def check_ws_admin(websocket: WebSocket, db: AsyncSession) -> bool:
     except Exception:
         return False
 
+
 class SaveFileRequest(BaseModel):
     path: str
     content: str
+
 
 class CreateResourceRequest(BaseModel):
     parent_path: str
     name: str
     type: str  # "file" or "directory"
 
+
 class DeleteResourceRequest(BaseModel):
     path: str
+
 
 @router.get("/system/file-manager", response_class=HTMLResponse)
 async def file_manager_page(request: Request, db: AsyncSession = Depends(get_db)):
@@ -99,21 +106,20 @@ async def file_manager_page(request: Request, db: AsyncSession = Depends(get_db)
         return RedirectResponse("/login", status_code=302)
     return render("file_manager.html", {"request": request, "user": user, "title": "File Manager"})
 
+
 @router.get("/system/terminal", response_class=HTMLResponse)
 async def system_terminal_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
     return render(
-        "system_terminal.html",
-        {"request": request, "user": user, "title": "System Terminal"}
+        "system_terminal.html", {"request": request, "user": user, "title": "System Terminal"}
     )
+
 
 @router.get("/api/file-manager/list")
 async def list_files(
-    path: str | None = None,
-    request: Request = None,
-    db: AsyncSession = Depends(get_db)
+    path: str | None = None, request: Request = None, db: AsyncSession = Depends(get_db)
 ):
     user = await get_admin(request, db)
     if not user:
@@ -132,14 +138,16 @@ async def list_files(
             try:
                 stat = entry.stat()
                 permissions = oct(stat.st_mode & 0o777)
-                items.append({
-                    "name": entry.name,
-                    "path": str(entry.absolute()),
-                    "is_dir": entry.is_dir(),
-                    "size": stat.st_size if not entry.is_dir() else 0,
-                    "mtime": stat.st_mtime,
-                    "permissions": permissions
-                })
+                items.append(
+                    {
+                        "name": entry.name,
+                        "path": str(entry.absolute()),
+                        "is_dir": entry.is_dir(),
+                        "size": stat.st_size if not entry.is_dir() else 0,
+                        "mtime": stat.st_mtime,
+                        "permissions": permissions,
+                    }
+                )
             except Exception:
                 continue
         return {"status": "success", "path": str(resolved_path), "items": items}
@@ -147,6 +155,7 @@ async def list_files(
         raise HTTPException(status_code=403, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @router.get("/api/file-manager/file")
 async def get_file_content(path: str, request: Request, db: AsyncSession = Depends(get_db)):
@@ -164,6 +173,7 @@ async def get_file_content(path: str, request: Request, db: AsyncSession = Depen
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
+
 @router.post("/api/file-manager/save")
 async def save_file(req: SaveFileRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
@@ -178,11 +188,10 @@ async def save_file(req: SaveFileRequest, request: Request, db: AsyncSession = D
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
+
 @router.post("/api/file-manager/create")
 async def create_resource(
-    req: CreateResourceRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
+    req: CreateResourceRequest, request: Request, db: AsyncSession = Depends(get_db)
 ):
     user = await get_admin(request, db)
     if not user:
@@ -202,11 +211,10 @@ async def create_resource(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
+
 @router.post("/api/file-manager/delete")
 async def delete_resource(
-    req: DeleteResourceRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
+    req: DeleteResourceRequest, request: Request, db: AsyncSession = Depends(get_db)
 ):
     user = await get_admin(request, db)
     if not user:
@@ -223,12 +231,13 @@ async def delete_resource(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
+
 @router.post("/api/file-manager/upload")
 async def upload_file(
     parent_path: str = Form(...),
     file: UploadFile = File(...),
     request: Request = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     user = await get_admin(request, db)
     if not user:
@@ -247,6 +256,7 @@ async def upload_file(
         raise HTTPException(status_code=403, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @router.websocket("/system/terminal/ws")
 async def terminal_ws(websocket: WebSocket, db: AsyncSession = Depends(get_db)):

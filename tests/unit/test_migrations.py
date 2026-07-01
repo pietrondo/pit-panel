@@ -21,12 +21,7 @@ async def test_init_db_creates_is_main_domain_column(tmp_path):
 
         # Verify column exists
         def check_after(c):
-            cols = [
-                r[1]
-                for r in c.execute(
-                    sa.text("PRAGMA table_info(subdomains)")
-                ).fetchall()
-            ]
+            cols = [r[1] for r in c.execute(sa.text("PRAGMA table_info(subdomains)")).fetchall()]
             assert "is_main_domain" in cols
 
         async with engine.connect() as conn:
@@ -35,5 +30,5 @@ async def test_init_db_creates_is_main_domain_column(tmp_path):
     finally:
         db_session._engine = None
         # Disposing if engine is not None
-        if 'engine' in locals() and engine is not None:
+        if "engine" in locals() and engine is not None:
             await engine.dispose()
