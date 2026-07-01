@@ -476,6 +476,13 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        return HTMLResponse(
+            '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
+        )
+
     import html
     import re
 

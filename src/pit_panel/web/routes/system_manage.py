@@ -40,26 +40,31 @@ STATIC_COMMANDS = {
 
 
 def _resolve_cmd(action: str) -> list[str] | None:
+    import re
+
     if action in STATIC_COMMANDS:
         return STATIC_COMMANDS[action]
 
     valid_services = {svc for svc, _ in SERVICES}
 
+    def is_safe(val: str) -> bool:
+        return bool(re.match(r"^[a-zA-Z0-9_-]+$", val))
+
     if action.startswith("service_restart_"):
         svc = action.removeprefix("service_restart_")
-        if svc in valid_services:
+        if svc in valid_services and is_safe(svc):
             return ["/usr/bin/systemctl", "restart", svc]
     if action.startswith("service_stop_"):
         svc = action.removeprefix("service_stop_")
-        if svc in valid_services:
+        if svc in valid_services and is_safe(svc):
             return ["/usr/bin/systemctl", "stop", svc]
     if action.startswith("service_start_"):
         svc = action.removeprefix("service_start_")
-        if svc in valid_services:
+        if svc in valid_services and is_safe(svc):
             return ["/usr/bin/systemctl", "start", svc]
     if action.startswith("journal_"):
         svc = action.removeprefix("journal_")
-        if svc in valid_services:
+        if svc in valid_services and is_safe(svc):
             return ["/usr/bin/journalctl", "-u", svc, "-n", "100", "--no-pager"]
     return None
 
