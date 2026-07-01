@@ -287,19 +287,21 @@ async def app_deploy(
                     if "=" in line:
                         k, v = line.split("=", 1)
                         env_vars[k.strip()] = v.strip()
-            wp_title = env_vars.get("WP_TITLE", "My Blog")
-            wp_user = env_vars.get("WP_ADMIN_USER", "admin")
-            wp_pass = env_vars.get("WP_ADMIN_PASSWORD", "admin")
-            wp_email = env_vars.get("WP_ADMIN_EMAIL", "admin@localhost")
-            wp_locale = env_vars.get("WP_LOCALE", "it_IT")
+            import shlex
+            wp_title = shlex.quote(env_vars.get("WP_TITLE", "My Blog"))
+            wp_user = shlex.quote(env_vars.get("WP_ADMIN_USER", "admin"))
+            wp_pass = shlex.quote(env_vars.get("WP_ADMIN_PASSWORD", "admin"))
+            wp_email = shlex.quote(env_vars.get("WP_ADMIN_EMAIL", "admin@localhost"))
+            wp_locale = shlex.quote(env_vars.get("WP_LOCALE", "it_IT"))
+            fqdn_q = shlex.quote(f"https://{fqdn}")
             await asyncio.sleep(8)
             await docker_mgr.exec_command(sd.subdomain, "wordpress", [
                 "sh", "-c",
                 f"curl -sSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
                 f" -o /tmp/wp-cli.phar"
                 f" && php /tmp/wp-cli.phar core install"
-                f" --url=https://{fqdn}"
-                f" --title='{wp_title}'"
+                f" --url={fqdn_q}"
+                f" --title={wp_title}"
                 f" --admin_user={wp_user}"
                 f" --admin_password={wp_pass}"
                 f" --admin_email={wp_email}"
