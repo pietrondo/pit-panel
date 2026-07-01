@@ -104,7 +104,7 @@ async def file_manager_page(request: Request, db: AsyncSession = Depends(get_db)
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    return render("file_manager.html", {"request": request, "user": user, "title": "File Manager"})
+    return render("file_manager.html", request=request, user=user, title="File Manager")
 
 
 @router.get("/system/terminal", response_class=HTMLResponse)
