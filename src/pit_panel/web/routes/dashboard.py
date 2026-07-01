@@ -113,14 +113,15 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     apps_running = row.running if row else 0
 
     docker_mgr = DockerManager(settings.apps_dir)
-    containers = await docker_mgr.ps_all()
-    running_containers = sum(1 for c in containers if c.get("State") == "running")
+    all_containers = await docker_mgr.ps_all()
+    containers_total = len(all_containers)
+    containers_running = sum(1 for c in all_containers if c.get("State") == "running")
 
     stats = {
         "subdomain_count": total_subdomains,
         "apps_running": apps_running,
-        "containers_total": len(containers),
-        "containers_running": running_containers,
+        "containers_total": containers_total,
+        "containers_running": containers_running,
         "disk_usage": _disk_usage(),
         "cpu": _cpu_usage(),
         "ram": _ram_usage(),
@@ -153,14 +154,15 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
 
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
-    containers = await docker_mgr.ps_all()
-    running_containers = sum(1 for c in containers if c.get("State") == "running")
+    all_containers = await docker_mgr.ps_all()
+    containers_total = len(all_containers)
+    containers_running = sum(1 for c in all_containers if c.get("State") == "running")
 
     stats = {
         "subdomain_count": row.total if row else 0,
         "apps_running": row.running if row else 0,
-        "containers_total": len(containers),
-        "containers_running": running_containers,
+        "containers_total": containers_total,
+        "containers_running": containers_running,
         "disk_usage": _disk_usage(),
         "cpu": _cpu_usage(),
         "ram": _ram_usage(),

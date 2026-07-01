@@ -71,9 +71,7 @@ def _setup_session(client, monkeypatch, mock_sd=None):
 def test_restart_authenticated(client, monkeypatch):
     _setup_session(client, monkeypatch)
     mock_compose = AsyncMock()
-    monkeypatch.setattr(
-        "pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_compose
-    )
+    monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_compose)
 
     try:
         resp = client.post("/apps/1/restart", follow_redirects=False)
@@ -87,9 +85,7 @@ def test_restart_authenticated(client, monkeypatch):
 def test_stop_authenticated(client, monkeypatch):
     _setup_session(client, monkeypatch)
     mock_compose = AsyncMock()
-    monkeypatch.setattr(
-        "pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_compose
-    )
+    monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_compose)
 
     try:
         resp = client.post("/apps/1/stop", follow_redirects=False)
@@ -108,13 +104,9 @@ def test_delete_authenticated(client, monkeypatch):
         lambda: Settings(secret_key="test", base_domain="example.com"),
     )
     mock_compose = AsyncMock()
-    monkeypatch.setattr(
-        "pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_compose
-    )
+    monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_compose)
     mock_remove = AsyncMock()
-    monkeypatch.setattr(
-        "pit_panel.core.caddy.CaddyManager.remove_subdomain", mock_remove
-    )
+    monkeypatch.setattr("pit_panel.core.caddy.CaddyManager.remove_subdomain", mock_remove)
 
     try:
         resp = client.post("/apps/1/delete", follow_redirects=False)
@@ -148,9 +140,7 @@ def test_update_authenticated(client, monkeypatch):
     _setup_session(client, monkeypatch)
     mock_compose = AsyncMock()
     mock_compose.return_value = {"success": True}
-    monkeypatch.setattr(
-        "pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_compose
-    )
+    monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.run_compose_command", mock_compose)
 
     try:
         resp = client.post("/apps/1/update", follow_redirects=False)
@@ -178,9 +168,7 @@ def test_env_get_authenticated(client, monkeypatch, tmp_path):
     env_file.write_text("KEY=value\nPORT=8081\n")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
 
     try:
         resp = client.get("/apps/1/env")
@@ -200,9 +188,7 @@ def test_clone_authenticated(client, monkeypatch, tmp_path):
     (app_dir / ".env").write_text("PORT=8080\n")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
 
     try:
         resp = client.post("/apps/1/clone", follow_redirects=False)
@@ -223,15 +209,12 @@ def test_backup_restore_authenticated(client, monkeypatch, tmp_path):
 
     dd = str(tmp_path / "data")
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"), data_dir=dd)
-    monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
-    )
-    monkeypatch.setattr(
-        "pit_panel.core.docker_ops.DockerManager.run_compose_command", AsyncMock()
-    )
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
+    monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.run_compose_command", AsyncMock())
 
     # Create a fake backup
     import tarfile
+
     back_dir = tmp_path / "data" / "backups" / "blog"
     back_dir.mkdir(parents=True)
     with tarfile.open(back_dir / "test_backup.tar.gz", "w:gz") as tf:
@@ -256,9 +239,7 @@ def test_backup_run_authenticated(client, monkeypatch, tmp_path):
 
     dd = str(tmp_path / "data")
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"), data_dir=dd)
-    monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
 
     try:
         resp = client.post("/apps/1/backup/run", follow_redirects=False)
@@ -282,9 +263,7 @@ def test_files_list_authenticated(client, monkeypatch, tmp_path):
     (app_dir / "subdir" / "nested.txt").write_text("nested")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
 
     try:
         resp = client.get("/apps/1/files", follow_redirects=False)
@@ -304,9 +283,7 @@ def test_files_view_authenticated(client, monkeypatch, tmp_path):
     (app_dir / "test.txt").write_text("hello world")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
 
     try:
         resp = client.get("/apps/1/files?path=test.txt", follow_redirects=False)
@@ -331,9 +308,7 @@ def test_terminal_get_authenticated(client, monkeypatch, tmp_path):
     compose.write_text("services:\n  web:\n    image: nginx\n")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
 
     try:
         resp = client.get("/apps/1/terminal", follow_redirects=False)
@@ -352,9 +327,7 @@ def test_env_post_authenticated(client, monkeypatch, tmp_path):
     app_dir.mkdir(parents=True)
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings
-    )
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
 
     try:
         resp = client.post("/apps/1/env", data={"env_content": "NEW_KEY=hello\n"})

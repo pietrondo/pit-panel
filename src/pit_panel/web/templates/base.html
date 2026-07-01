@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>pit-panel{% if title %} - {{ title }}{% endif %}</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%234f46e5'/%3E%3Cpath stroke='white' stroke-width='2.5' stroke-linecap='round' d='M8 10h16M8 16h16M8 22h12' fill='none'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -164,8 +165,10 @@
                :class="{ '-translate-x-full': !sidebarOpen && !mobileOpen, 'translate-x-0': sidebarOpen || mobileOpen }">
             <div class="h-16 flex items-center gap-3 px-5 border-b border-surface-200 dark:border-surface-800">
                 <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" fill="none"/>
+                        <path d="M8 10h8M8 14h6" stroke="currentColor" stroke-linecap="round"/>
+                        <circle cx="17" cy="15" r="3" fill="currentColor" opacity="0.3"/>
                     </svg>
                 </div>
                 <span class="font-bold text-base text-surface-900 dark:text-white">pit-panel</span>
@@ -225,6 +228,18 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.054-2.076.012a4.98 4.98 0 01-3.424-1.614c-1.127-1.258-1.597-2.92-1.393-4.58.204-1.66 1.158-3.13 2.72-4.102 1.562-.973 3.447-1.328 5.257-1.026a4.98 4.98 0 014.28 3.52c.16.595.215 1.206.16 1.802-.055.596-.216 1.176-.47 1.714m-10.74 3.7c-1.205-1.04-1.92-2.52-2.025-4.085-.105-1.565.37-3.09 1.34-4.275a5.552 5.552 0 013.79-1.785 5.55 5.55 0 014.28 1.14 5.55 5.55 0 011.785 3.79c.105 1.565-.37 3.09-1.34 4.275m-6.42.27c1.472.937 3.193 1.416 4.945 1.378 1.75-.038 3.443-.585 4.86-1.57a6.398 6.398 0 002.325-3.695c.29-1.233.24-2.518-.15-3.722"/>
                     </svg>
                     SysManage
+                </a>
+                <a href="/system/file-manager" class="sidebar-link" data-path="/system/file-manager">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.008 1.24l.885 1.77a2.25 2.25 0 002.007 1.24h1.98a2.25 2.25 0 002.007-1.24l.885-1.77a2.25 2.25 0 012.007-1.24h3.86m-18 0h18a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v4.5A2.25 2.25 0 002.25 13.5z"/>
+                    </svg>
+                    File Manager
+                </a>
+                <a href="/system/terminal" class="sidebar-link" data-path="/system/terminal">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/>
+                    </svg>
+                    Terminal
                 </a>
                 <a href="/debug" class="sidebar-link" data-path="/debug">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">

@@ -34,10 +34,17 @@ def _rewrite_urls(content: bytes, prefix: str) -> bytes:
 
 
 def _rewrite_content(content: bytes, content_type: str, prefix: str) -> bytes:
-    if any(ct in content_type for ct in (
-        "text/html", "text/css", "application/javascript",
-        "application/json", "text/xml", "application/xml",
-    )):
+    if any(
+        ct in content_type
+        for ct in (
+            "text/html",
+            "text/css",
+            "application/javascript",
+            "application/json",
+            "text/xml",
+            "application/xml",
+        )
+    ):
         return _rewrite_urls(content, prefix)
     return content
 
@@ -85,29 +92,39 @@ async def auto_login(
     compose_file = compose_dir / "docker-compose.yml"
 
     php_code = (
-        '$id=1;'
-        '$exp=time()+86400;'
+        "$id=1;"
+        "$exp=time()+86400;"
         '$li=wp_generate_auth_cookie($id,$exp,"logged_in");'
         '$sa=wp_generate_auth_cookie($id,$exp,"secure_auth");'
         '$au=wp_generate_auth_cookie($id,$exp,"auth");'
-        'echo json_encode(array('
+        "echo json_encode(array("
         '"cookies"=>array('
         'LOGGED_IN_COOKIE."=".$li."; Path=/; HttpOnly",'
         'SECURE_AUTH_COOKIE."=".$sa."; Path=/wp-admin; HttpOnly",'
         'AUTH_COOKIE."=".$au."; Path=/wp-admin; HttpOnly"'
-        '),'
+        "),"
         '"redirect_to"=>admin_url()'
-        '));'
+        "));"
     )
 
     logger.info("auto_login[%s]: running WP-CLI eval to generate auth cookies", subdomain)
 
     try:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", str(compose_file),
-            "exec", "-T", "wordpress",
-            "php", "-d", "memory_limit=256M", "/tmp/wp-cli.phar",
-            "--allow-root", "eval", php_code,
+            "docker",
+            "compose",
+            "-f",
+            str(compose_file),
+            "exec",
+            "-T",
+            "wordpress",
+            "php",
+            "-d",
+            "memory_limit=256M",
+            "/tmp/wp-cli.phar",
+            "--allow-root",
+            "eval",
+            php_code,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(compose_dir),
@@ -120,7 +137,9 @@ async def auto_login(
     if proc.returncode != 0:
         logger.warning(
             "auto_login[%s]: WP-CLI eval failed (rc=%d): %s",
-            subdomain, proc.returncode, stderr.decode()[:300],
+            subdomain,
+            proc.returncode,
+            stderr.decode()[:300],
         )
         return None
 
@@ -133,13 +152,17 @@ async def auto_login(
             return None
         logger.info(
             "auto_login[%s]: WP-CLI success → %s (%d cookies)",
-            subdomain, redirect_to, len(cookies),
+            subdomain,
+            redirect_to,
+            len(cookies),
         )
         return redirect_to, cookies
     except (json.JSONDecodeError, KeyError) as e:
         logger.error(
             "auto_login[%s]: failed to parse WP-CLI output: %s — raw: %s",
-            subdomain, e, stdout.decode()[:300],
+            subdomain,
+            e,
+            stdout.decode()[:300],
         )
         return None
 

@@ -1,9 +1,9 @@
 """Secret debug API — logs, certs, system info. Protected by token file."""
 
+import asyncio
 import logging
 import os
 import platform
-import subprocess
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -30,10 +30,24 @@ def _verify_token(x_debug_token: str | None = Header(None)) -> str:
     return x_debug_token
 
 
-def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str:
+async def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str:
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd)
-        return (r.stdout + r.stderr).strip() or "(empty)"
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+        )
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            return f"ERROR: Command timed out after {timeout} seconds"
+
+        stdout = stdout_bytes.decode() if stdout_bytes else ""
+        stderr = stderr_bytes.decode() if stderr_bytes else ""
+        return (stdout + stderr).strip() or "(empty)"
     except Exception as e:
         return f"ERROR: {e}"
 
@@ -50,7 +64,7 @@ async def debug_logs(
     args = ["journalctl", "-u", "pit-panel.service", "-n", str(lines), "--no-pager"]
     if flag:
         args.insert(2, flag)
-    return PlainTextResponse(_run(args))
+    return PlainTextResponse(await _run(args))
 
 
 @router.get("/api/debug/certs")  # type: ignore[untyped-decorator]
@@ -69,6 +83,13 @@ async def debug_system(
     token: str = Depends(_verify_token),
 ) -> JSONResponse:
     s = get_settings()
+
+    disk_free_gb, uptime, memory = await asyncio.gather(
+        _run(["df", "-h", "/", "--output=avail", "--no-headers"]),
+        _run(["uptime", "-p"]),
+        _run(["free", "-h"]),
+    )
+
     return JSONResponse(
         {
             "python": platform.python_version(),
@@ -81,8 +102,8 @@ async def debug_system(
             "effective_domain": s.effective_domain,
             "git_remote": s.git_remote,
             "git_branch": s.git_branch,
-            "disk_free_gb": _run(["df", "-h", "/", "--output=avail", "--no-headers"]),
-            "uptime": _run(["uptime", "-p"]),
-            "memory": _run(["free", "-h"]),
+            "disk_free_gb": disk_free_gb,
+            "uptime": uptime,
+            "memory": memory,
         }
     )

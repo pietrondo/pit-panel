@@ -11,6 +11,23 @@ from pit_panel.security.ipban import ban_ip
 
 async def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) -> str:
     try:
+        from pit_panel.config import get_settings
+
+        settings = get_settings()
+        if cmd and cmd[0] == "sudo" and settings.sudo_password:
+            new_cmd = list(cmd)
+            if len(new_cmd) > 1 and new_cmd[1] == "-n":
+                new_cmd[1] = "-S"
+            elif "-n" in new_cmd:
+                idx = new_cmd.index("-n")
+                new_cmd[idx] = "-S"
+            else:
+                new_cmd.insert(1, "-S")
+            cmd = new_cmd
+
+            pw_prefix = f"{settings.sudo_password}\n"
+            input = pw_prefix + input if input is not None else pw_prefix
+
         input_bytes = input.encode() if input is not None else None
         process = await asyncio.create_subprocess_exec(
             *cmd,

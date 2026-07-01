@@ -121,6 +121,7 @@ async def settings_test_notification(request: Request, db: AsyncSession = Depend
         return HTMLResponse("Unauthorized", status_code=401)
 
     from pit_panel.core.notifier import notify_test
+
     ok = await notify_test()
     if ok:
         return HTMLResponse("<span class='text-green-600 text-xs'>Sent ✓</span>")
