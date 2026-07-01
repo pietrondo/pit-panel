@@ -71,11 +71,16 @@ def _ram_usage() -> dict[str, Any]:
 
 
 async def _stats_context() -> dict[str, Any]:
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+    containers = await docker_mgr.ps_all()
+    running_containers = sum(1 for c in containers if c.get("State") == "running")
+
     return {
         "subdomain_count": 0,
         "apps_running": 0,
-        "containers_total": 0,
-        "containers_running": 0,
+        "containers_total": len(containers),
+        "containers_running": running_containers,
         "disk_usage": _disk_usage(),
         "cpu": _cpu_usage(),
         "ram": _ram_usage(),
