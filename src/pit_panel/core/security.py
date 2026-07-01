@@ -12,6 +12,7 @@ from pit_panel.security.ipban import ban_ip
 async def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) -> str:
     try:
         from pit_panel.config import get_settings
+
         settings = get_settings()
         if cmd and cmd[0] == "sudo" and settings.sudo_password:
             new_cmd = list(cmd)

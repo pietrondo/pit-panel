@@ -8,3 +8,6 @@
 ## 2023-11-20 - Ensure Subprocess Call Wrappers Are Fully Tested
 **Learning:** Utility functions that wrap native modules like `subprocess.run` often lack proper testing, reducing the reliability of debug/diagnostic endpoints. Ensure mock implementations return appropriate stand-in objects and handle exception paths gracefully.
 **Action:** When adding tests for simple wrappers, create isolated mock paths for both standard behavior (e.g., successful process execution, empty stdouts) and error scenarios (e.g., exceptions raised inside the try-block). Always aim for 100% test coverage on these small utility files to prevent masking system-level faults.
+## 2024-06-30 - Form Accessibility and UX in Jinja Templates
+**Learning:** Explicit `for` and `id` linking for forms in templates combined with immediate UI feedback (like loading spinners in Alpine.js on forms) dramatically increases accessibility (for screen readers) and prevents duplicate submissions while providing a better UX.
+**Action:** Always add explicit IDs/labels and `isSubmitting` tracking + loading states to primary action forms.

@@ -72,6 +72,10 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # Docker
     docker_socket: str = "unix:///var/run/docker.sock"
 
+    # Backup
+    backup_enabled: bool = False
+    backup_retention_days: int = 7
+
     # Debug API
     debug_token_path: str = "/etc/pit-panel/debug_token"
 

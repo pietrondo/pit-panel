@@ -20,6 +20,7 @@ async def test_internal_lifespan_creates_cancels_task():
         patch("pit_panel.core.blocklist.daily_blocklist_import", new_callable=MagicMock),
         patch("pit_panel.core.caddy.ssl_auto_renew_loop", new_callable=MagicMock),
         patch("pit_panel.core.health.docker_health_monitor_loop", new_callable=MagicMock),
+        patch("pit_panel.core.backup.scheduled_backup_loop", new_callable=MagicMock),
     ):
         async with _lifespan(app):
             assert mock_create.call_count == 4

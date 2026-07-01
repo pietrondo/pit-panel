@@ -4,8 +4,15 @@ import asyncio
 from pathlib import Path
 
 ALLOWED_COMMANDS = {
-    "systemctl", "apt-get", "apt", "journalctl",
-    "df", "free", "reboot", "uptime", "docker",
+    "systemctl",
+    "apt-get",
+    "apt",
+    "journalctl",
+    "df",
+    "free",
+    "reboot",
+    "uptime",
+    "docker",
 }
 
 

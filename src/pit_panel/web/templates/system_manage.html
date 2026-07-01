@@ -238,9 +238,9 @@
                     Rebooting the server will disconnect all users and stop all services.
                     Ensure no critical operations are in progress.
                 </p>
-                <div x-data="{ armed: false, countdown: 10 }">
+                <div x-data="rebootManager">
                     <template x-if="!armed">
-                        <button type="button" @click="armed = true; countdown = 10" class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">
+                        <button type="button" @click="arm()" class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">
                             Reboot System
                         </button>
                     </template>
@@ -257,7 +257,7 @@
                                         hx-target="#result">
                                     CONFIRM REBOOT NOW
                                 </button>
-                                <button type="button" @click="armed = false" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">
+                                <button type="button" @click="cancel()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">
                                     Cancel
                                 </button>
                             </div>
@@ -299,6 +299,29 @@
 </div>
 
 <script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('rebootManager', () => ({
+            armed: false,
+            countdown: 10,
+            interval: null,
+            arm() {
+                this.armed = true;
+                this.countdown = 10;
+                this.interval = setInterval(() => {
+                    if (this.countdown > 0) {
+                        this.countdown--;
+                    } else {
+                        clearInterval(this.interval);
+                    }
+                }, 1000);
+            },
+            cancel() {
+                this.armed = false;
+                if (this.interval) clearInterval(this.interval);
+            }
+        }));
+    });
+
     document.addEventListener('htmx:afterRequest', function() {
         var el = document.getElementById('result');
         if (el) {

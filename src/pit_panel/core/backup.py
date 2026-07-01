@@ -13,8 +13,10 @@ from pit_panel.db.models import AuditLog, Subdomain
 
 logger = logging.getLogger(__name__)
 
+
 def _get_db_service_info(compose_path: Path, env_path: Path) -> tuple | None:
     import yaml
+
     try:
         with open(compose_path) as f:
             data = yaml.safe_load(f)
@@ -26,6 +28,7 @@ def _get_db_service_info(compose_path: Path, env_path: Path) -> tuple | None:
                 if "=" in line:
                     k, v = line.split("=", 1)
                     env_vars[k.strip()] = v.strip().strip('"').strip("'")
+
         def _resolve(key: str, cfg: dict) -> str:
             val = cfg.get(key, "")
             if isinstance(val, str) and val.startswith("${") and val.endswith("}"):
@@ -37,6 +40,7 @@ def _get_db_service_info(compose_path: Path, env_path: Path) -> tuple | None:
             if isinstance(val, str) and val.startswith("$"):
                 return env_vars.get(val[1:], val)
             return str(val or "")
+
         for name, svc in data["services"].items():
             image = svc.get("image", "").lower()
             cfg = svc.get("environment", {})
@@ -44,7 +48,8 @@ def _get_db_service_info(compose_path: Path, env_path: Path) -> tuple | None:
                 cfg = {kv.split("=", 1)[0]: kv.split("=", 1)[1] for kv in cfg if "=" in kv}
             if "postgres" in image:
                 return (
-                    name, "postgres",
+                    name,
+                    "postgres",
                     _resolve("POSTGRES_USER", cfg),
                     _resolve("POSTGRES_PASSWORD", cfg),
                     _resolve("POSTGRES_DB", cfg),
@@ -61,9 +66,14 @@ def _get_db_service_info(compose_path: Path, env_path: Path) -> tuple | None:
         logger.warning(f"Failed to parse DB info from {compose_path}: {e}")
     return None
 
+
 async def perform_app_backup(
-    sd: Subdomain, db: AsyncSession, settings: Settings,
-    user_id: int | None = None, ip: str | None = None, user_agent: str | None = None,
+    sd: Subdomain,
+    db: AsyncSession,
+    settings: Settings,
+    user_id: int | None = None,
+    ip: str | None = None,
+    user_agent: str | None = None,
 ) -> dict[str, Any]:
     app_dir = Path(settings.apps_dir) / sd.subdomain
     backup_dir = Path(settings.data_dir) / "backups" / sd.subdomain
@@ -88,7 +98,14 @@ async def perform_app_backup(
                 dump_text = r.get("stdout") if r.get("success") else None
             elif "mysql" in db_type:
                 pw_flag = f"-p{db_pass}" if db_pass else ""
-                cmd = ["mysqldump", "--hex-blob", "-u", db_user or "root", pw_flag, db_name or "mysql"]  # noqa: E501
+                cmd = [
+                    "mysqldump",
+                    "--hex-blob",
+                    "-u",
+                    db_user or "root",
+                    pw_flag,
+                    db_name or "mysql",
+                ]  # noqa: E501
                 r = await docker_mgr.exec_command(sd.subdomain, svc_name, cmd)
                 dump_text = r.get("stdout") if r.get("success") else None
             if dump_text:
@@ -102,12 +119,17 @@ async def perform_app_backup(
         size = path.stat().st_size
         sz_mb = size / 1024 / 1024
         size_str = f"{sz_mb:.1f} MB" if sz_mb > 1 else f"{size / 1024:.0f} KB"
-        db.add(AuditLog(
-            user_id=user_id, action="app_backup",
-            target_type="subdomain", target_id=sd.id,
-            details={"name": name, "size": size},
-            ip=ip, user_agent=user_agent,
-        ))
+        db.add(
+            AuditLog(
+                user_id=user_id,
+                action="app_backup",
+                target_type="subdomain",
+                target_id=sd.id,
+                details={"name": name, "size": size},
+                ip=ip,
+                user_agent=user_agent,
+            )
+        )
         await db.commit()
         await notify_app_backup(sd.subdomain, name, size_str)
         return {"success": True, "name": name, "size_str": size_str, "size": size}
@@ -117,6 +139,7 @@ async def perform_app_backup(
             path.unlink()
         return {"success": False, "error": str(e)}
 
+
 async def scheduled_backup_loop() -> None:
     import asyncio
 
@@ -124,6 +147,7 @@ async def scheduled_backup_loop() -> None:
 
     from pit_panel.config import get_settings
     from pit_panel.db.session import get_sessionmaker
+
     sessionmaker = get_sessionmaker()
     while True:
         try:

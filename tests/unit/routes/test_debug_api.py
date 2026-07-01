@@ -1,3 +1,4 @@
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock
 
@@ -54,39 +55,52 @@ async def test_verify_token_success(monkeypatch, tmp_path):
     assert token == "expected_token"
 
 
-def test_run_success(monkeypatch):
-    mock_subprocess = MagicMock()
-    mock_subprocess.stdout = "stdout "
-    mock_subprocess.stderr = "stderr"
-    mock_run = MagicMock(return_value=mock_subprocess)
-    monkeypatch.setattr("subprocess.run", mock_run)
+@pytest.mark.asyncio
+async def test_run_success(monkeypatch):
+    mock_proc = AsyncMock()
+    mock_proc.communicate.return_value = (b"stdout ", b"stderr")
+    mock_create = AsyncMock(return_value=mock_proc)
+    monkeypatch.setattr("asyncio.create_subprocess_exec", mock_create)
 
-    res = _run(["ls"])
+    res = await _run(["ls"])
     assert res == "stdout stderr"
 
 
-def test_run_empty(monkeypatch):
-    mock_subprocess = MagicMock()
-    mock_subprocess.stdout = ""
-    mock_subprocess.stderr = "   "
-    mock_run = MagicMock(return_value=mock_subprocess)
-    monkeypatch.setattr("subprocess.run", mock_run)
+@pytest.mark.asyncio
+async def test_run_empty(monkeypatch):
+    mock_proc = AsyncMock()
+    mock_proc.communicate.return_value = (b"", b"   ")
+    mock_create = AsyncMock(return_value=mock_proc)
+    monkeypatch.setattr("asyncio.create_subprocess_exec", mock_create)
 
-    res = _run(["ls"])
+    res = await _run(["ls"])
     assert res == "(empty)"
 
 
-def test_run_exception(monkeypatch):
-    mock_run = MagicMock(side_effect=Exception("mocked error"))
-    monkeypatch.setattr("subprocess.run", mock_run)
+@pytest.mark.asyncio
+async def test_run_exception(monkeypatch):
+    mock_create = AsyncMock(side_effect=Exception("mocked error"))
+    monkeypatch.setattr("asyncio.create_subprocess_exec", mock_create)
 
-    res = _run(["ls"])
+    res = await _run(["ls"])
     assert res == "ERROR: mocked error"
+
+@pytest.mark.asyncio
+async def test_run_timeout(monkeypatch):
+    mock_proc = AsyncMock()
+    mock_proc.kill = MagicMock()
+    mock_proc.communicate.side_effect = [asyncio.TimeoutError, (b"", b"")]
+    mock_create = AsyncMock(return_value=mock_proc)
+    monkeypatch.setattr("asyncio.create_subprocess_exec", mock_create)
+
+    res = await _run(["ls"], timeout=5)
+    assert res == "ERROR: Command timed out after 5 seconds"
+    mock_proc.kill.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_debug_logs(monkeypatch):
-    mock_run = MagicMock(return_value="logs output")
+    mock_run = AsyncMock(return_value="logs output")
     monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)
 
     from pit_panel.web.routes.debug_api import debug_logs
@@ -103,7 +117,7 @@ async def test_debug_logs(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_debug_logs_info(monkeypatch):
-    mock_run = MagicMock(return_value="logs output info")
+    mock_run = AsyncMock(return_value="logs output info")
     monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)
 
     from pit_panel.web.routes.debug_api import debug_logs
@@ -155,7 +169,7 @@ async def test_debug_system(monkeypatch, tmp_path):
     mock_settings.git_branch = "branch"
     monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings)
 
-    mock_run = MagicMock(return_value="cmd_out")
+    mock_run = AsyncMock(return_value="cmd_out")
     monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)
 
     monkeypatch.setattr("platform.python_version", lambda: "3.x")
