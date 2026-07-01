@@ -42,7 +42,7 @@ def test_get_db_service_info_postgres(tmp_path):
                     "POSTGRES_USER": "${DB_USER:-pguser}",
                     "POSTGRES_PASSWORD": "$DB_PASSWORD",
                     "POSTGRES_DB": "pgdb",
-                }
+                },
             }
         }
     }
@@ -53,6 +53,7 @@ def test_get_db_service_info_postgres(tmp_path):
 
     result = _get_db_service_info(compose_path, env_path)
     assert result == ("db", "postgres", "pguser", "secretpass", "pgdb")
+
 
 def test_get_db_service_info_mysql(tmp_path):
     compose_path = tmp_path / "docker-compose.yml"
@@ -65,8 +66,8 @@ def test_get_db_service_info_mysql(tmp_path):
                 "environment": [
                     "MYSQL_USER=myuser",
                     "MYSQL_PASSWORD=mypass",
-                    "MYSQL_DATABASE=mydb"
-                ]
+                    "MYSQL_DATABASE=mydb",
+                ],
             }
         }
     }
@@ -101,7 +102,9 @@ def test_get_db_service_info_no_services(tmp_path):
 @pytest.mark.asyncio
 @patch("pit_panel.core.backup.notify_app_backup")
 @patch("pit_panel.core.backup.DockerManager")
-async def test_perform_app_backup_no_db(mock_docker, mock_notify, tmp_path, mock_settings, mock_subdomain):
+async def test_perform_app_backup_no_db(
+    mock_docker, mock_notify, tmp_path, mock_settings, mock_subdomain
+):
     mock_db = AsyncMock(spec=AsyncSession)
 
     app_dir = Path(mock_settings.apps_dir) / mock_subdomain.subdomain
@@ -120,7 +123,9 @@ async def test_perform_app_backup_no_db(mock_docker, mock_notify, tmp_path, mock
 @patch("pit_panel.core.backup.notify_app_backup")
 @patch("pit_panel.core.backup.DockerManager")
 @patch("pit_panel.core.backup._get_db_service_info")
-async def test_perform_app_backup_postgres(mock_get_db, mock_docker_class, mock_notify, tmp_path, mock_settings, mock_subdomain):
+async def test_perform_app_backup_postgres(
+    mock_get_db, mock_docker_class, mock_notify, tmp_path, mock_settings, mock_subdomain
+):
     mock_db = AsyncMock(spec=AsyncSession)
 
     app_dir = Path(mock_settings.apps_dir) / mock_subdomain.subdomain
@@ -129,7 +134,9 @@ async def test_perform_app_backup_postgres(mock_get_db, mock_docker_class, mock_
     mock_get_db.return_value = ("db", "postgres", "pguser", "pgpass", "pgdb")
 
     mock_docker_instance = MagicMock()
-    mock_docker_instance.exec_command = AsyncMock(return_value={"success": True, "stdout": "DUMP DATA"})
+    mock_docker_instance.exec_command = AsyncMock(
+        return_value={"success": True, "stdout": "DUMP DATA"}
+    )
     mock_docker_class.return_value = mock_docker_instance
 
     result = await perform_app_backup(mock_subdomain, mock_db, mock_settings)
@@ -145,6 +152,7 @@ async def test_perform_app_backup_postgres(mock_get_db, mock_docker_class, mock_
     assert len(tar_files) == 1
 
     import tarfile
+
     with tarfile.open(tar_files[0], "r:gz") as tar:
         names = tar.getnames()
         assert any("database_dump.sql" in n for n in names)
@@ -154,7 +162,9 @@ async def test_perform_app_backup_postgres(mock_get_db, mock_docker_class, mock_
 @patch("pit_panel.core.backup.notify_app_backup")
 @patch("pit_panel.core.backup.DockerManager")
 @patch("pit_panel.core.backup._get_db_service_info")
-async def test_perform_app_backup_mysql(mock_get_db, mock_docker_class, mock_notify, tmp_path, mock_settings, mock_subdomain):
+async def test_perform_app_backup_mysql(
+    mock_get_db, mock_docker_class, mock_notify, tmp_path, mock_settings, mock_subdomain
+):
     mock_db = AsyncMock(spec=AsyncSession)
 
     app_dir = Path(mock_settings.apps_dir) / mock_subdomain.subdomain
@@ -163,7 +173,9 @@ async def test_perform_app_backup_mysql(mock_get_db, mock_docker_class, mock_not
     mock_get_db.return_value = ("db", "mysql", "myuser", "mypass", "mydb")
 
     mock_docker_instance = MagicMock()
-    mock_docker_instance.exec_command = AsyncMock(return_value={"success": True, "stdout": "DUMP DATA"})
+    mock_docker_instance.exec_command = AsyncMock(
+        return_value={"success": True, "stdout": "DUMP DATA"}
+    )
     mock_docker_class.return_value = mock_docker_instance
 
     result = await perform_app_backup(mock_subdomain, mock_db, mock_settings)
@@ -177,7 +189,9 @@ async def test_perform_app_backup_mysql(mock_get_db, mock_docker_class, mock_not
 
 @pytest.mark.asyncio
 @patch("pit_panel.core.backup.tarfile.open")
-async def test_perform_app_backup_exception(mock_tarfile_open, tmp_path, mock_settings, mock_subdomain):
+async def test_perform_app_backup_exception(
+    mock_tarfile_open, tmp_path, mock_settings, mock_subdomain
+):
     mock_db = AsyncMock(spec=AsyncSession)
 
     app_dir = Path(mock_settings.apps_dir) / mock_subdomain.subdomain
@@ -199,7 +213,9 @@ async def test_perform_app_backup_exception(mock_tarfile_open, tmp_path, mock_se
 @patch("pit_panel.config.get_settings")
 @patch("pit_panel.db.session.get_sessionmaker")
 @patch("asyncio.sleep")
-async def test_scheduled_backup_loop_disabled(mock_sleep, mock_get_sessionmaker, mock_get_settings, mock_settings):
+async def test_scheduled_backup_loop_disabled(
+    mock_sleep, mock_get_sessionmaker, mock_get_settings, mock_settings
+):
     mock_settings.backup_enabled = False
     mock_get_settings.return_value = mock_settings
 
@@ -217,7 +233,14 @@ async def test_scheduled_backup_loop_disabled(mock_sleep, mock_get_sessionmaker,
 @patch("pit_panel.config.get_settings")
 @patch("pit_panel.db.session.get_sessionmaker")
 @patch("asyncio.sleep")
-async def test_scheduled_backup_loop_enabled(mock_sleep, mock_get_sessionmaker, mock_get_settings, mock_perform, mock_settings, mock_subdomain):
+async def test_scheduled_backup_loop_enabled(
+    mock_sleep,
+    mock_get_sessionmaker,
+    mock_get_settings,
+    mock_perform,
+    mock_settings,
+    mock_subdomain,
+):
     mock_get_settings.return_value = mock_settings
 
     mock_db_session = AsyncMock()
@@ -240,8 +263,9 @@ async def test_scheduled_backup_loop_enabled(mock_sleep, mock_get_sessionmaker, 
     new_backup = backup_dir / "new.tar.gz"
     new_backup.touch()
 
-    import time
     import os
+    import time
+
     now = time.time()
     os.utime(old_backup, (now - 10 * 86400, now - 10 * 86400))
 
