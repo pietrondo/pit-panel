@@ -17,7 +17,7 @@ TRIAGE_RULES = [
     (
         "critical",
         re.compile(r"(?i)\b(CRITICAL|ExceptionGroup|Traceback \(most recent call last\)|panic:|segmentation fault|fatal error)\b"),
-        "Crash or unhandled exception. Inspect the stack trace and recent deploys first.",
+        "Crash o eccezione non gestita: controlla stack trace e ultimo deploy.",
     ),
     (
         "error",
@@ -25,12 +25,12 @@ TRIAGE_RULES = [
             r"(?i)\b(ERROR|TypeError|ReferenceError|SyntaxError|Unhandled Promise|"
             r"NullPointerException|OperationalError|IntegrityError|RuntimeError)\b"
         ),
-        "Application error. Check the owning service logs around the same timestamp.",
+        "Errore applicativo: controlla i log del servizio nello stesso timestamp.",
     ),
     (
         "warning",
         re.compile(r"(?i)\b(WARN|WARNING)\b"),
-        "Warning. Investigate only if it is recurring or user-visible.",
+        "Warning: indaga solo se ricorrente o visibile agli utenti.",
     ),
 ]
 
@@ -109,6 +109,15 @@ def _summarize_counts(issues: list[dict[str, Any]]) -> dict[str, int]:
     return dict(counts)
 
 
+def _format_issue(issue: dict[str, Any]) -> str:
+    severity = str(issue["severity"]).upper()
+    count = int(issue.get("count", 1))
+    message = str(issue.get("message", ""))
+    hint = str(issue.get("hint", ""))
+    fingerprint = str(issue.get("fingerprint", ""))
+    return f"[{severity} x{count}] {message} — {hint} — fp:{fingerprint}"
+
+
 async def analyze_container_logs() -> list[dict[str, Any]]:
     """Scan running Docker containers and return grouped, severity-aware issues."""
     try:
@@ -159,7 +168,7 @@ async def analyze_container_logs() -> list[dict[str, Any]]:
                     {
                         "container": name,
                         "issues": issues,
-                        "errors": [issue["message"] for issue in issues],
+                        "errors": [_format_issue(issue) for issue in issues],
                         "count": sum(int(issue["count"]) for issue in issues),
                         "critical": counts.get("critical", 0),
                         "error": counts.get("error", 0),
@@ -172,7 +181,7 @@ async def analyze_container_logs() -> list[dict[str, Any]]:
         return []
 
 
-async def analyze_system_logs() -> list[dict[str, Any]]:
+async def analyze_system_logs() -> list[str]:
     """Scan system logs for grouped Pit Panel issues."""
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -189,6 +198,7 @@ async def analyze_system_logs() -> list[dict[str, Any]]:
         if proc.returncode != 0:
             return []
 
-        return group_log_issues(stdout.decode(errors="replace").splitlines(), limit=15)
+        issues = group_log_issues(stdout.decode(errors="replace").splitlines(), limit=15)
+        return [_format_issue(issue) for issue in issues]
     except Exception:
         return []
