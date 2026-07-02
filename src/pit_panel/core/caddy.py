@@ -3,7 +3,6 @@
 import asyncio
 import datetime as dt
 import logging
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -132,53 +131,57 @@ class CaddyManager:
             return []
 
     def _check_certs_via_openssl(self, domains: list[str]) -> list[dict[str, Any]]:
+        import socket
+        import ssl
+
         certs = []
         for domain in domains:
             try:
-                # 🛡️ Sentinel: Removed shell=True to prevent command injection
-                r1 = subprocess.run(
-                    ["openssl", "s_client", "-connect", "127.0.0.1:443", "-servername", domain],
-                    input="\n",
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                r2 = subprocess.run(
-                    ["openssl", "x509", "-noout", "-enddate", "-issuer"],
-                    input=r1.stdout,
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
+                context = ssl.create_default_context()
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_REQUIRED
 
-                not_after = ""
-                issuer = ""
-                for line in r2.stdout.split("\n"):
-                    if line.startswith("notAfter="):
-                        not_after = line.split("=", 1)[1].strip()
-                    elif line.startswith("issuer="):
-                        issuer = line.split("=", 1)[1].strip()
-                if not not_after:
-                    continue
-                try:
-                    cleaned = " ".join(not_after.rsplit(None, 1)[:-1])
-                    expiry = dt.datetime.strptime(cleaned, "%b %d %H:%M:%S %Y")
-                    days = (expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)).days
-                except (ValueError, OSError):
-                    days = None
-                certs.append(
-                    {
-                        "serial": "?",
-                        "domains": domain,
-                        "not_before": "",
-                        "not_after": not_after,
-                        "expires_in_days": days,
-                        "issuer": issuer or "Unknown",
-                    }
-                )
-            except Exception:
-                pass
+                with socket.create_connection(
+                    ("127.0.0.1", 443), timeout=5
+                ) as sock, context.wrap_socket(sock, server_hostname=domain) as ssock:
+                    cert = ssock.getpeercert()
+                    if not cert:
+                        continue
+
+                        not_after = cert.get("notAfter", "")
+                        if not not_after:
+                            continue
+
+                        # Parse not_after using ssl.cert_time_to_seconds
+                        try:
+                            expiry_timestamp = ssl.cert_time_to_seconds(not_after)
+                            expiry_dt = dt.datetime.fromtimestamp(expiry_timestamp, dt.UTC)
+                            days = (expiry_dt - dt.datetime.now(dt.UTC)).days
+                        except Exception:
+                            days = None
+
+                        # format issuer
+                        issuer_parts = []
+                        for rdns in cert.get("issuer", ()):
+                            for rdn in rdns:
+                                name, val = rdn[0], rdn[1]
+                                issuer_parts.append(f"{name}={val}")
+                        issuer = ", ".join(issuer_parts)
+
+                        certs.append(
+                            {
+                                "serial": cert.get("serialNumber", "?"),
+                                "domains": domain,
+                                "not_before": cert.get("notBefore", ""),
+                                "not_after": not_after,
+                                "expires_in_days": days,
+                                "issuer": issuer or "Unknown",
+                            }
+                        )
+            except Exception as e:
+                logger.warning(f"Failed native SSL cert check for {domain}: {e}")
         return certs
+
 
     async def renew_certificate(self, domain: str) -> dict[str, Any]:
         async with httpx.AsyncClient() as client:

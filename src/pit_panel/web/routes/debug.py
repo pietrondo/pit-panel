@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
+from pit_panel.core.sudo_ops import run_cmd
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
 from pit_panel.web.render import render
@@ -18,22 +19,15 @@ router = APIRouter()
 INSTALL_DIR = "/opt/pit-panel"
 
 
-async def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str:
-    import asyncio
 
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=cwd,
-        )
-        stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        stdout = stdout_bytes.decode() if stdout_bytes else ""
-        stderr = stderr_bytes.decode() if stderr_bytes else ""
-        return (stdout + stderr).strip() or "(empty)"
-    except Exception as e:
-        return f"ERROR: {e}"
+async def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str:
+    res = await run_cmd(cmd, timeout=timeout, cwd=cwd)
+    if res.returncode == -1:
+        # If exception/timeout occurs, run_cmd returns returncode=-1 and error in stderr
+        return f"ERROR: {res.stderr}"
+    return (res.stdout + res.stderr).strip() or "(empty)"
+
+
 
 
 def _file_checksum(path: str) -> str:

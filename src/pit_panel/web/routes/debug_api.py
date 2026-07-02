@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from pit_panel.config import get_settings
 from pit_panel.core.caddy import CaddyManager
+from pit_panel.core.sudo_ops import run_cmd
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -31,25 +32,13 @@ def _verify_token(x_debug_token: str | None = Header(None)) -> str:
 
 
 async def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str:
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=cwd,
-        )
-        try:
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        except TimeoutError:
-            proc.kill()
-            await proc.communicate()
+    res = await run_cmd(cmd, timeout=timeout, cwd=cwd)
+    if res.returncode == -1:
+        if "timeout" in res.stderr.lower():
             return f"ERROR: Command timed out after {timeout} seconds"
+        return f"ERROR: {res.stderr}"
+    return (res.stdout + res.stderr).strip() or "(empty)"
 
-        stdout = stdout_bytes.decode() if stdout_bytes else ""
-        stderr = stderr_bytes.decode() if stderr_bytes else ""
-        return (stdout + stderr).strip() or "(empty)"
-    except Exception as e:
-        return f"ERROR: {e}"
 
 
 @router.get("/api/debug/logs")  # type: ignore[untyped-decorator]
