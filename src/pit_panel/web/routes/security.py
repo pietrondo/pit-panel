@@ -100,50 +100,89 @@ async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict[str, 
         return []
 
 
-async def _render_security_page(request: Request, db: AsyncSession, user: User, **kwargs):
-    bans = await get_banned_ips(db)
-    result = await db.execute(
-        select(LoginAttempt).order_by(LoginAttempt.attempted_at.desc()).limit(50)
-    )
-    attempts = result.scalars().all()
+async def _rollback_after_db_panel_error(db: AsyncSession) -> None:
+    try:
+        await db.rollback()
+    except Exception:
+        pass
 
-    ses_result = await db.execute(
-        select(DBSession, User.username)
-        .join(User, DBSession.user_id == User.id)
-        .order_by(DBSession.created_at.desc())
-    )
-    active_sessions = []
-    for sess, uname in ses_result:
-        active_sessions.append(
+
+async def _load_bans(db: AsyncSession) -> list[Any]:
+    try:
+        return await get_banned_ips(db)
+    except Exception:
+        await _rollback_after_db_panel_error(db)
+        return []
+
+
+async def _load_attempts(db: AsyncSession) -> list[Any]:
+    try:
+        result = await db.execute(
+            select(LoginAttempt).order_by(LoginAttempt.attempted_at.desc()).limit(50)
+        )
+        return list(result.scalars().all())
+    except Exception:
+        await _rollback_after_db_panel_error(db)
+        return []
+
+
+async def _load_active_sessions(db: AsyncSession) -> list[dict[str, Any]]:
+    try:
+        result = await db.execute(
+            select(DBSession, User.username)
+            .join(User, DBSession.user_id == User.id)
+            .order_by(DBSession.created_at.desc())
+        )
+        return [
             {
                 "id": sess.id,
                 "username": uname,
                 "ip": sess.ip,
                 "created": sess.created_at,
             }
+            for sess, uname in result
+        ]
+    except Exception:
+        await _rollback_after_db_panel_error(db)
+        return []
+
+
+async def _load_scan_history(db: AsyncSession) -> list[Any]:
+    try:
+        result = await db.execute(
+            select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(5)
         )
+        return list(result.scalars().all())
+    except Exception:
+        await _rollback_after_db_panel_error(db)
+        return []
+
+
+async def _load_scan_interval_hours(db: AsyncSession) -> int:
+    try:
+        result = await db.execute(
+            select(SystemSettings).where(SystemSettings.key == "scan_interval_hours")
+        )
+        row = result.scalar_one_or_none()
+        if row:
+            return int(row.value.get("hours", SCAN_DEFAULT_INTERVAL_HOURS))
+    except Exception:
+        await _rollback_after_db_panel_error(db)
+    return SCAN_DEFAULT_INTERVAL_HOURS
+
+
+async def _render_security_page(request: Request, db: AsyncSession, user: User, **kwargs):
+    bans = await _load_bans(db)
+    attempts = await _load_attempts(db)
+    active_sessions = await _load_active_sessions(db)
 
     fw = await _firewall_status()
     f2b = await _fail2ban_status()
-
-    scan_result = await db.execute(
-        select(MalwareScan).order_by(MalwareScan.started_at.desc()).limit(5)
-    )
-    scan_history = scan_result.scalars().all()
+    scan_history = await _load_scan_history(db)
 
     settings = get_settings()
     abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
-
-    scan_interval_hours = SCAN_DEFAULT_INTERVAL_HOURS
-    try:
-        sr = await db.execute(
-            select(SystemSettings).where(SystemSettings.key == "scan_interval_hours")
-        )
-        row = sr.scalar_one_or_none()
-        if row:
-            scan_interval_hours = int(row.value.get("hours", SCAN_DEFAULT_INTERVAL_HOURS))
-    except Exception:
-        pass
+    scan_interval_hours = await _load_scan_interval_hours(db)
 
     ctx = {
         "user": user,
