@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from pit_panel.db.models import Base, IPBan, LoginAttempt
+from pit_panel.db.models import Base, IPBan, LoginAttempt, User
 from pit_panel.security.ipban import ban_ip, is_ip_banned
 
 
@@ -141,6 +141,40 @@ class TestSecurityApp:
         assert "/security/unban" in paths
         assert "/security/revoke-session" in paths
         assert "/security/ban-ip" in paths
+
+    @pytest.mark.asyncio
+    async def test_security_overview_degrades_when_db_panels_fail(self, monkeypatch):
+        from pit_panel.web.routes import security
+
+        class BrokenDb:
+            def __init__(self):
+                self.rollback_calls = 0
+
+            async def execute(self, *args, **kwargs):
+                raise RuntimeError("missing table")
+
+            async def rollback(self):
+                self.rollback_calls += 1
+
+        async def mock_firewall_status():
+            return {"active": False, "rules": []}
+
+        async def mock_fail2ban_status():
+            return {"active": False, "jails": []}
+
+        monkeypatch.setattr(security, "_firewall_status", mock_firewall_status)
+        monkeypatch.setattr(security, "_fail2ban_status", mock_fail2ban_status)
+
+        db = BrokenDb()
+        response = await security._render_security_page(
+            None,
+            db,
+            User(id=1, username="admin", is_admin=True),
+        )
+
+        assert response.status_code == 200
+        assert "Security" in response.body.decode()
+        assert db.rollback_calls >= 1
 
 
 @pytest.mark.asyncio
