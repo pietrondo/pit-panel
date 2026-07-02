@@ -11,6 +11,7 @@ from pit_panel.config import get_settings
 from pit_panel.db.models import AuditLog, SystemSettings
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
+from pit_panel.web.limiter import limiter
 from pit_panel.web.render import render
 
 router = APIRouter()
@@ -36,6 +37,7 @@ async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/settings/update", response_class=HTMLResponse)
+@limiter.limit("10/minute")
 async def settings_update(
     request: Request,
     base_domain: str = Form(""),

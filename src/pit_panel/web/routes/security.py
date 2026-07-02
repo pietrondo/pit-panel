@@ -11,11 +11,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pit_panel.config import get_settings
 from pit_panel.core.blocklist import BLOCKLIST_SOURCES, fetch_blocklist
 from pit_panel.core.security import (
+    _add_ufw_rule,
+    _delete_ufw_rule,
+    _detect_ssh_port,
+    _disable_ufw,
+    _enable_ufw,
     _fail2ban_jail_banned,
     _fail2ban_status,
     _fail2ban_unban,
     _firewall_status,
+    _get_client_ip,
+    _get_jail_config,
+    _save_jail_config,
     ban_ip_address,
+    run_lynis_audit,
     unban_ip_address,
 )
 from pit_panel.db.models import LoginAttempt, MalwareScan, SystemSettings, User
@@ -27,6 +36,7 @@ from pit_panel.security.malware_scanner import (
     SCAN_DEFAULT_INTERVAL_HOURS,
     THREAT_CATEGORIES,
     MalwareScanner,
+    get_host_memory_gb,
 )
 from pit_panel.web.auth import revoke_session
 from pit_panel.web.deps import get_admin
@@ -673,3 +683,244 @@ async def security_bugs(request: Request, db: AsyncSession = Depends(get_db)):
 
     html += "</div>"
     return HTMLResponse(html)
+
+
+# Firewall routes
+@router.post("/security/firewall/enable", response_class=HTMLResponse)
+async def security_firewall_enable(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    client_ip = _get_client_ip(request)
+    ssh_port = await _detect_ssh_port()
+    ok = await _enable_ufw(client_ip, ssh_port)
+    if ok:
+        return HTMLResponse('<span class="text-green-600 text-sm">Firewall Enabled</span>')
+    return HTMLResponse('<span class="text-red-600 text-sm">Failed to enable firewall</span>')
+
+
+@router.post("/security/firewall/disable", response_class=HTMLResponse)
+async def security_firewall_disable(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    ok = await _disable_ufw()
+    if ok:
+        return HTMLResponse('<span class="text-yellow-600 text-sm">Firewall Disabled</span>')
+    return HTMLResponse('<span class="text-red-600 text-sm">Failed to disable firewall</span>')
+
+
+@router.post("/security/firewall/rule/add", response_class=HTMLResponse)
+async def security_firewall_rule_add(
+    request: Request,
+    port: str = Form(...),
+    protocol: str = Form("tcp"),
+    action: str = Form("allow"),
+    source: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    ok = await _add_ufw_rule(port, protocol, action, source)
+    if ok:
+        return HTMLResponse('<span class="text-green-600 text-sm">Rule added</span>')
+    return HTMLResponse('<span class="text-red-600 text-sm">Failed to add rule</span>')
+
+
+@router.post("/security/firewall/rule/delete", response_class=HTMLResponse)
+async def security_firewall_rule_delete(
+    request: Request,
+    index: int = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    client_ip = _get_client_ip(request)
+    ssh_port = await _detect_ssh_port()
+
+    try:
+        ok = await _delete_ufw_rule(index, client_ip=client_ip, ssh_port=ssh_port)
+        if ok:
+            return HTMLResponse('<span class="text-green-600 text-sm">Rule deleted</span>')
+        return HTMLResponse('<span class="text-red-600 text-sm">Failed to delete rule</span>')
+    except ValueError as e:
+        return HTMLResponse(f'<span class="text-red-600 text-sm">{e}</span>', status_code=400)
+
+
+# Fail2ban config overrides
+@router.get("/security/fail2ban/config/{jail}")
+async def security_fail2ban_get_config(
+    request: Request, jail: str, db: AsyncSession = Depends(get_db)
+):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    cfg = await _get_jail_config(jail)
+    return cfg
+
+
+@router.post("/security/fail2ban/config/{jail}", response_class=HTMLResponse)
+async def security_fail2ban_config(
+    request: Request,
+    jail: str,
+    bantime: int = Form(...),
+    findtime: int = Form(...),
+    maxretry: int = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    try:
+        ok = await _save_jail_config(
+            jail, bantime=bantime, findtime=findtime, maxretry=maxretry
+        )
+        if ok:
+            return HTMLResponse(
+                '<span class="text-green-600 text-sm">Configuration saved and reloaded</span>'
+            )
+        return HTMLResponse(
+            '<span class="text-red-600 text-sm">Failed to save configuration</span>'
+        )
+    except ValueError as e:
+        return HTMLResponse(f'<span class="text-red-600 text-sm">{e}</span>', status_code=400)
+
+
+# ClamAV toggle
+@router.post("/security/malware/clamav/toggle", response_class=HTMLResponse)
+async def security_clamav_toggle(request: Request, db: AsyncSession = Depends(get_db)):
+    import asyncio
+
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    mem = await get_host_memory_gb()
+    if mem < 2.0:
+        return HTMLResponse(
+            '<div class="text-red-600 text-sm font-semibold">'
+            "Insufficient system memory (minimum 2.0 GB RAM required)"
+            "</div>",
+            status_code=400,
+        )
+
+    proc = await asyncio.create_subprocess_exec(
+        "docker",
+        "ps",
+        "--filter",
+        "name=pit-panel-clamav",
+        "--format",
+        "{{.Status}}",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, _ = await proc.communicate()
+    status = stdout.decode().strip()
+
+    if status:
+        await asyncio.create_subprocess_exec(
+            "docker",
+            "stop",
+            "pit-panel-clamav",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        return HTMLResponse('<span class="text-yellow-600">ClamAV container stopped</span>')
+    else:
+        proc_exist = await asyncio.create_subprocess_exec(
+            "docker",
+            "ps",
+            "-a",
+            "--filter",
+            "name=pit-panel-clamav",
+            "--format",
+            "{{.Names}}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_exist, _ = await proc_exist.communicate()
+        exists = stdout_exist.decode().strip()
+
+        if exists:
+            await asyncio.create_subprocess_exec(
+                "docker",
+                "start",
+                "pit-panel-clamav",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        else:
+            proc_img = await asyncio.create_subprocess_exec(
+                "docker",
+                "image",
+                "inspect",
+                "clamav/clamav:latest",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await proc_img.communicate()
+            if proc_img.returncode != 0:
+                await asyncio.create_subprocess_exec(
+                    "docker",
+                    "pull",
+                    "clamav/clamav:latest",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+
+            await asyncio.create_subprocess_exec(
+                "docker",
+                "run",
+                "-d",
+                "--name",
+                "pit-panel-clamav",
+                "-p",
+                "127.0.0.1:3310:3310",
+                "-v",
+                "/:/host:ro",
+                "clamav/clamav:latest",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+        return HTMLResponse('<span class="text-green-600">ClamAV container started</span>')
+
+
+# Lynis System Audit endpoints
+@router.post("/security/lynis/audit", response_class=HTMLResponse)
+async def security_lynis_audit(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    background_tasks.add_task(run_lynis_audit)
+    return HTMLResponse('<span class="text-green-600">System audit started in background</span>')
+
+
+@router.get("/security/lynis/report")
+async def security_lynis_report(request: Request, db: AsyncSession = Depends(get_db)):
+    import json
+
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    cache_path = "/var/lib/pit-panel/lynis_last_report.json"
+    try:
+        with open(cache_path, encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+    except Exception as e:
+        return {"status": "error", "error": f"No audit report found: {e}"}

@@ -152,6 +152,7 @@ async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/setup-2fa", response_class=HTMLResponse)
+@limiter.limit("5/minute")
 async def setup_2fa_post(
     request: Request,
     code: str = Form(...),

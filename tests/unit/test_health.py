@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-import datetime
 from typing import Any
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
@@ -48,32 +47,13 @@ async def test_check_post_update_failure_then_success():
 
 @pytest.mark.asyncio
 async def test_check_post_update_timeout():
-    # Simple state for the mock
-    call_count = 0
-    base_time = datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC)
-
-    def mock_now(tz=None):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            # First call for deadline calculation
-            return base_time
-        # Subsequent calls for loop condition
-        return base_time + datetime.timedelta(seconds=65)
-
-    with patch("pit_panel.core.health.datetime") as mock_datetime:
-        # We need to also patch timedelta and UTC to return the real ones
-        mock_datetime.timedelta = datetime.timedelta
-        mock_datetime.UTC = datetime.UTC
-
-        # Setup the now mock
-        mock_datetime.datetime.now.side_effect = mock_now
-
-        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = Exception("Connection error")
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             result = await check_post_update()
-
             assert result is False
-            assert mock_get.call_count == 0
+            assert mock_get.call_count == 30
+            assert mock_sleep.call_count == 30
 
 
 @pytest.mark.asyncio

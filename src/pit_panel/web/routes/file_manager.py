@@ -32,6 +32,7 @@ from pit_panel.config import get_settings
 from pit_panel.db.session import get_db
 from pit_panel.web.auth import SESSION_COOKIE, unsign_session_token, validate_session
 from pit_panel.web.deps import get_admin
+from pit_panel.web.limiter import limiter
 from pit_panel.web.render import render
 
 router = APIRouter()
@@ -180,6 +181,7 @@ async def get_file_content(path: str, request: Request, db: AsyncSession = Depen
 
 
 @router.post("/api/file-manager/save")
+@limiter.limit("20/minute")
 async def save_file(req: SaveFileRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_admin(request, db)
     if not user:
