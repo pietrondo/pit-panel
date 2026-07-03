@@ -306,21 +306,39 @@ async def app_wp_fix_url(request: Request, sd_id: int, db: AsyncSession = Depend
     success = False
     error_msg = ""
     try:
-        r = await docker_mgr.exec_command(
+        r1 = await docker_mgr.exec_command(
             sd.subdomain,
             "wordpress",
             [
-                "sh",
-                "-c",
-                f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-                f" option update siteurl 'https://{fqdn}'"
-                f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-                f" option update home 'https://{fqdn}'",
+                "php",
+                "-d",
+                "memory_limit=256M",
+                "/tmp/wp-cli.phar",
+                "--allow-root",
+                "option",
+                "update",
+                "siteurl",
+                f"https://{fqdn}",
             ],
         )
-        success = r.get("success", False)
+        r2 = await docker_mgr.exec_command(
+            sd.subdomain,
+            "wordpress",
+            [
+                "php",
+                "-d",
+                "memory_limit=256M",
+                "/tmp/wp-cli.phar",
+                "--allow-root",
+                "option",
+                "update",
+                "home",
+                f"https://{fqdn}",
+            ],
+        )
+        success = r1.get("success", False) and r2.get("success", False)
         if not success:
-            error_msg = r.get("stderr", "Unknown error")[:300]
+            error_msg = (r1.get("stderr", "") + " " + r2.get("stderr", ""))[:300].strip() or "Unknown error"
     except Exception as e:
         error_msg = str(e)
 
