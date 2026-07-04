@@ -1,6 +1,7 @@
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
 import ipaddress
+import re
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
@@ -101,10 +102,9 @@ async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict[str, 
 
 
 async def _rollback_after_db_panel_error(db: AsyncSession) -> None:
-    try:
+    import contextlib
+    with contextlib.suppress(Exception):
         await db.rollback()
-    except Exception:
-        pass
 
 
 async def _load_bans(db: AsyncSession) -> list[Any]:
@@ -489,7 +489,6 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
 
     form = await request.form()
     jail = str(form.get("jail", ""))
-    import re
 
     if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
         return HTMLResponse(
@@ -525,20 +524,12 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
-    import re
-
     if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
         return HTMLResponse(
             '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
         )
 
     import html
-    import re
-
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
-        return HTMLResponse(
-            '<div class="text-xs text-red-500">Invalid jail name</div>', status_code=400
-        )
 
     jailed = await _fail2ban_jail_banned(jail)
     jail_e = html.escape(jail)
@@ -575,7 +566,6 @@ async def security_fail2ban_unban(request: Request, db: AsyncSession = Depends(g
     jail = str(form.get("jail", ""))
     ip = str(form.get("ip", ""))
     import ipaddress
-    import re
 
     if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
         return HTMLResponse(
@@ -801,6 +791,11 @@ async def security_fail2ban_get_config(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        return HTMLResponse(
+            '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
+        )
+
     cfg = await _get_jail_config(jail)
     return cfg
 
@@ -818,10 +813,13 @@ async def security_fail2ban_config(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
-    try:
-        ok = await _save_jail_config(
-            jail, bantime=bantime, findtime=findtime, maxretry=maxretry
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        return HTMLResponse(
+            '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
         )
+
+    try:
+        ok = await _save_jail_config(jail, bantime=bantime, findtime=findtime, maxretry=maxretry)
         if ok:
             return HTMLResponse(
                 '<span class="text-green-600 text-sm">Configuration saved and reloaded</span>'
