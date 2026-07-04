@@ -36,3 +36,6 @@
 ## 2025-02-18 - Zombie Process Leak with asyncio.wait_for
 **Learning:** When using `asyncio.create_subprocess_exec` wrapped in `asyncio.wait_for`, catching `asyncio.TimeoutError` is not sufficient to stop the underlying subprocess. If you only catch the timeout and return, the child process will continue running in the background as an orphaned/zombie process, leading to resource leaks.
 **Action:** Always explicitly call `proc.kill()` (and optionally `await proc.communicate()` to reap it cleanly) inside the `except asyncio.TimeoutError:` block to ensure the subprocess is terminated.
+## 2026-07-04 - Optimize Sequential I/O via gather() in FastAPI
+**Learning:** Found sequential I/O operations (database queries followed by a heavy Docker subprocess execution) in `src/pit_panel/web/routes/dashboard.py` which increased latency significantly. By wrapping the sequential SQLAlchemy calls (which cannot run concurrently on the same session) into an internal async helper, we can use `asyncio.gather()` to run them concurrently with the independent Docker subprocess.
+**Action:** When a route performs sequential queries and an independent I/O task (like a subprocess call), wrap the sequential queries in a helper and execute the helper concurrently with the other task using `asyncio.gather()` to minimize total request time without violating session concurrency limits.
