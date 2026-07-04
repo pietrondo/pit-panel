@@ -1,5 +1,7 @@
+
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
+import contextlib
 import ipaddress
 from typing import Any
 
@@ -101,10 +103,8 @@ async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict[str, 
 
 
 async def _rollback_after_db_panel_error(db: AsyncSession) -> None:
-    try:
+    with contextlib.suppress(Exception):
         await db.rollback()
-    except Exception:
-        pass
 
 
 async def _load_bans(db: AsyncSession) -> list[Any]:

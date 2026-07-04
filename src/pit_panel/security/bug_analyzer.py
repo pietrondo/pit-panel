@@ -17,7 +17,10 @@ TRIAGE_RULES = [
     (
         "critical",
         re.compile(
-            r"(?i)\b(CRITICAL|ExceptionGroup|Traceback \(most recent call last\)|panic:|segmentation fault|fatal error)\b"
+
+                r"(?i)\b(CRITICAL|ExceptionGroup|Traceback \(most recent call last\)|"
+                r"panic:|segmentation fault|fatal error)\b"
+
         ),
         "Crash o eccezione non gestita: controlla stack trace e ultimo deploy.",
     ),
