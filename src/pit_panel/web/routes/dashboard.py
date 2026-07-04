@@ -102,6 +102,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     async def fetch_db_data():
         subdomains_res = await db.execute(select(Subdomain).limit(20))
         subs = subdomains_res.scalars().all()
+        # Use a single query with conditional aggregation to get both counts efficiently
         r = (
             await db.execute(
                 select(
@@ -154,7 +155,6 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
     # ⚡ Bolt: Execute DB queries and Docker API call concurrently to reduce I/O wait time.
     # Wrap sequential SQLAlchemy DB calls in a helper to prevent concurrent session access errors.
     async def fetch_db_data():
-        # Use a single query with conditional aggregation to get both counts efficiently
         r = (
             await db.execute(
                 select(
