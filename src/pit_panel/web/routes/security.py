@@ -819,9 +819,7 @@ async def security_fail2ban_config(
         return HTMLResponse("Unauthorized", status_code=401)
 
     try:
-        ok = await _save_jail_config(
-            jail, bantime=bantime, findtime=findtime, maxretry=maxretry
-        )
+        ok = await _save_jail_config(jail, bantime=bantime, findtime=findtime, maxretry=maxretry)
         if ok:
             return HTMLResponse(
                 '<span class="text-green-600 text-sm">Configuration saved and reloaded</span>'

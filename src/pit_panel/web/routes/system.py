@@ -71,7 +71,6 @@ def _resolve_uv_bin() -> str:
     raise FileNotFoundError("Could not resolve uv binary path")
 
 
-
 async def _get_git_info() -> tuple[str, str]:
     import asyncio
 
@@ -263,4 +262,3 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
         update_history=[],
         upgrade_result=result_msg,
     )
-

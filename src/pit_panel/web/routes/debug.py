@@ -19,15 +19,12 @@ router = APIRouter()
 INSTALL_DIR = "/opt/pit-panel"
 
 
-
 async def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str:
     res = await run_cmd(cmd, timeout=timeout, cwd=cwd)
     if res.returncode == -1:
         # If exception/timeout occurs, run_cmd returns returncode=-1 and error in stderr
         return f"ERROR: {res.stderr}"
     return (res.stdout + res.stderr).strip() or "(empty)"
-
-
 
 
 def _file_checksum(path: str) -> str:
