@@ -338,7 +338,8 @@ async def app_wp_fix_url(request: Request, sd_id: int, db: AsyncSession = Depend
         )
         success = r1.get("success", False) and r2.get("success", False)
         if not success:
-            error_msg = (r1.get("stderr", "") + " " + r2.get("stderr", ""))[:300].strip() or "Unknown error"
+            combined = f"{r1.get('stderr', '')} {r2.get('stderr', '')}".strip()
+            error_msg = combined[:300] or "Unknown error"
     except Exception as e:
         error_msg = str(e)
 
