@@ -31,13 +31,15 @@ async def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str
 
 
 def _file_checksum(path: str) -> str:
+    """Calculate SHA256 checksum of a file."""
     import hashlib
-
-    try:
-        with open(path, "rb") as f:
-            return hashlib.sha256(f.read()).hexdigest()[:16]
-    except Exception as e:
-        return str(e)
+    if not os.path.exists(path):
+        return ""
+    hash_sha256 = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_sha256.update(chunk)
+    return hash_sha256.hexdigest()
 
 
 @router.get("/debug", response_class=HTMLResponse)
