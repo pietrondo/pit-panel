@@ -3,7 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from pit_panel.core.sudo_ops import run_sudo, ALLOWED_COMMANDS
+from pit_panel.core.sudo_ops import run_sudo
+
 
 @pytest.mark.asyncio
 async def test_run_sudo_empty_command():
