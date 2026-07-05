@@ -1,8 +1,10 @@
 import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
-from pit_panel.core.sudo_ops import run_cmd, CmdResult
+from pit_panel.core.sudo_ops import CmdResult, run_cmd
+
 
 @pytest.fixture
 def mock_settings():
@@ -77,7 +79,7 @@ async def test_run_cmd_sudo_injection_with_n(mock_subprocess, mock_settings):
 @pytest.mark.asyncio
 async def test_run_cmd_timeout(mock_subprocess, mock_settings):
     process = mock_subprocess.return_value
-    process.communicate.side_effect = asyncio.TimeoutError()
+    process.communicate.side_effect = TimeoutError()
 
     result = await run_cmd(["sleep", "10"])
 
