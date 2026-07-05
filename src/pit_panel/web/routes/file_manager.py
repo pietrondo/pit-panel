@@ -118,9 +118,7 @@ async def system_terminal_page(request: Request, db: AsyncSession = Depends(get_
     user = await get_admin(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
-    return render(
-        "system_terminal.html", request=request, user=user, title="System Terminal"
-    )
+    return render("system_terminal.html", request=request, user=user, title="System Terminal")
 
 
 @router.get("/api/file-manager/list")
@@ -494,4 +492,3 @@ async def terminal_ws(websocket: WebSocket, db: AsyncSession = Depends(get_db)):
             await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
             with contextlib.suppress(Exception):
                 await websocket.close()
-

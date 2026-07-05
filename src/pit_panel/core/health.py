@@ -7,6 +7,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+
 async def check_post_update(
     base_url: str = "http://127.0.0.1:8080",
     retries: int = 30,
@@ -22,7 +23,6 @@ async def check_post_update(
                 logger.warning("Health check error: %s", e)
             await asyncio.sleep(delay)
     return False
-
 
 
 async def docker_health_monitor_loop() -> None:
