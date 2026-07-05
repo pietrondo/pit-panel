@@ -445,7 +445,7 @@ async def test_ufw_delete_rule_lockout():
                     "source": "1.2.3.4",
                     "raw": "",
                 },
-            ]
+            ],
         }
 
         with pytest.raises(ValueError, match="Cannot delete active SSH rule"):
@@ -479,11 +479,7 @@ async def test_get_jail_config():
         mock_run.side_effect = ["3600", "600", "5"]
 
         cfg = await _get_jail_config("sshd")
-        assert cfg == {
-            "bantime": 3600,
-            "findtime": 600,
-            "maxretry": 5
-        }
+        assert cfg == {"bantime": 3600, "findtime": 600, "maxretry": 5}
         assert mock_run.call_count == 3
 
 
@@ -580,6 +576,4 @@ async def test_run_lynis_audit_missing_install_success():
         report = await run_lynis_audit()
         assert report["hardening_index"] == 80
         assert mock_run.call_count == 2
-        mock_run.assert_any_call(
-            ["sudo", "-n", "apt-get", "install", "-y", "lynis"], timeout=60
-        )
+        mock_run.assert_any_call(["sudo", "-n", "apt-get", "install", "-y", "lynis"], timeout=60)
