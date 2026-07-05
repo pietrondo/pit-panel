@@ -230,9 +230,8 @@ async def app_deploy(
     if error or not sd:
         result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
         subdomains = result.scalars().all()
-        mgr2 = AppManager()
-        templates = mgr2.list_templates()
-        template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
+        templates = mgr.list_templates()
+        template_infos = [{"name": t, "meta": mgr.get_template_info(t)} for t in templates]
         return render(
             "apps.html",
             user=user,
@@ -250,9 +249,8 @@ async def app_deploy(
     except ValueError as e:
         result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
         subdomains = result.scalars().all()
-        mgr2 = AppManager()
-        tpls = mgr2.list_templates()
-        infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in tpls]
+        tpls = mgr.list_templates()
+        infos = [{"name": t, "meta": mgr.get_template_info(t)} for t in tpls]
         return render(
             "apps.html",
             user=user,
