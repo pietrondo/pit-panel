@@ -23,8 +23,9 @@
             <button @click="uploadOpen = true" class="btn btn-ghost border-slate-300 dark:border-slate-700">
                 <span>↑ Upload</span>
             </button>
-            <button @click="loadPath(currentPath)" class="btn btn-ghost" :class="{'animate-spin': loading}">
-                <span>↻ Refresh</span>
+            <button @click="loadPath(currentPath)" class="btn btn-ghost flex items-center gap-1.5">
+                <span class="inline-block" :class="{'animate-spin': loading}">↻</span>
+                <span>Refresh</span>
             </button>
         </div>
     </div>
