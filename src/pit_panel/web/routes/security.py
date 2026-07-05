@@ -491,7 +491,7 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
     jail = str(form.get("jail", ""))
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
         )
@@ -499,7 +499,7 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
 
     try:
         r = subprocess.run(
-            ["sudo", "-n", "fail2ban-client", "start", jail],
+            ["sudo", "-n", "fail2ban-client", "start", "--", jail],
             capture_output=True,
             text=True,
             timeout=10,
@@ -527,7 +527,7 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
 
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
         )
@@ -577,7 +577,7 @@ async def security_fail2ban_unban(request: Request, db: AsyncSession = Depends(g
     import ipaddress
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<div class="text-xs text-red-600">❌ Invalid jail name</div>', status_code=400
         )
@@ -764,6 +764,20 @@ async def security_firewall_rule_add(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
+    import re
+    if action not in ("allow", "deny"):
+        return HTMLResponse('<span class="text-red-600 text-sm">Invalid action</span>', status_code=400)
+    if protocol not in ("tcp", "udp", "any"):
+        return HTMLResponse('<span class="text-red-600 text-sm">Invalid protocol</span>', status_code=400)
+    if not re.match(r"^[a-zA-Z0-9]+$", port) and port != "any":
+        return HTMLResponse('<span class="text-red-600 text-sm">Invalid port</span>', status_code=400)
+    if source:
+        import ipaddress
+        try:
+            ipaddress.ip_network(source, strict=False)
+        except ValueError:
+            return HTMLResponse('<span class="text-red-600 text-sm">Invalid source IP or network</span>', status_code=400)
+
     ok = await _add_ufw_rule(port, protocol, action, source)
     if ok:
         return HTMLResponse('<span class="text-green-600 text-sm">Rule added</span>')
@@ -801,6 +815,10 @@ async def security_fail2ban_get_config(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
+    import re
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
+        return HTMLResponse("Invalid jail name", status_code=400)
+
     cfg = await _get_jail_config(jail)
     return cfg
 
@@ -817,6 +835,10 @@ async def security_fail2ban_config(
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
+
+    import re
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
+        return HTMLResponse('<span class="text-red-600 text-sm">Invalid jail name</span>', status_code=400)
 
     try:
         ok = await _save_jail_config(

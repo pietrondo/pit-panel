@@ -69,7 +69,7 @@ async def subdomain_add(
     settings = get_settings()
 
     safe_subdomain = subdomain.strip().lower().replace(" ", "-")
-    if not safe_subdomain or not re.fullmatch(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$", safe_subdomain):
+    if not safe_subdomain or not re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", safe_subdomain):
         result = await db.execute(
             select(Subdomain).where(~Subdomain.is_main_domain).order_by(Subdomain.created_at.desc())
         )
@@ -152,7 +152,7 @@ async def subdomain_edit(
     old_type = sd.app_type
     sd.app_type = app_type if app_type != "none" else None
 
-    name_valid = bool(re.fullmatch(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$", new_name))
+    name_valid = bool(re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", new_name))
     if new_name and new_name != old_name and name_valid:
         sd.subdomain = new_name
         if settings.base_domain:

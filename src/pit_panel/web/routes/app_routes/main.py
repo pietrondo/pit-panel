@@ -203,7 +203,7 @@ async def app_deploy(
             error = "Subdomain not found"
     elif new_subdomain.strip():
         name = new_subdomain.strip().lower().replace(" ", "-")
-        if not re.fullmatch(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$", name):
+        if not re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", name):
             error = f"Invalid subdomain name: {name}"
         else:
             if not settings.base_domain:
