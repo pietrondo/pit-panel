@@ -36,3 +36,8 @@
 ## 2025-02-18 - Zombie Process Leak with asyncio.wait_for
 **Learning:** When using `asyncio.create_subprocess_exec` wrapped in `asyncio.wait_for`, catching `asyncio.TimeoutError` is not sufficient to stop the underlying subprocess. If you only catch the timeout and return, the child process will continue running in the background as an orphaned/zombie process, leading to resource leaks.
 **Action:** Always explicitly call `proc.kill()` (and optionally `await proc.communicate()` to reap it cleanly) inside the `except asyncio.TimeoutError:` block to ensure the subprocess is terminated.
+
+
+## 2025-02-18 - Concurrent Fetching of DB and I/O tasks
+**Learning:** Sequential await calls (e.g. `await db.execute(...)` followed by `await docker_mgr.ps_all()`) unnecessarily increase latency when they do not depend on each other. However, doing multiple DB queries concurrently within `asyncio.gather` on the same session causes errors.
+**Action:** Wrap sequential database queries in an async helper function (e.g. `_fetch_db()`), and then await that helper function and the independent I/O task (e.g. Docker operations) concurrently using `asyncio.gather()`. This provides a meaningful performance boost to load times.
