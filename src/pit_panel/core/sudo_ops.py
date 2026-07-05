@@ -112,4 +112,3 @@ async def run_sudo(cmd: list[str], sudo_password: str) -> str:
         output += stderr.decode(errors="replace")
 
     return output
-

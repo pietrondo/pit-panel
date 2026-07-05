@@ -39,10 +39,15 @@ node_modules/
 # Agent / tool state (local, not source)
 .agents/
 .claude/
+.Jules/
 .serena/
 .jules/
 .codegraph/
 skills-lock.json
+
+# Project-level agent instructions (local per-dev)
+AGENTS.md
+CLAUDE.md
 
 # Scratch / temp
 scratch*.py

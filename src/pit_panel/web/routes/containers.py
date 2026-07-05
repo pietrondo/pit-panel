@@ -98,7 +98,6 @@ async def containers_list(request: Request, db: AsyncSession = Depends(get_db)) 
     )
 
 
-
 @router.get("/containers/{sd_id}/logs", response_class=HTMLResponse)
 async def container_logs(
     request: Request, sd_id: int, db: AsyncSession = Depends(get_db)

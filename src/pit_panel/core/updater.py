@@ -114,4 +114,3 @@ class Updater:
 
         base_url = url.rsplit("/health", 1)[0]
         return await check_post_update(base_url=base_url, retries=retries, delay=delay)
-

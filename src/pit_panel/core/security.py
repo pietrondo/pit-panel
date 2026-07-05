@@ -77,14 +77,16 @@ def _parse_ufw_rules(ufw_output: str) -> list[dict[str, Any]]:
                 elif "udp" in proto_part.lower():
                     protocol = "udp"
 
-            rules.append({
-                "index": index,
-                "port": port,
-                "protocol": protocol,
-                "action": action,
-                "source": source,
-                "raw": line
-            })
+            rules.append(
+                {
+                    "index": index,
+                    "port": port,
+                    "protocol": protocol,
+                    "action": action,
+                    "source": source,
+                    "raw": line,
+                }
+            )
     return rules
 
 
@@ -144,10 +146,9 @@ async def _delete_ufw_rule(index: int, client_ip: str, ssh_port: int) -> bool:
     if not rule:
         raise ValueError(f"Rule with index {index} not found")
 
-    if (
-        (rule["port"] == str(ssh_port) or rule["port"].lower() == "ssh")
-        and "allow" in rule["action"].lower()
-    ):  # noqa: E501
+    if (rule["port"] == str(ssh_port) or rule["port"].lower() == "ssh") and "allow" in rule[
+        "action"
+    ].lower():  # noqa: E501
         raise ValueError("Cannot delete active SSH rule")
     if rule["source"] == client_ip and "allow" in rule["action"].lower():
         raise ValueError("Cannot delete active client IP bypass rule")
@@ -348,11 +349,7 @@ async def _save_jail_config(jail: str, bantime: Any, findtime: Any, maxretry: An
     config.write(out)
     new_content = out.getvalue()
 
-    write_res = await _run_cmd(
-        ["sudo", "-n", "tee", path],
-        timeout=10,
-        input=new_content
-    )
+    write_res = await _run_cmd(["sudo", "-n", "tee", path], timeout=10, input=new_content)
     if write_res == "unavailable":
         return False
 
@@ -362,6 +359,7 @@ async def _save_jail_config(jail: str, bantime: Any, findtime: Any, maxretry: An
 
 def _parse_lynis_report(dat_content: str) -> dict[str, Any]:
     from datetime import UTC, datetime
+
     hardening_index = 0
     warnings = []
     suggestions = []
@@ -386,7 +384,7 @@ def _parse_lynis_report(dat_content: str) -> dict[str, Any]:
         "hardening_index": hardening_index,
         "scan_timestamp": datetime.now(UTC).isoformat(),
         "warnings": warnings,
-        "suggestions": suggestions
+        "suggestions": suggestions,
     }
 
 
@@ -402,7 +400,7 @@ async def run_lynis_audit() -> dict[str, Any]:
         if not lynis_path:
             return {
                 "status": "failed",
-                "error": "Lynis binary not found and auto-installation failed."
+                "error": "Lynis binary not found and auto-installation failed.",
             }
 
     await _run_cmd(["sudo", "-n", "lynis", "audit", "system", "--quick"], timeout=180)
@@ -415,10 +413,7 @@ async def run_lynis_audit() -> dict[str, Any]:
     except PermissionError:
         dat_content = await _run_cmd(["sudo", "-n", "cat", dat_path])
     except Exception as e:
-        return {
-            "status": "failed",
-            "error": f"Failed to read Lynis report file: {e}"
-        }
+        return {"status": "failed", "error": f"Failed to read Lynis report file: {e}"}
 
     report = _parse_lynis_report(dat_content)
 

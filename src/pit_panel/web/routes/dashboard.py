@@ -1,5 +1,6 @@
 """Dashboard with live system stats."""
 
+import asyncio
 import os
 import platform
 import shutil
@@ -93,27 +94,34 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
-
     settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
 
-    subdomains_result = await db.execute(select(Subdomain).limit(20))
-    subdomains = subdomains_result.scalars().all()
+    async def _fetch_db_data():
+        _subdomains_result = await db.execute(select(Subdomain).limit(20))
+        _subdomains = _subdomains_result.scalars().all()
 
-    # Use a single query with conditional aggregation to get both counts efficiently
-    row = (
-        await db.execute(
-            select(
-                func.count(Subdomain.id).label("total"),
-                func.count(Subdomain.id).filter(Subdomain.app_type.isnot(None)).label("running"),
+        _row = (
+            await db.execute(
+                select(
+                    func.count(Subdomain.id).label("total"),
+                    func.count(Subdomain.id)
+                    .filter(Subdomain.app_type.isnot(None))
+                    .label("running"),
+                )
             )
-        )
-    ).first()
+        ).first()
+        return _subdomains, _row
+
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    (subdomains, row), all_containers = await asyncio.gather(
+        _fetch_db_data(),
+        docker_mgr.ps_all(),
+    )
 
     total_subdomains = row.total if row else 0
     apps_running = row.running if row else 0
-
-    docker_mgr = DockerManager(settings.apps_dir)
-    all_containers = await docker_mgr.ps_all()
     containers_total = len(all_containers)
     containers_running = sum(1 for c in all_containers if c.get("State") == "running")
 
@@ -142,19 +150,25 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
         return HTMLResponse("")
-
-    row = (
-        await db.execute(
-            select(
-                func.count(Subdomain.id).label("total"),
-                func.count(Subdomain.id).filter(Subdomain.app_type.isnot(None)).label("running"),
-            )
-        )
-    ).first()
-
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
-    all_containers = await docker_mgr.ps_all()
+
+    async def _fetch_db_data():
+        return (
+            await db.execute(
+                select(
+                    func.count(Subdomain.id).label("total"),
+                    func.count(Subdomain.id)
+                    .filter(Subdomain.app_type.isnot(None))
+                    .label("running"),
+                )
+            )
+        ).first()
+
+    row, all_containers = await asyncio.gather(
+        _fetch_db_data(),
+        docker_mgr.ps_all(),
+    )
     containers_total = len(all_containers)
     containers_running = sum(1 for c in all_containers if c.get("State") == "running")
 

@@ -141,9 +141,10 @@ class CaddyManager:
                 context.check_hostname = False
                 context.verify_mode = ssl.CERT_REQUIRED
 
-                with socket.create_connection(
-                    ("127.0.0.1", 443), timeout=5
-                ) as sock, context.wrap_socket(sock, server_hostname=domain) as ssock:
+                with (
+                    socket.create_connection(("127.0.0.1", 443), timeout=5) as sock,
+                    context.wrap_socket(sock, server_hostname=domain) as ssock,
+                ):
                     cert = ssock.getpeercert()
                     if not cert:
                         continue
@@ -181,7 +182,6 @@ class CaddyManager:
             except Exception as e:
                 logger.warning(f"Failed native SSL cert check for {domain}: {e}")
         return certs
-
 
     async def renew_certificate(self, domain: str) -> dict[str, Any]:
         async with httpx.AsyncClient() as client:

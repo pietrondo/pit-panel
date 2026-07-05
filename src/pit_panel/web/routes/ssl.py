@@ -59,8 +59,8 @@ def _get_acme_config(
     eab_key_id: str,
     eab_hmac: str,
 ) -> str:
-    eab_key_id = _sanitize(eab_key_id).replace("\n", "").replace("\r", "")
-    eab_hmac = _sanitize(eab_hmac).replace("\n", "").replace("\r", "")
+    eab_key_id = _sanitize(eab_key_id)
+    eab_hmac = _sanitize(eab_hmac)
     if acme_provider == "zerossl":
         return f'issuer zerossl {{eab "{eab_key_id}" "{eab_hmac}"}}'
     if acme_provider == "buypass":
