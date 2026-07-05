@@ -97,13 +97,11 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
 
-    # ⚡ Bolt: Execute DB queries and Docker API call concurrently to reduce I/O wait time.
-    # Wrap sequential SQLAlchemy DB calls in a helper to prevent concurrent session access errors.
-    async def fetch_db_data():
-        subdomains_res = await db.execute(select(Subdomain).limit(20))
-        subs = subdomains_res.scalars().all()
-        # Use a single query with conditional aggregation to get both counts efficiently
-        r = (
+    async def _fetch_db_data():
+        _subdomains_result = await db.execute(select(Subdomain).limit(20))
+        _subdomains = _subdomains_result.scalars().all()
+
+        _row = (
             await db.execute(
                 select(
                     func.count(Subdomain.id).label("total"),
@@ -113,14 +111,17 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
                 )
             )
         ).first()
-        return subs, r
+        return _subdomains, _row
 
-    db_data, all_containers = await asyncio.gather(fetch_db_data(), docker_mgr.ps_all())
-    subdomains, row = db_data
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    (subdomains, row), all_containers = await asyncio.gather(
+        _fetch_db_data(),
+        docker_mgr.ps_all(),
+    )
 
     total_subdomains = row.total if row else 0
     apps_running = row.running if row else 0
-
     containers_total = len(all_containers)
     containers_running = sum(1 for c in all_containers if c.get("State") == "running")
 
@@ -152,10 +153,8 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
 
-    # ⚡ Bolt: Execute DB queries and Docker API call concurrently to reduce I/O wait time.
-    # Wrap sequential SQLAlchemy DB calls in a helper to prevent concurrent session access errors.
-    async def fetch_db_data():
-        r = (
+    async def _fetch_db_data():
+        return (
             await db.execute(
                 select(
                     func.count(Subdomain.id).label("total"),
@@ -165,10 +164,11 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
                 )
             )
         ).first()
-        return r
 
-    row, all_containers = await asyncio.gather(fetch_db_data(), docker_mgr.ps_all())
-
+    row, all_containers = await asyncio.gather(
+        _fetch_db_data(),
+        docker_mgr.ps_all(),
+    )
     containers_total = len(all_containers)
     containers_running = sum(1 for c in all_containers if c.get("State") == "running")
 

@@ -85,6 +85,7 @@ async def test_run_exception(monkeypatch):
     res = await _run(["ls"])
     assert res == "ERROR: mocked error"
 
+
 @pytest.mark.asyncio
 async def test_run_timeout(monkeypatch):
     mock_proc = AsyncMock()

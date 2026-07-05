@@ -67,24 +67,30 @@ def test_settings_update_rate_limit(client, monkeypatch):
     monkeypatch.setattr("pit_panel.web.routes.settings.get_settings", lambda: mock_settings)
 
     for _ in range(10):
-        resp = client.post("/settings/update", data={
+        resp = client.post(
+            "/settings/update",
+            data={
+                "base_domain": "example.com",
+                "panel_subdomain": "panel",
+                "abuseipdb_api_key": "apikey",
+                "sudo_password": "sudo",
+                "telegram_bot_token": "token",
+                "telegram_chat_id": "chatid",
+            },
+        )
+        assert resp.status_code != 429
+
+    resp = client.post(
+        "/settings/update",
+        data={
             "base_domain": "example.com",
             "panel_subdomain": "panel",
             "abuseipdb_api_key": "apikey",
             "sudo_password": "sudo",
             "telegram_bot_token": "token",
-            "telegram_chat_id": "chatid"
-        })
-        assert resp.status_code != 429
-
-    resp = client.post("/settings/update", data={
-        "base_domain": "example.com",
-        "panel_subdomain": "panel",
-        "abuseipdb_api_key": "apikey",
-        "sudo_password": "sudo",
-        "telegram_bot_token": "token",
-        "telegram_chat_id": "chatid"
-    })
+            "telegram_chat_id": "chatid",
+        },
+    )
     assert resp.status_code == 429
 
 
