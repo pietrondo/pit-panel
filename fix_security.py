@@ -3,10 +3,13 @@ with open("src/pit_panel/web/routes/security.py", "r") as f:
 
 import re
 
-# Need to replace the try...except...pass block with contextlib.suppress
+# Add top level import
+content = re.sub(r"import ipaddress", "import contextlib\nimport ipaddress", content, count=1)
+
+# Fix suppress
 content = re.sub(
     r'    try:\n        await db\.rollback\(\)\n    except Exception:\n        pass',
-    r'    import contextlib\n    with contextlib.suppress(Exception):\n        await db.rollback()',
+    r'    with contextlib.suppress(Exception):\n        await db.rollback()',
     content
 )
 
