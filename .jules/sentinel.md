@@ -1,4 +1,0 @@
-## 2025-02-23 - Command Injection in fail2ban and systemctl endpoints
-**Vulnerability:** Command option injection through unvalidated user inputs passed to `systemctl` and `fail2ban-client` wrappers in `system_manage.py` and `security.py`. Although `shell=True` was avoided, the lack of `--` separator and regex validation allowed potential injection of malicious options (e.g., `-H` or `--help`) or other metacharacters.
-**Learning:** Even when avoiding `shell=True`, raw user input must never be passed directly as arguments to system utilities, especially when acting as the primary parameter (e.g., service or jail names). Python's `html.escape()` or similar escaping functions do not protect against command line option injection.
-**Prevention:** Strictly validate arguments using explicit regex patterns (e.g., `^[a-zA-Z0-9_-]+$`) to ensure only safe characters are permitted, and structurally segregate user inputs from utility options whenever possible.
