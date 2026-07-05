@@ -228,41 +228,13 @@ async def app_deploy(
         error = "Select an existing subdomain or enter a new name"
 
     if error or not sd:
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
-        subdomains = result.scalars().all()
-        mgr2 = AppManager()
-        templates = mgr2.list_templates()
-        template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
-        return render(
-            "apps.html",
-            user=user,
-            settings=settings,
-            subdomains=subdomains,
-            templates=templates,
-            template_infos=template_infos,
-            error=error,
-            detected=None,
-        )
+        return HTMLResponse(f'<div class="text-red-500 font-medium p-3 bg-red-50 border border-red-200 rounded">{__import__("html").escape(str(error))}</div>')
 
     # Deploy template
     try:
         mgr.deploy_template(sd.subdomain, stack_type, variables={"PORT": str(port)})
     except ValueError as e:
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
-        subdomains = result.scalars().all()
-        mgr2 = AppManager()
-        tpls = mgr2.list_templates()
-        infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in tpls]
-        return render(
-            "apps.html",
-            user=user,
-            settings=settings,
-            subdomains=subdomains,
-            templates=tpls,
-            template_infos=infos,
-            error=str(e),
-            detected=None,
-        )
+        return HTMLResponse(f'<div class="text-red-500 font-medium p-3 bg-red-50 border border-red-200 rounded">{__import__("html").escape(str(e))}</div>')
 
     # Docker compose up
     compose_ok = False
@@ -599,4 +571,4 @@ async def app_update_all(request: Request, db: AsyncSession = Depends(get_db)):
         f'<p class="text-sm text-green-700 dark:text-green-400">'
         f"Updated {ok_count}/{total} apps</p></div>"
     )
-    return HTMLResponse(html)
+    return HTMLResponse(html, headers={"HX-Refresh": "true"})
