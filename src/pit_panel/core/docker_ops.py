@@ -143,6 +143,25 @@ class DockerManager:
         except OSError:
             return []
 
+    async def containers_count(self) -> tuple[int, int]:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "docker",
+                "ps",
+                "-a",
+                "--format",
+                "{{.State}}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            lines = stdout.decode().strip().split("\n")
+            if not lines or not lines[0]:
+                return 0, 0
+            return len(lines), sum(1 for line in lines if line == "running")
+        except OSError:
+            return 0, 0
+
     async def container_stop(self, container_id: str) -> dict[str, Any]:
         try:
             proc = await asyncio.create_subprocess_exec(
