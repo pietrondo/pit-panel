@@ -350,7 +350,7 @@ async def security_malware_scan(
 
     background_tasks.add_task(run_malware_scan_bg, scan.id, "all")
 
-    return await security_overview(request, db)
+    return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 @router.post("/security/malware/scan-full", response_class=HTMLResponse)
@@ -369,7 +369,7 @@ async def security_malware_scan_full(
 
     background_tasks.add_task(run_malware_scan_bg, scan.id, "system", "/")
 
-    return await security_overview(request, db)
+    return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 @router.post("/security/malware/set-interval", response_class=HTMLResponse)
