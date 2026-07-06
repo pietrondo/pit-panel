@@ -263,8 +263,197 @@ async def upload_file(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.websocket("/system/terminal/ws")
-async def terminal_ws(websocket: WebSocket, db: AsyncSession = Depends(get_db)):
+async def _handle_pty_session(
+    websocket: WebSocket, proc: asyncio.subprocess.Process, master_fd: int
+) -> None:
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+
+    def read_callback() -> None:
+        try:
+            data = os.read(master_fd, 4096)
+            if not data:
+                queue.put_nowait(None)
+                with contextlib.suppress(Exception):
+                    loop.remove_reader(master_fd)
+            else:
+                queue.put_nowait(data)
+        except OSError:
+            queue.put_nowait(None)
+            with contextlib.suppress(Exception):
+                loop.remove_reader(master_fd)
+        except Exception:
+            queue.put_nowait(None)
+            with contextlib.suppress(Exception):
+                loop.remove_reader(master_fd)
+
+    loop.add_reader(master_fd, read_callback)
+
+    async def send_to_websocket() -> None:
+        try:
+            while True:
+                data = await queue.get()
+                if data is None:
+                    break
+                await websocket.send_text(data.decode("utf-8", errors="replace"))
+        except Exception:
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                await websocket.close()
+
+    send_task = asyncio.create_task(send_to_websocket())
+
+    try:
+        while True:
+            message = await websocket.receive_text()
+            if proc.returncode is not None:
+                break
+            os.write(master_fd, message.encode("utf-8"))
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        with contextlib.suppress(Exception):
+            loop.remove_reader(master_fd)
+        if master_fd is not None:
+            with contextlib.suppress(Exception):
+                os.close(master_fd)
+        if proc.returncode is None:
+            try:
+                proc.terminate()
+                await asyncio.wait_for(proc.wait(), timeout=2.0)
+            except Exception:
+                with contextlib.suppress(Exception):
+                    proc.kill()
+        send_task.cancel()
+        await asyncio.gather(send_task, return_exceptions=True)
+        with contextlib.suppress(Exception):
+            await websocket.close()
+
+
+async def _handle_pipe_session(
+    websocket: WebSocket, proc: asyncio.subprocess.Process, is_windows: bool, is_mock: bool
+) -> None:
+    async def read_from_stdout() -> None:
+        try:
+            while True:
+                if proc.stdout is None:
+                    break
+                data = await proc.stdout.read(4096)
+                if not data:
+                    break
+                await websocket.send_text(data.decode("utf-8", errors="replace"))
+        except Exception:
+            pass
+
+    async def read_from_stderr() -> None:
+        try:
+            while True:
+                if proc.stderr is None:
+                    break
+                data = await proc.stderr.read(4096)
+                if not data:
+                    break
+                await websocket.send_text(data.decode("utf-8", errors="replace"))
+        except Exception:
+            pass
+
+    stdout_task = asyncio.create_task(read_from_stdout())
+    stderr_task = asyncio.create_task(read_from_stderr())
+
+    try:
+        while True:
+            message = await websocket.receive_text()
+            if proc.returncode is not None:
+                break
+
+            if proc.stdin is not None:
+                # Windows fallback handles carriage returns and echoes locally if not mocked
+                if is_windows and not is_mock:
+                    if message == "\r":
+                        await websocket.send_text("\r\n")
+                        proc.stdin.write(b"\n")
+                    else:
+                        await websocket.send_text(message)
+                        proc.stdin.write(message.encode("utf-8"))
+                else:
+                    proc.stdin.write(message.encode("utf-8"))
+                await proc.stdin.drain()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        if proc.returncode is None:
+            try:
+                proc.terminate()
+                await asyncio.wait_for(proc.wait(), timeout=2.0)
+            except Exception:
+                with contextlib.suppress(Exception):
+                    proc.kill()
+        stdout_task.cancel()
+        stderr_task.cancel()
+        await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+        with contextlib.suppress(Exception):
+            await websocket.close()
+
+
+async def _create_shell_process(
+    use_pty: bool, is_windows: bool, slave_fd: int | None, master_fd: int | None
+) -> tuple[asyncio.subprocess.Process | None, str | None]:
+    shell = "powershell.exe" if is_windows else "/bin/bash"
+    proc = None
+    try:
+        if use_pty:
+            proc = await asyncio.create_subprocess_exec(
+                shell,
+                stdin=slave_fd,
+                stdout=slave_fd,
+                stderr=slave_fd,
+                preexec_fn=os.setsid,
+            )
+        else:
+            proc = await asyncio.create_subprocess_exec(
+                shell,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        return proc, None
+    except Exception as e:
+        fallback_shell = "cmd.exe" if is_windows else "sh"
+        try:
+            if use_pty:
+                proc = await asyncio.create_subprocess_exec(
+                    fallback_shell,
+                    stdin=slave_fd,
+                    stdout=slave_fd,
+                    stderr=slave_fd,
+                    preexec_fn=os.setsid,
+                )
+            else:
+                proc = await asyncio.create_subprocess_exec(
+                    fallback_shell,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+            return proc, None
+        except Exception as ex:
+            if use_pty:
+                if master_fd is not None:
+                    with contextlib.suppress(Exception):
+                        os.close(master_fd)
+                if slave_fd is not None:
+                    with contextlib.suppress(Exception):
+                        os.close(slave_fd)
+            return None, f"\r\nFailed to start shell: {e} / {ex}\r\n"
+
+
+@router.websocket("/system/terminal/ws")  # type: ignore[untyped-decorator]
+async def terminal_ws(websocket: WebSocket, db: AsyncSession = Depends(get_db)) -> None:
     await websocket.accept()
 
     is_admin = await check_ws_admin(websocket, db)
@@ -297,53 +486,11 @@ async def terminal_ws(websocket: WebSocket, db: AsyncSession = Depends(get_db)):
                     os.close(slave_fd)
                 slave_fd = None
 
-    shell = "powershell.exe" if is_windows else "/bin/bash"
-    proc = None
-    try:
-        if use_pty:
-            proc = await asyncio.create_subprocess_exec(
-                shell,
-                stdin=slave_fd,
-                stdout=slave_fd,
-                stderr=slave_fd,
-                preexec_fn=os.setsid,
-            )
-        else:
-            proc = await asyncio.create_subprocess_exec(
-                shell,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-    except Exception as e:
-        fallback_shell = "cmd.exe" if is_windows else "sh"
-        try:
-            if use_pty:
-                proc = await asyncio.create_subprocess_exec(
-                    fallback_shell,
-                    stdin=slave_fd,
-                    stdout=slave_fd,
-                    stderr=slave_fd,
-                    preexec_fn=os.setsid,
-                )
-            else:
-                proc = await asyncio.create_subprocess_exec(
-                    fallback_shell,
-                    stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-        except Exception as ex:
-            if use_pty:
-                if master_fd is not None:
-                    with contextlib.suppress(Exception):
-                        os.close(master_fd)
-                if slave_fd is not None:
-                    with contextlib.suppress(Exception):
-                        os.close(slave_fd)
-            await websocket.send_text(f"\r\nFailed to start shell: {e} / {ex}\r\n")
-            await websocket.close()
-            return
+    proc, error_msg = await _create_shell_process(use_pty, is_windows, slave_fd, master_fd)
+    if error_msg or proc is None:
+        await websocket.send_text(error_msg or "\r\nFailed to start shell.\r\n")
+        await websocket.close()
+        return
 
     # Close slave_fd in the parent process as the child handles it now
     if use_pty and slave_fd is not None:
@@ -366,129 +513,7 @@ async def terminal_ws(websocket: WebSocket, db: AsyncSession = Depends(get_db)):
                 os.close(master_fd)
             master_fd = None
 
-    if use_pty:
-        # PTY mode (Linux / macOS)
-        loop = asyncio.get_running_loop()
-        queue = asyncio.Queue()
-
-        def read_callback():
-            try:
-                data = os.read(master_fd, 4096)
-                if not data:
-                    queue.put_nowait(None)
-                    with contextlib.suppress(Exception):
-                        loop.remove_reader(master_fd)
-                else:
-                    queue.put_nowait(data)
-            except OSError:
-                queue.put_nowait(None)
-                with contextlib.suppress(Exception):
-                    loop.remove_reader(master_fd)
-            except Exception:
-                queue.put_nowait(None)
-                with contextlib.suppress(Exception):
-                    loop.remove_reader(master_fd)
-
-        loop.add_reader(master_fd, read_callback)
-
-        async def send_to_websocket():
-            try:
-                while True:
-                    data = await queue.get()
-                    if data is None:
-                        break
-                    await websocket.send_text(data.decode("utf-8", errors="replace"))
-            except Exception:
-                pass
-            finally:
-                with contextlib.suppress(Exception):
-                    await websocket.close()
-
-        send_task = asyncio.create_task(send_to_websocket())
-
-        try:
-            while True:
-                message = await websocket.receive_text()
-                if proc.returncode is not None:
-                    break
-                os.write(master_fd, message.encode("utf-8"))
-        except WebSocketDisconnect:
-            pass
-        except Exception:
-            pass
-        finally:
-            with contextlib.suppress(Exception):
-                loop.remove_reader(master_fd)
-            if master_fd is not None:
-                with contextlib.suppress(Exception):
-                    os.close(master_fd)
-            if proc.returncode is None:
-                try:
-                    proc.terminate()
-                    await asyncio.wait_for(proc.wait(), timeout=2.0)
-                except Exception:
-                    with contextlib.suppress(Exception):
-                        proc.kill()
-            send_task.cancel()
-            await asyncio.gather(send_task, return_exceptions=True)
-            with contextlib.suppress(Exception):
-                await websocket.close()
-
+    if use_pty and master_fd is not None:
+        await _handle_pty_session(websocket, proc, master_fd)
     else:
-        # standard pipe mode (Windows, or testing fallback)
-        async def read_from_stdout():
-            try:
-                while True:
-                    data = await proc.stdout.read(4096)
-                    if not data:
-                        break
-                    await websocket.send_text(data.decode("utf-8", errors="replace"))
-            except Exception:
-                pass
-
-        async def read_from_stderr():
-            try:
-                while True:
-                    data = await proc.stderr.read(4096)
-                    if not data:
-                        break
-                    await websocket.send_text(data.decode("utf-8", errors="replace"))
-            except Exception:
-                pass
-
-        stdout_task = asyncio.create_task(read_from_stdout())
-        stderr_task = asyncio.create_task(read_from_stderr())
-
-        try:
-            while True:
-                message = await websocket.receive_text()
-                if proc.returncode is not None:
-                    break
-                # Windows fallback handles carriage returns and echoes locally if not mocked
-                if is_windows and not is_mock:
-                    if message == "\r":
-                        await websocket.send_text("\r\n")
-                        proc.stdin.write(b"\n")
-                    else:
-                        await websocket.send_text(message)
-                        proc.stdin.write(message.encode("utf-8"))
-                else:
-                    proc.stdin.write(message.encode("utf-8"))
-                await proc.stdin.drain()
-        except WebSocketDisconnect:
-            pass
-        except Exception:
-            pass
-        finally:
-            if proc.returncode is None:
-                try:
-                    proc.terminate()
-                    await asyncio.wait_for(proc.wait(), timeout=2.0)
-                except Exception:
-                    with contextlib.suppress(Exception):
-                        proc.kill()
-            stdout_task.cancel()
-            stderr_task.cancel()
-            await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
-            with contextlib.suppress(Exception):
-                await websocket.close()
+        await _handle_pipe_session(websocket, proc, is_windows, is_mock)
