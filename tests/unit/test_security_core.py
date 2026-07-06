@@ -1,6 +1,8 @@
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.core.security import (
@@ -11,6 +13,7 @@ from pit_panel.core.security import (
     ban_ip_address,
     unban_ip_address,
 )
+from pit_panel.db.models import IPBan
 
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
@@ -662,3 +665,44 @@ This is an invalid line that should be ignored
 
     # Test input with only invalid lines
     assert _parse_ufw_rules("invalid line\nanother one") == []
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+async def test_ban_ip_address_integration(db_session: Any) -> None:
+    with patch("pit_panel.core.security._run_cmd", new_callable=AsyncMock) as mock_run_cmd:
+        # Mock UFW command since we don't have sudo in tests
+        mock_run_cmd.return_value = "success"
+
+        result = await ban_ip_address(db_session, "1.2.3.4", "Integration Test", 60)
+        assert result is True
+
+        # Verify it actually went into the database
+        check = await db_session.execute(select(IPBan).where(IPBan.ip_address == "1.2.3.4"))
+        ban = check.scalar_one_or_none()
+        assert ban is not None
+        assert ban.reason == "Integration Test"
+        assert ban.ip_address == "1.2.3.4"
+
+        mock_run_cmd.assert_called_once_with(["sudo", "-n", "ufw", "deny", "from", "1.2.3.4"])
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+async def test_unban_ip_address_integration(db_session: Any) -> None:
+    # Setup initial ban
+    ban = IPBan(ip_address="5.6.7.8", reason="To be removed")
+    db_session.add(ban)
+    await db_session.commit()
+
+    with patch("pit_panel.core.security._run_cmd", new_callable=AsyncMock) as mock_run_cmd:
+        mock_run_cmd.return_value = "success"
+
+        result = await unban_ip_address(db_session, "5.6.7.8", 1)
+        assert result is True
+
+        # Verify it was removed from database
+        check = await db_session.execute(select(IPBan).where(IPBan.ip_address == "5.6.7.8"))
+        assert check.scalar_one_or_none() is None
+
+        mock_run_cmd.assert_called_once_with(
+            ["sudo", "-n", "ufw", "delete", "deny", "from", "5.6.7.8"]
+        )
