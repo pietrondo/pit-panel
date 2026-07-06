@@ -1,3 +1,4 @@
+import html
 """App deployment main routes: list, analyze, deploy, detail."""
 
 import asyncio
@@ -228,41 +229,13 @@ async def app_deploy(
         error = "Select an existing subdomain or enter a new name"
 
     if error or not sd:
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
-        subdomains = result.scalars().all()
-        mgr2 = AppManager()
-        templates = mgr2.list_templates()
-        template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
-        return render(
-            "apps.html",
-            user=user,
-            settings=settings,
-            subdomains=subdomains,
-            templates=templates,
-            template_infos=template_infos,
-            error=error,
-            detected=None,
-        )
+        return HTMLResponse(f"<div class='text-red-500'>{html.escape(error or 'App not found')}</div>")
 
     # Deploy template
     try:
         mgr.deploy_template(sd.subdomain, stack_type, variables={"PORT": str(port)})
     except ValueError as e:
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
-        subdomains = result.scalars().all()
-        mgr2 = AppManager()
-        tpls = mgr2.list_templates()
-        infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in tpls]
-        return render(
-            "apps.html",
-            user=user,
-            settings=settings,
-            subdomains=subdomains,
-            templates=tpls,
-            template_infos=infos,
-            error=str(e),
-            detected=None,
-        )
+        return HTMLResponse(f"<div class='text-red-500'>{html.escape(str(e))}</div>")
 
     # Docker compose up
     compose_ok = False
