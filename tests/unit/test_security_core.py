@@ -577,3 +577,22 @@ async def test_run_lynis_audit_missing_install_success():
         assert report["hardening_index"] == 80
         assert mock_run.call_count == 2
         mock_run.assert_any_call(["sudo", "-n", "apt-get", "install", "-y", "lynis"], timeout=60)
+
+
+def test_parse_lynis_report_edge_cases():
+    from pit_panel.core.security import _parse_lynis_report
+
+    dat_content = """
+# Comments here
+
+hardening_index=not_an_int
+warning[]=SSH is open=but wait there is more
+suggestion[]=Close SSH
+unknown_key=some_value
+no_equals_line
+"""
+    res = _parse_lynis_report(dat_content)
+    assert res["hardening_index"] == 0  # Should ignore the ValueError and remain 0
+    assert res["warnings"] == ["SSH is open=but wait there is more"]
+    assert res["suggestions"] == ["Close SSH"]
+    # unknown_key and no_equals_line are ignored
