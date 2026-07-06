@@ -48,7 +48,7 @@ def _resolve_cmd(action: str) -> list[str] | None:
     valid_services = {svc for svc, _ in SERVICES}
 
     def is_safe(val: str) -> bool:
-        return bool(re.match(r"^[a-zA-Z0-9_-]+$", val))
+        return bool(re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", val))
 
     if action.startswith("service_restart_"):
         svc = action.removeprefix("service_restart_")
