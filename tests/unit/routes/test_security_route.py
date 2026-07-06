@@ -126,14 +126,19 @@ async def test_fail2ban_enable(monkeypatch) -> None:
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
 
-    class MockCompletedProcess:
+    class MockProcess:
         returncode = 0
-        stdout = ""
-        stderr = ""
+        async def communicate(self, *args, **kwargs):
+            return b"", b""
+        def kill(self):
+            pass
+
+    async def mock_create_subprocess_exec(*args, **kwargs):
+        return MockProcess()
 
     monkeypatch.setattr(
-        "subprocess.run",
-        MagicMock(return_value=MockCompletedProcess()),
+        "asyncio.create_subprocess_exec",
+        mock_create_subprocess_exec,
     )
 
     response = client.post("/security/fail2ban/enable", data={"jail": "sshd"})

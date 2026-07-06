@@ -392,20 +392,29 @@ async def security_malware_set_interval(request: Request, db: AsyncSession = Dep
 
 @router.get("/security/malware/clamav-status", response_class=HTMLResponse)
 async def security_clamav_status(request: Request, db: AsyncSession = Depends(get_db)):
-    import subprocess
+
+    import asyncio
 
     try:
-        r = subprocess.run(
-            ["docker", "ps", "--filter", "name=clamav", "--format", "{{.Status}}"],
-            capture_output=True,
-            text=True,
-            timeout=5,
+        proc = await asyncio.create_subprocess_exec(
+            "docker",
+            "ps",
+            "--filter",
+            "name=clamav",
+            "--format",
+            "{{.Status}}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        status = r.stdout.strip()
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+        status = stdout.decode().strip()
         if status:
             return HTMLResponse('<span class="text-green-600">🛡️ ClamAV: Up</span>')
         return HTMLResponse('<span class="text-yellow-600">🛡️ ClamAV: Not running</span>')
     except Exception:
+        with __import__("contextlib").suppress(Exception):
+            if 'proc' in locals():
+                proc.kill()
         return HTMLResponse('<span class="text-gray-400">🛡️ ClamAV: N/A</span>')
 
 
@@ -484,8 +493,6 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
-    import subprocess
-
     form = await request.form()
     jail = str(form.get("jail", ""))
     import re
@@ -496,25 +503,35 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
         )
     jail_escaped = __import__("html").escape(jail)
 
+    import asyncio
+
     try:
-        r = subprocess.run(
-            ["sudo", "-n", "fail2ban-client", "start", "--", jail],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        proc = await asyncio.create_subprocess_exec(
+            "sudo",
+            "-n",
+            "fail2ban-client",
+            "start",
+            jail,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        if r.returncode == 0:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+        if proc.returncode == 0:
             return HTMLResponse(
                 f'<span class="text-green-600 text-xs">✅ {jail_escaped} enabled</span>'
             )
         return HTMLResponse(
-            f'<span class="text-red-600 text-xs">❌ {jail_escaped}: {r.stderr.strip()[:100]}</span>'
+            f'<span class="text-red-600 text-xs">❌ {jail_escaped}: '
+            f"{stderr.decode().strip()[:100]}</span>"
         )
     except FileNotFoundError:
         return HTMLResponse(
             '<span class="text-yellow-600 text-xs">fail2ban-client not found</span>'
         )
     except Exception as e:
+        with __import__("contextlib").suppress(Exception):
+            if 'proc' in locals():
+                proc.kill()
         return HTMLResponse(f'<span class="text-red-600 text-xs">Error: {e}</span>')
 
 

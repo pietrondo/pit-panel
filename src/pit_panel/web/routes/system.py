@@ -21,32 +21,58 @@ router = APIRouter()
 INSTALL_DIR = "/opt/pit-panel"
 
 
-def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
+async def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
     """Run a privileged command via sudo -n (non-interactive, no password prompt).
 
     Used for systemctl and cp operations that require root.
     """
-    return subprocess.run(
-        ["sudo", "-n", *cmd],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
+    import asyncio
+
+    proc = await asyncio.create_subprocess_exec(
+        "sudo", "-n", *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except TimeoutError:
+        proc.kill()
+        await proc.communicate()
+        return subprocess.CompletedProcess(
+            args=["sudo", "-n", *cmd], returncode=-1, stdout="", stderr="Timeout"
+        )
+
+    return subprocess.CompletedProcess(
+        args=["sudo", "-n", *cmd],
+        returncode=proc.returncode or 0,
+        stdout=stdout.decode(errors="replace"),
+        stderr=stderr.decode(errors="replace"),
     )
 
 
-def _run(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
+async def _run(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
     """Run a command as the pit-panel user (no sudo)."""
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
+    import asyncio
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except TimeoutError:
+        proc.kill()
+        await proc.communicate()
+        return subprocess.CompletedProcess(args=cmd, returncode=-1, stdout="", stderr="Timeout")
+
+    return subprocess.CompletedProcess(
+        args=cmd,
+        returncode=proc.returncode or 0,
+        stdout=stdout.decode(errors="replace"),
+        stderr=stderr.decode(errors="replace"),
     )
 
 
-def _get_current_sha() -> str:
+async def _get_current_sha() -> str:
     """Get the current git commit SHA of the installation directory."""
-    res = _run(["git", "-C", INSTALL_DIR, "rev-parse", "HEAD"])
+    res = await _run(["git", "-C", INSTALL_DIR, "rev-parse", "HEAD"])
     if res.returncode != 0:
         raise RuntimeError(f"Failed to retrieve current git SHA: {res.stderr or res.stdout}")
     return res.stdout.strip()
@@ -167,7 +193,7 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     ok = True
 
     try:
-        original_sha = _get_current_sha()
+        original_sha = await _get_current_sha()
     except Exception as e:
         original_sha = "unknown"
         log_lines.append(f"FAIL git SHA check: {e}")
@@ -200,7 +226,9 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
         ]
 
         for cmd, timeout, use_sudo in steps:
-            result = _sudo(cmd, timeout=timeout) if use_sudo else _run(cmd, timeout=timeout)
+            result = (
+                await _sudo(cmd, timeout=timeout) if use_sudo else await _run(cmd, timeout=timeout)
+            )
             if result.returncode != 0:
                 err = (result.stderr or result.stdout or "").strip()[:200]
                 log_lines.append(f"FAIL {' '.join(cmd)}: {err}")
@@ -217,9 +245,9 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
             ]
             for rb_cmd, rb_timeout, rb_use_sudo in rollback_steps:
                 if rb_use_sudo:
-                    rb_result = _sudo(rb_cmd, timeout=rb_timeout)
+                    rb_result = await _sudo(rb_cmd, timeout=rb_timeout)
                 else:
-                    rb_result = _run(rb_cmd, timeout=rb_timeout)
+                    rb_result = await _run(rb_cmd, timeout=rb_timeout)
 
                 if rb_result.returncode != 0:
                     rb_err = (rb_result.stderr or rb_result.stdout or "").strip()[:200]
