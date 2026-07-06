@@ -1,6 +1,7 @@
 
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
+import asyncio
 import contextlib
 import ipaddress
 from typing import Any
@@ -103,7 +104,6 @@ async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict[str, 
 
 
 async def _rollback_after_db_panel_error(db: AsyncSession) -> None:
-    import contextlib
     with contextlib.suppress(Exception):
         await db.rollback()
 
@@ -173,17 +173,20 @@ async def _load_scan_interval_hours(db: AsyncSession) -> int:
 
 
 async def _render_security_page(request: Request, db: AsyncSession, user: User, **kwargs):
-    bans = await _load_bans(db)
-    attempts = await _load_attempts(db)
-    active_sessions = await _load_active_sessions(db)
+    async def _db_group():
+        bans = await _load_bans(db)
+        attempts = await _load_attempts(db)
+        active_sessions = await _load_active_sessions(db)
+        scan_history = await _load_scan_history(db)
+        scan_interval_hours = await _load_scan_interval_hours(db)
+        return bans, attempts, active_sessions, scan_history, scan_interval_hours
 
-    fw = await _firewall_status()
-    f2b = await _fail2ban_status()
-    scan_history = await _load_scan_history(db)
+    (bans, attempts, active_sessions, scan_history, scan_interval_hours), (fw, f2b) = (
+        await asyncio.gather(_db_group(), asyncio.gather(_firewall_status(), _fail2ban_status()))
+    )
 
     settings = get_settings()
     abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
-    scan_interval_hours = await _load_scan_interval_hours(db)
 
     ctx = {
         "user": user,
