@@ -798,8 +798,8 @@ async def security_firewall_rule_add(
 
     ok = await _add_ufw_rule(port, protocol, action, source)
     if ok:
-        return HTMLResponse('<span class="text-green-600 text-sm">Rule added</span>')
-    return HTMLResponse('<span class="text-red-600 text-sm">Failed to add rule</span>')
+        return HTMLResponse("", headers={"HX-Refresh": "true"})
+    return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 @router.post("/security/firewall/rule/delete", response_class=HTMLResponse)
@@ -818,10 +818,10 @@ async def security_firewall_rule_delete(
     try:
         ok = await _delete_ufw_rule(index, client_ip=client_ip, ssh_port=ssh_port)
         if ok:
-            return HTMLResponse('<span class="text-green-600 text-sm">Rule deleted</span>')
-        return HTMLResponse('<span class="text-red-600 text-sm">Failed to delete rule</span>')
+            return HTMLResponse("", headers={"HX-Refresh": "true"})
+        return HTMLResponse("", headers={"HX-Refresh": "true"})
     except ValueError as e:
-        return HTMLResponse(f'<span class="text-red-600 text-sm">{e}</span>', status_code=400)
+        return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 # Fail2ban config overrides
