@@ -69,7 +69,9 @@ async def subdomain_add(
     settings = get_settings()
 
     safe_subdomain = subdomain.strip().lower().replace(" ", "-")
-    if not safe_subdomain or not re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", safe_subdomain):
+    if not safe_subdomain or not re.fullmatch(
+        r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", safe_subdomain
+    ):
         result = await db.execute(
             select(Subdomain).where(~Subdomain.is_main_domain).order_by(Subdomain.created_at.desc())
         )
