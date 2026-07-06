@@ -1,17 +1,30 @@
 with open("src/pit_panel/web/routes/security.py", "r") as f:
-    content = f.read()
+    text = f.read()
 
-import re
-
-# Add top level import
-content = re.sub(r"import ipaddress", "import contextlib\nimport ipaddress", content, count=1)
-
-# Fix suppress
-content = re.sub(
-    r'    try:\n        await db\.rollback\(\)\n    except Exception:\n        pass',
-    r'    with contextlib.suppress(Exception):\n        await db.rollback()',
-    content
+text = text.replace(
+    "return HTMLResponse('<span class=\"text-red-600 text-sm\">Invalid action</span>', status_code=400)",
+    "return HTMLResponse(\n            '<span class=\"text-red-600 text-sm\">Invalid action</span>',\n            status_code=400,\n        )"
+)
+text = text.replace(
+    "return HTMLResponse('<span class=\"text-red-600 text-sm\">Invalid protocol</span>', status_code=400)",
+    "return HTMLResponse(\n            '<span class=\"text-red-600 text-sm\">Invalid protocol</span>',\n            status_code=400,\n        )"
+)
+text = text.replace(
+    "return HTMLResponse('<span class=\"text-red-600 text-sm\">Invalid port</span>', status_code=400)",
+    "return HTMLResponse(\n            '<span class=\"text-red-600 text-sm\">Invalid port</span>',\n            status_code=400,\n        )"
+)
+text = text.replace(
+    "return HTMLResponse('<span class=\"text-red-600 text-sm\">Invalid source IP or network</span>', status_code=400)",
+    "return HTMLResponse(\n                '<span class=\"text-red-600 text-sm\">Invalid source IP or network</span>',\n                status_code=400,\n            )"
+)
+text = text.replace(
+    "except ValueError as e:",
+    "except ValueError:"
+)
+text = text.replace(
+    "return HTMLResponse('<span class=\"text-red-600 text-sm\">Invalid jail name</span>', status_code=400)",
+    "return HTMLResponse(\n            '<span class=\"text-red-600 text-sm\">Invalid jail name</span>',\n            status_code=400,\n        )"
 )
 
 with open("src/pit_panel/web/routes/security.py", "w") as f:
-    f.write(content)
+    f.write(text)
