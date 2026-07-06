@@ -228,13 +228,39 @@ async def app_deploy(
         error = "Select an existing subdomain or enter a new name"
 
     if error or not sd:
-        return HTMLResponse(f'<div class="text-red-500 font-medium p-3 bg-red-50 border border-red-200 rounded">{__import__("html").escape(str(error))}</div>')
+        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+        subdomains = result.scalars().all()
+        templates = mgr.list_templates()
+        template_infos = [{"name": t, "meta": mgr.get_template_info(t)} for t in templates]
+        return render(
+            "apps.html",
+            user=user,
+            settings=settings,
+            subdomains=subdomains,
+            templates=templates,
+            template_infos=template_infos,
+            error=error,
+            detected=None,
+        )
 
     # Deploy template
     try:
         mgr.deploy_template(sd.subdomain, stack_type, variables={"PORT": str(port)})
     except ValueError as e:
-        return HTMLResponse(f'<div class="text-red-500 font-medium p-3 bg-red-50 border border-red-200 rounded">{__import__("html").escape(str(e))}</div>')
+        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+        subdomains = result.scalars().all()
+        tpls = mgr.list_templates()
+        infos = [{"name": t, "meta": mgr.get_template_info(t)} for t in tpls]
+        return render(
+            "apps.html",
+            user=user,
+            settings=settings,
+            subdomains=subdomains,
+            templates=tpls,
+            template_infos=infos,
+            error=str(e),
+            detected=None,
+        )
 
     # Docker compose up
     compose_ok = False
