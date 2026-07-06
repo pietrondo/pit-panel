@@ -1,6 +1,5 @@
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
-import contextlib
 import ipaddress
 from typing import Any
 
