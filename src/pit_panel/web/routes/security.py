@@ -1,4 +1,3 @@
-
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
 import contextlib
@@ -103,7 +102,6 @@ async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict[str, 
 
 
 async def _rollback_after_db_panel_error(db: AsyncSession) -> None:
-    import contextlib
     with contextlib.suppress(Exception):
         await db.rollback()
 
@@ -492,7 +490,7 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
     jail = str(form.get("jail", ""))
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
         )
@@ -528,7 +526,7 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
 
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
         )
@@ -536,7 +534,7 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
     import html
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<div class="text-xs text-red-500">Invalid jail name</div>', status_code=400
         )
@@ -578,7 +576,7 @@ async def security_fail2ban_unban(request: Request, db: AsyncSession = Depends(g
     import ipaddress
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<div class="text-xs text-red-600">❌ Invalid jail name</div>', status_code=400
         )
