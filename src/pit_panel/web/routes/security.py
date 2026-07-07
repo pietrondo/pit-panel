@@ -877,12 +877,8 @@ async def security_fail2ban_config(
 
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
-<<<<<<< HEAD
-            '<span class="text-red-600 text-sm">Invalid jail name</span>',
-            status_code=400,
-=======
-            '<span class="text-red-600 text-sm">Invalid jail name</span>', status_code=400
->>>>>>> origin/main
+            "<span class=\"text-red-600 text-sm\">Invalid jail name</span>", status_code=400
+
         )
 
     try:
