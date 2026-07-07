@@ -126,14 +126,19 @@ async def test_fail2ban_enable(monkeypatch) -> None:
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
 
-    class MockCompletedProcess:
+    class MockProcess:
         returncode = 0
-        stdout = ""
-        stderr = ""
+        async def communicate(self, *args, **kwargs):
+            return b"", b""
+        def kill(self):
+            pass
+
+    async def mock_create_subprocess_exec(*args, **kwargs):
+        return MockProcess()
 
     monkeypatch.setattr(
-        "subprocess.run",
-        MagicMock(return_value=MockCompletedProcess()),
+        "asyncio.create_subprocess_exec",
+        mock_create_subprocess_exec,
     )
 
     response = client.post("/security/fail2ban/enable", data={"jail": "sshd"})
@@ -342,7 +347,7 @@ async def test_security_firewall_rule_add(monkeypatch) -> None:
 
     response = client.post(
         "/security/firewall/rule/add",
-        data={"port": "8080", "protocol": "tcp", "action": "allow", "source": ""}
+        data={"port": "8080", "protocol": "tcp", "action": "allow", "source": ""},
     )
     assert response.status_code == 200
     mock_add.assert_called_once_with("8080", "tcp", "allow", "")
@@ -386,7 +391,7 @@ async def test_security_fail2ban_config(monkeypatch) -> None:
 
     response = client.post(
         "/security/fail2ban/config/sshd",
-        data={"bantime": "3600", "findtime": "600", "maxretry": "5"}
+        data={"bantime": "3600", "findtime": "600", "maxretry": "5"},
     )
     assert response.status_code == 200
     mock_save.assert_called_once_with("sshd", bantime=3600, findtime=600, maxretry=5)
@@ -431,11 +436,13 @@ async def test_security_clamav_toggle_success(monkeypatch) -> None:
     monkeypatch.setattr("asyncio.create_subprocess_exec", mock_run)
 
     mock_proc = MagicMock()
-    mock_proc.communicate = AsyncMock(side_effect=[
-        (b"", b""),             # docker ps returns not running
-        (b"exists", b""),       # docker image inspect returns exists
-        (b"container_id", b"")  # docker run starts container
-    ])
+    mock_proc.communicate = AsyncMock(
+        side_effect=[
+            (b"", b""),  # docker ps returns not running
+            (b"exists", b""),  # docker image inspect returns exists
+            (b"container_id", b""),  # docker run starts container
+        ]
+    )
     mock_proc.returncode = 0
     mock_run.return_value = mock_proc
 

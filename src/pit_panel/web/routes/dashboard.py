@@ -1,5 +1,6 @@
 """Dashboard with live system stats."""
 
+import asyncio
 import os
 import platform
 import shutil
@@ -73,18 +74,24 @@ def _ram_usage() -> dict[str, Any]:
 async def _stats_context() -> dict[str, Any]:
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
-    containers = await docker_mgr.ps_all()
-    running_containers = sum(1 for c in containers if c.get("State") == "running")
+    # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
+    (total, running), disk_usage, cpu_usage, ram_usage, hostname = await asyncio.gather(
+        docker_mgr.containers_count(),
+        asyncio.to_thread(_disk_usage),
+        asyncio.to_thread(_cpu_usage),
+        asyncio.to_thread(_ram_usage),
+        asyncio.to_thread(_server_hostname),
+    )
 
     return {
         "subdomain_count": 0,
         "apps_running": 0,
-        "containers_total": len(containers),
-        "containers_running": running_containers,
-        "disk_usage": _disk_usage(),
-        "cpu": _cpu_usage(),
-        "ram": _ram_usage(),
-        "hostname": _server_hostname(),
+        "containers_total": total,
+        "containers_running": running,
+        "disk_usage": disk_usage,
+        "cpu": cpu_usage,
+        "ram": ram_usage,
+        "hostname": hostname,
     }
 
 
@@ -93,39 +100,56 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
-
     settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
 
-    subdomains_result = await db.execute(select(Subdomain).limit(20))
-    subdomains = subdomains_result.scalars().all()
+    async def _fetch_db_data():
+        _subdomains_result = await db.execute(select(Subdomain).limit(20))
+        _subdomains = _subdomains_result.scalars().all()
 
-    # Use a single query with conditional aggregation to get both counts efficiently
-    row = (
-        await db.execute(
-            select(
-                func.count(Subdomain.id).label("total"),
-                func.count(Subdomain.id).filter(Subdomain.app_type.isnot(None)).label("running"),
+        _row = (
+            await db.execute(
+                select(
+                    func.count(Subdomain.id).label("total"),
+                    func.count(Subdomain.id)
+                    .filter(Subdomain.app_type.isnot(None))
+                    .label("running"),
+                )
             )
-        )
-    ).first()
+        ).first()
+        return _subdomains, _row
+
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
+    (
+        (subdomains, row),
+        (containers_total, containers_running),
+        disk_usage,
+        cpu_usage,
+        ram_usage,
+        hostname,
+    ) = await asyncio.gather(
+        _fetch_db_data(),
+        docker_mgr.containers_count(),
+        asyncio.to_thread(_disk_usage),
+        asyncio.to_thread(_cpu_usage),
+        asyncio.to_thread(_ram_usage),
+        asyncio.to_thread(_server_hostname),
+    )
 
     total_subdomains = row.total if row else 0
     apps_running = row.running if row else 0
-
-    docker_mgr = DockerManager(settings.apps_dir)
-    all_containers = await docker_mgr.ps_all()
-    containers_total = len(all_containers)
-    containers_running = sum(1 for c in all_containers if c.get("State") == "running")
 
     stats = {
         "subdomain_count": total_subdomains,
         "apps_running": apps_running,
         "containers_total": containers_total,
         "containers_running": containers_running,
-        "disk_usage": _disk_usage(),
-        "cpu": _cpu_usage(),
-        "ram": _ram_usage(),
-        "hostname": _server_hostname(),
+        "disk_usage": disk_usage,
+        "cpu": cpu_usage,
+        "ram": ram_usage,
+        "hostname": hostname,
     }
 
     return render(
@@ -142,31 +166,47 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
         return HTMLResponse("")
-
-    row = (
-        await db.execute(
-            select(
-                func.count(Subdomain.id).label("total"),
-                func.count(Subdomain.id).filter(Subdomain.app_type.isnot(None)).label("running"),
-            )
-        )
-    ).first()
-
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
-    all_containers = await docker_mgr.ps_all()
-    containers_total = len(all_containers)
-    containers_running = sum(1 for c in all_containers if c.get("State") == "running")
+
+    async def _fetch_db_data():
+        return (
+            await db.execute(
+                select(
+                    func.count(Subdomain.id).label("total"),
+                    func.count(Subdomain.id)
+                    .filter(Subdomain.app_type.isnot(None))
+                    .label("running"),
+                )
+            )
+        ).first()
+
+    # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
+    (
+        row,
+        (containers_total, containers_running),
+        disk_usage,
+        cpu_usage,
+        ram_usage,
+        hostname,
+    ) = await asyncio.gather(
+        _fetch_db_data(),
+        docker_mgr.containers_count(),
+        asyncio.to_thread(_disk_usage),
+        asyncio.to_thread(_cpu_usage),
+        asyncio.to_thread(_ram_usage),
+        asyncio.to_thread(_server_hostname),
+    )
 
     stats = {
         "subdomain_count": row.total if row else 0,
         "apps_running": row.running if row else 0,
         "containers_total": containers_total,
         "containers_running": containers_running,
-        "disk_usage": _disk_usage(),
-        "cpu": _cpu_usage(),
-        "ram": _ram_usage(),
-        "hostname": _server_hostname(),
+        "disk_usage": disk_usage,
+        "cpu": cpu_usage,
+        "ram": ram_usage,
+        "hostname": hostname,
     }
 
     return render("_stats.html", stats=stats)

@@ -1,5 +1,8 @@
+
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
+import asyncio
+import contextlib
 import ipaddress
 from typing import Any
 
@@ -101,10 +104,8 @@ async def _abuseipdb_blacklist(api_key: str, limit: int = 20) -> list[dict[str, 
 
 
 async def _rollback_after_db_panel_error(db: AsyncSession) -> None:
-    try:
+    with contextlib.suppress(Exception):
         await db.rollback()
-    except Exception:
-        pass
 
 
 async def _load_bans(db: AsyncSession) -> list[Any]:
@@ -172,17 +173,21 @@ async def _load_scan_interval_hours(db: AsyncSession) -> int:
 
 
 async def _render_security_page(request: Request, db: AsyncSession, user: User, **kwargs):
-    bans = await _load_bans(db)
-    attempts = await _load_attempts(db)
-    active_sessions = await _load_active_sessions(db)
+    async def _db_group():
+        bans = await _load_bans(db)
+        attempts = await _load_attempts(db)
+        active_sessions = await _load_active_sessions(db)
+        scan_history = await _load_scan_history(db)
+        scan_interval_hours = await _load_scan_interval_hours(db)
+        return bans, attempts, active_sessions, scan_history, scan_interval_hours
 
-    fw = await _firewall_status()
-    f2b = await _fail2ban_status()
-    scan_history = await _load_scan_history(db)
+    (
+        (bans, attempts, active_sessions, scan_history, scan_interval_hours),
+        (fw, f2b),
+    ) = await asyncio.gather(_db_group(), asyncio.gather(_firewall_status(), _fail2ban_status()))
 
     settings = get_settings()
     abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
-    scan_interval_hours = await _load_scan_interval_hours(db)
 
     ctx = {
         "user": user,
@@ -351,7 +356,7 @@ async def security_malware_scan(
 
     background_tasks.add_task(run_malware_scan_bg, scan.id, "all")
 
-    return await security_overview(request, db)
+    return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 @router.post("/security/malware/scan-full", response_class=HTMLResponse)
@@ -370,7 +375,7 @@ async def security_malware_scan_full(
 
     background_tasks.add_task(run_malware_scan_bg, scan.id, "system", "/")
 
-    return await security_overview(request, db)
+    return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 @router.post("/security/malware/set-interval", response_class=HTMLResponse)
@@ -393,20 +398,29 @@ async def security_malware_set_interval(request: Request, db: AsyncSession = Dep
 
 @router.get("/security/malware/clamav-status", response_class=HTMLResponse)
 async def security_clamav_status(request: Request, db: AsyncSession = Depends(get_db)):
-    import subprocess
+
+    import asyncio
 
     try:
-        r = subprocess.run(
-            ["docker", "ps", "--filter", "name=clamav", "--format", "{{.Status}}"],
-            capture_output=True,
-            text=True,
-            timeout=5,
+        proc = await asyncio.create_subprocess_exec(
+            "docker",
+            "ps",
+            "--filter",
+            "name=clamav",
+            "--format",
+            "{{.Status}}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        status = r.stdout.strip()
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+        status = stdout.decode().strip()
         if status:
             return HTMLResponse('<span class="text-green-600">🛡️ ClamAV: Up</span>')
         return HTMLResponse('<span class="text-yellow-600">🛡️ ClamAV: Not running</span>')
     except Exception:
+        with __import__("contextlib").suppress(Exception):
+            if "proc" in locals():
+                proc.kill()
         return HTMLResponse('<span class="text-gray-400">🛡️ ClamAV: N/A</span>')
 
 
@@ -485,37 +499,45 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
-    import subprocess
-
     form = await request.form()
     jail = str(form.get("jail", ""))
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
         )
     jail_escaped = __import__("html").escape(jail)
 
+    import asyncio
+
     try:
-        r = subprocess.run(
-            ["sudo", "-n", "fail2ban-client", "start", jail],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        proc = await asyncio.create_subprocess_exec(
+            "sudo",
+            "-n",
+            "fail2ban-client",
+            "start",
+            jail,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        if r.returncode == 0:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+        if proc.returncode == 0:
             return HTMLResponse(
                 f'<span class="text-green-600 text-xs">✅ {jail_escaped} enabled</span>'
             )
         return HTMLResponse(
-            f'<span class="text-red-600 text-xs">❌ {jail_escaped}: {r.stderr.strip()[:100]}</span>'
+            f'<span class="text-red-600 text-xs">❌ {jail_escaped}: '
+            f"{stderr.decode().strip()[:100]}</span>"
         )
     except FileNotFoundError:
         return HTMLResponse(
             '<span class="text-yellow-600 text-xs">fail2ban-client not found</span>'
         )
     except Exception as e:
+        with __import__("contextlib").suppress(Exception):
+            if "proc" in locals():
+                proc.kill()
         return HTMLResponse(f'<span class="text-red-600 text-xs">Error: {e}</span>')
 
 
@@ -527,7 +549,7 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
 
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
         )
@@ -535,7 +557,7 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
     import html
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<div class="text-xs text-red-500">Invalid jail name</div>', status_code=400
         )
@@ -577,7 +599,7 @@ async def security_fail2ban_unban(request: Request, db: AsyncSession = Depends(g
     import ipaddress
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<div class="text-xs text-red-600">❌ Invalid jail name</div>', status_code=400
         )
@@ -764,10 +786,38 @@ async def security_firewall_rule_add(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
+    import re
+
+    if action not in ("allow", "deny"):
+        return HTMLResponse(
+            '<span class="text-red-600 text-sm">Invalid action</span>',
+            status_code=400,
+        )
+    if protocol not in ("tcp", "udp", "any"):
+        return HTMLResponse(
+            '<span class="text-red-600 text-sm">Invalid protocol</span>',
+            status_code=400,
+        )
+    if not re.match(r"^[a-zA-Z0-9]+$", port) and port != "any":
+        return HTMLResponse(
+            '<span class="text-red-600 text-sm">Invalid port</span>',
+            status_code=400,
+        )
+    if source:
+        import ipaddress
+
+        try:
+            ipaddress.ip_network(source, strict=False)
+        except ValueError:
+            return HTMLResponse(
+                '<span class="text-red-600 text-sm">Invalid source IP or network</span>',
+                status_code=400,
+            )
+
     ok = await _add_ufw_rule(port, protocol, action, source)
     if ok:
-        return HTMLResponse('<span class="text-green-600 text-sm">Rule added</span>')
-    return HTMLResponse('<span class="text-red-600 text-sm">Failed to add rule</span>')
+        return HTMLResponse("", headers={"HX-Refresh": "true"})
+    return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 @router.post("/security/firewall/rule/delete", response_class=HTMLResponse)
@@ -786,10 +836,10 @@ async def security_firewall_rule_delete(
     try:
         ok = await _delete_ufw_rule(index, client_ip=client_ip, ssh_port=ssh_port)
         if ok:
-            return HTMLResponse('<span class="text-green-600 text-sm">Rule deleted</span>')
-        return HTMLResponse('<span class="text-red-600 text-sm">Failed to delete rule</span>')
-    except ValueError as e:
-        return HTMLResponse(f'<span class="text-red-600 text-sm">{e}</span>', status_code=400)
+            return HTMLResponse("", headers={"HX-Refresh": "true"})
+        return HTMLResponse("", headers={"HX-Refresh": "true"})
+    except ValueError:
+        return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 # Fail2ban config overrides
@@ -800,6 +850,11 @@ async def security_fail2ban_get_config(
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
+
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
+        return HTMLResponse("Invalid jail name", status_code=400)
 
     cfg = await _get_jail_config(jail)
     return cfg
@@ -818,10 +873,16 @@ async def security_fail2ban_config(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
-    try:
-        ok = await _save_jail_config(
-            jail, bantime=bantime, findtime=findtime, maxretry=maxretry
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
+        return HTMLResponse(
+            "<span class=\"text-red-600 text-sm\">Invalid jail name</span>", status_code=400
+
         )
+
+    try:
+        ok = await _save_jail_config(jail, bantime=bantime, findtime=findtime, maxretry=maxretry)
         if ok:
             return HTMLResponse(
                 '<span class="text-green-600 text-sm">Configuration saved and reloaded</span>'
