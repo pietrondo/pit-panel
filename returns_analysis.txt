@@ -1,0 +1,340 @@
+GET /system/manage (system_manage.py): return RedirectResponse("/login", status_code=302)
+GET /system/manage (system_manage.py): return render("system_manage.html", user=user, settings=get_settings())
+POST /system/manage/action (system_manage.py): return HTMLResponse(
+POST /system/manage/action (system_manage.py): return HTMLResponse(f"Unknown action: {action}", status_code=400)
+POST /system/manage/action (system_manage.py): return HTMLResponse(output)
+GET /system/manage/services (system_manage.py): return HTMLResponse("")
+GET /system/manage/services (system_manage.py): return HTMLResponse('<span class="text-red-500">sudo_password not configured</span>')
+GET /system/manage/services (system_manage.py): return HTMLResponse("".join(lines))
+GET /containers/fragment (containers.py): return response
+GET /containers/fragment (containers.py): return HTMLResponse(  # noqa: E501
+GET /containers (containers.py): return RedirectResponse("/login", status_code=302)
+GET /containers (containers.py): return render(
+GET /containers/{sd_id}/logs (containers.py): return RedirectResponse("/login", status_code=302)
+GET /containers/{sd_id}/logs (containers.py): return RedirectResponse("/containers", status_code=302)
+GET /containers/{sd_id}/logs (containers.py): return render("container_logs.html", user=user, subdomain=sd, logs=logs)
+POST /containers/{sd_id}/restart (containers.py): return RedirectResponse("/login", status_code=302)
+POST /containers/{sd_id}/restart (containers.py): return RedirectResponse("/containers", status_code=302)
+POST /containers/container/{container_id}/stop (containers.py): return HTMLResponse("Invalid container ID", status_code=400)
+POST /containers/container/{container_id}/stop (containers.py): return RedirectResponse("/login", status_code=302)
+POST /containers/container/{container_id}/stop (containers.py): return RedirectResponse("/containers", status_code=302)
+POST /containers/container/{container_id}/start (containers.py): return HTMLResponse("Invalid container ID", status_code=400)
+POST /containers/container/{container_id}/start (containers.py): return RedirectResponse("/login", status_code=302)
+POST /containers/container/{container_id}/start (containers.py): return RedirectResponse("/containers", status_code=302)
+GET /containers/container/{container_id}/logs (containers.py): return HTMLResponse("Invalid container ID", status_code=400)
+GET /containers/container/{container_id}/logs (containers.py): return RedirectResponse("/login", status_code=302)
+GET /containers/container/{container_id}/logs (containers.py): return render(
+GET /containers/container/{container_id}/stats (containers.py): return HTMLResponse("Invalid container ID", status_code=400)
+GET /containers/container/{container_id}/stats (containers.py): return RedirectResponse("/login", status_code=302)
+GET /containers/container/{container_id}/stats (containers.py): return render("container_stats.html", stats=stats, container_id=container_id)
+GET /settings (settings.py): return RedirectResponse("/login", status_code=302)
+GET /settings (settings.py): return render(
+POST /settings/update (settings.py): return RedirectResponse("/login", status_code=302)
+POST /settings/update (settings.py): return HTMLResponse("Invalid base domain", status_code=400)
+POST /settings/update (settings.py): return HTMLResponse("Invalid panel subdomain", status_code=400)
+POST /settings/update (settings.py): return render(
+GET /settings/audit (settings.py): return RedirectResponse("/login", status_code=302)
+GET /settings/audit (settings.py): return render("audit.html", user=user, entries=entries)
+POST /settings/test-notification (settings.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /settings/test-notification (settings.py): return HTMLResponse("<span class='text-green-600 text-xs'>Sent ✓</span>")
+POST /settings/test-notification (settings.py): return HTMLResponse("<span class='text-red-500 text-xs'>Failed</span>")
+GET /logs (logs.py): return RedirectResponse("/login", status_code=302)
+GET /logs (logs.py): return response
+GET /logs/journal (logs.py): return HTMLResponse(f"{pre}{escaped}</pre>")
+GET /logs/applog (logs.py): return HTMLResponse(f"{pre}{escaped}</pre>")
+GET /system/file-manager (file_manager.py): return RedirectResponse("/login", status_code=302)
+GET /system/file-manager (file_manager.py): return render("file_manager.html", request=request, user=user, title="File Manager")
+GET /system/terminal (file_manager.py): return RedirectResponse("/login", status_code=302)
+GET /system/terminal (file_manager.py): return render("system_terminal.html", request=request, user=user, title="System Terminal")
+GET /api/file-manager/list (file_manager.py): return {"status": "success", "path": str(resolved_path), "items": items}
+GET /api/file-manager/file (file_manager.py): return {"content": content, "path": str(resolved_path)}
+POST /api/file-manager/save (file_manager.py): return {"status": "success", "message": "File saved successfully"}
+POST /api/file-manager/create (file_manager.py): return {"status": "success", "message": f"{req.type.capitalize()} created successfully"}
+POST /api/file-manager/delete (file_manager.py): return {"status": "success", "message": "Resource deleted successfully"}
+POST /api/file-manager/upload (file_manager.py): return {"status": "success", "message": "File uploaded successfully"}
+POST /api/file-manager/upload (file_manager.py): if proc.returncode is not None:
+POST /api/file-manager/upload (file_manager.py): if proc.returncode is None:
+POST /api/file-manager/upload (file_manager.py): await asyncio.gather(send_task, return_exceptions=True)
+POST /api/file-manager/upload (file_manager.py): if proc.returncode is not None:
+POST /api/file-manager/upload (file_manager.py): # Windows fallback handles carriage returns and echoes locally if not mocked
+POST /api/file-manager/upload (file_manager.py): if proc.returncode is None:
+POST /api/file-manager/upload (file_manager.py): await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+POST /api/file-manager/upload (file_manager.py): return proc, None
+POST /api/file-manager/upload (file_manager.py): return proc, None
+POST /api/file-manager/upload (file_manager.py): return None, f"\r\nFailed to start shell: {e} / {ex}\r\n"
+POST /api/file-manager/upload (file_manager.py): return
+POST /api/file-manager/upload (file_manager.py): return
+GET /debug (debug.py): return RedirectResponse("/login", status_code=302)
+GET /debug (debug.py): return render("debug.html", user=user, diag=diag)
+GET /debug/raw (debug.py): return PlainTextResponse("Unauthorized", status_code=401)
+GET /debug/raw (debug.py): return PlainTextResponse("\n".join(lines))
+GET / (dashboard.py): return RedirectResponse("/login", status_code=302)
+GET / (dashboard.py): return _subdomains, _row
+GET / (dashboard.py): return render(
+GET /stats (dashboard.py): return HTMLResponse("")
+GET /stats (dashboard.py): return (
+GET /stats (dashboard.py): return render("_stats.html", stats=stats)
+GET /security (security.py): return RedirectResponse("/login", status_code=302)
+GET /security (security.py): return await _render_security_page(request, db, user)
+POST /security/unban (security.py): return RedirectResponse("/login", status_code=302)
+POST /security/unban (security.py): return HTMLResponse(
+POST /security/unban (security.py): return await _render_security_page(request, db, user, unban_result=result)
+POST /security/revoke-session (security.py): return RedirectResponse("/login", status_code=302)
+POST /security/revoke-session (security.py): return RedirectResponse("/security", status_code=302)
+POST /security/ban-ip (security.py): return RedirectResponse("/login", status_code=302)
+POST /security/ban-ip (security.py): return HTMLResponse(
+POST /security/ban-ip (security.py): return await _render_security_page(request, db, user, ban_result=result)
+POST /security/ban-ip (security.py): return
+POST /security/malware/scan (security.py): return HTMLResponse("Unauthorized")
+POST /security/malware/scan (security.py): return HTMLResponse(
+POST /security/malware/scan (security.py): return HTMLResponse("", headers={"HX-Refresh": "true"})
+POST /security/malware/scan-full (security.py): return HTMLResponse("Unauthorized")
+POST /security/malware/scan-full (security.py): return HTMLResponse("", headers={"HX-Refresh": "true"})
+POST /security/malware/set-interval (security.py): return HTMLResponse("Unauthorized")
+POST /security/malware/set-interval (security.py): return HTMLResponse(f'<span class="text-green-600">Scan interval set to {hours}h</span>')
+GET /security/malware/clamav-status (security.py): return HTMLResponse('<span class="text-green-600">🛡️ ClamAV: Up</span>')
+GET /security/malware/clamav-status (security.py): return HTMLResponse('<span class="text-yellow-600">🛡️ ClamAV: Not running</span>')
+GET /security/malware/clamav-status (security.py): return HTMLResponse('<span class="text-gray-400">🛡️ ClamAV: N/A</span>')
+POST /security/malware/update-defs (security.py): return HTMLResponse("Unauthorized")
+POST /security/malware/update-defs (security.py): return HTMLResponse(
+POST /security/malware/update-defs (security.py): return HTMLResponse(
+GET /security/blocklist (security.py): return response
+GET /security/blocklist (security.py): return HTMLResponse(html)
+POST /security/blocklist/import (security.py): return HTMLResponse("<p class='text-red-500'>Unauthorized</p>")
+POST /security/blocklist/import (security.py): return HTMLResponse("<p class='text-red-500'>Invalid source</p>")
+POST /security/blocklist/import (security.py): return HTMLResponse("<p class='text-yellow-500'>No IPs found</p>")
+POST /security/blocklist/import (security.py): return HTMLResponse(
+POST /security/fail2ban/enable (security.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /security/fail2ban/enable (security.py): return HTMLResponse(
+POST /security/fail2ban/enable (security.py): if proc.returncode == 0:
+POST /security/fail2ban/enable (security.py): return HTMLResponse(
+POST /security/fail2ban/enable (security.py): return HTMLResponse(
+POST /security/fail2ban/enable (security.py): return HTMLResponse(
+POST /security/fail2ban/enable (security.py): return HTMLResponse(f'<span class="text-red-600 text-xs">Error: {e}</span>')
+GET /security/fail2ban/jail/{jail} (security.py): return HTMLResponse("Unauthorized", status_code=401)
+GET /security/fail2ban/jail/{jail} (security.py): return HTMLResponse(
+GET /security/fail2ban/jail/{jail} (security.py): return HTMLResponse(
+GET /security/fail2ban/jail/{jail} (security.py): return HTMLResponse(f'<div class="text-xs text-gray-500">{msg}</div>')
+GET /security/fail2ban/jail/{jail} (security.py): return HTMLResponse(
+POST /security/fail2ban/unban (security.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /security/fail2ban/unban (security.py): return HTMLResponse(
+POST /security/fail2ban/unban (security.py): return HTMLResponse(
+POST /security/fail2ban/unban (security.py): return HTMLResponse(
+POST /security/fail2ban/unban (security.py): return HTMLResponse(f'<div class="text-xs text-red-600">❌ Impossibile sbloccare {ip}</div>')
+GET /security/abuseipdb-blacklist (security.py): return HTMLResponse("Unauthorized", status_code=401)
+GET /security/abuseipdb-blacklist (security.py): return HTMLResponse(
+GET /security/abuseipdb-blacklist (security.py): return HTMLResponse('<div class="text-sm text-gray-500">No blacklist entries found.</div>')
+GET /security/abuseipdb-blacklist (security.py): return HTMLResponse(html)
+POST /security/abuseipdb-check (security.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /security/abuseipdb-check (security.py): return HTMLResponse('<div class="text-red-500 text-sm">IP and API key are required.</div>')
+POST /security/abuseipdb-check (security.py): return HTMLResponse(f'<div class="text-red-500 text-sm">Error: {result["error"]}</div>')
+POST /security/abuseipdb-check (security.py): return HTMLResponse(f'''
+GET /security/bugs (security.py): return HTMLResponse("Unauthorized", status_code=401)
+GET /security/bugs (security.py): return HTMLResponse(
+GET /security/bugs (security.py): return HTMLResponse(html)
+POST /security/firewall/enable (security.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /security/firewall/enable (security.py): return HTMLResponse('<span class="text-green-600 text-sm">Firewall Enabled</span>')
+POST /security/firewall/enable (security.py): return HTMLResponse('<span class="text-red-600 text-sm">Failed to enable firewall</span>')
+POST /security/firewall/disable (security.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /security/firewall/disable (security.py): return HTMLResponse('<span class="text-yellow-600 text-sm">Firewall Disabled</span>')
+POST /security/firewall/disable (security.py): return HTMLResponse('<span class="text-red-600 text-sm">Failed to disable firewall</span>')
+POST /security/firewall/rule/add (security.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /security/firewall/rule/add (security.py): return HTMLResponse('<span class="text-red-600 text-sm">Invalid action</span>', status_code=400)
+POST /security/firewall/rule/add (security.py): return HTMLResponse('<span class="text-red-600 text-sm">Invalid protocol</span>', status_code=400)
+POST /security/firewall/rule/add (security.py): return HTMLResponse('<span class="text-red-600 text-sm">Invalid port</span>', status_code=400)
+POST /security/firewall/rule/add (security.py): return HTMLResponse('<span class="text-red-600 text-sm">Invalid source IP or network</span>', status_code=400)
+POST /security/firewall/rule/add (security.py): return HTMLResponse("", headers={"HX-Refresh": "true"})
+POST /security/firewall/rule/add (security.py): return HTMLResponse("", headers={"HX-Refresh": "true"})
+POST /security/firewall/rule/delete (security.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /security/firewall/rule/delete (security.py): return HTMLResponse("", headers={"HX-Refresh": "true"})
+POST /security/firewall/rule/delete (security.py): return HTMLResponse("", headers={"HX-Refresh": "true"})
+POST /security/firewall/rule/delete (security.py): return HTMLResponse("", headers={"HX-Refresh": "true"})
+GET /security/fail2ban/config/{jail} (security.py): return HTMLResponse("Unauthorized", status_code=401)
+GET /security/fail2ban/config/{jail} (security.py): return HTMLResponse("Invalid jail name", status_code=400)
+GET /security/fail2ban/config/{jail} (security.py): return cfg
+POST /security/fail2ban/config/{jail} (security.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /security/fail2ban/config/{jail} (security.py): return HTMLResponse('<span class="text-red-600 text-sm">Invalid jail name</span>', status_code=400)
+POST /security/fail2ban/config/{jail} (security.py): return HTMLResponse(
+POST /security/fail2ban/config/{jail} (security.py): return HTMLResponse(
+POST /security/fail2ban/config/{jail} (security.py): return HTMLResponse(f'<span class="text-red-600 text-sm">{e}</span>', status_code=400)
+POST /security/malware/clamav/toggle (security.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /security/malware/clamav/toggle (security.py): return HTMLResponse(
+POST /security/malware/clamav/toggle (security.py): return HTMLResponse('<span class="text-yellow-600">ClamAV container stopped</span>')
+POST /security/malware/clamav/toggle (security.py): if proc_img.returncode != 0:
+POST /security/malware/clamav/toggle (security.py): return HTMLResponse('<span class="text-green-600">ClamAV container started</span>')
+POST /security/lynis/audit (security.py): return HTMLResponse("Unauthorized", status_code=401)
+POST /security/lynis/audit (security.py): return HTMLResponse('<span class="text-green-600">System audit started in background</span>')
+GET /security/lynis/report (security.py): return HTMLResponse("Unauthorized", status_code=401)
+GET /security/lynis/report (security.py): return data
+GET /security/lynis/report (security.py): return {"status": "error", "error": f"No audit report found: {e}"}
+GET /ssl (ssl.py): return RedirectResponse("/login", status_code=302)
+GET /ssl (ssl.py): return render(
+POST /ssl/generate (ssl.py): return RedirectResponse("/login", status_code=302)
+POST /ssl/generate (ssl.py): return HTMLResponse(f"Error: {e}", status_code=400)
+POST /ssl/generate (ssl.py): return render(
+POST /ssl/renew (ssl.py): return RedirectResponse("/login", status_code=302)
+POST /ssl/renew (ssl.py): return HTMLResponse("Invalid domain format", status_code=400)
+POST /ssl/renew (ssl.py): return render(
+POST /ssl/renew-all (ssl.py): return RedirectResponse("/login", status_code=302)
+POST /ssl/renew-all (ssl.py): return render(
+GET /login (auth_routes.py): return RedirectResponse("/", status_code=302)
+GET /login (auth_routes.py): return render("login.html", error=None)
+POST /login (auth_routes.py): return render("login.html", error="Invalid credentials")
+POST /login (auth_routes.py): return render("login.html", totp_required=True, username=username, error=None)
+POST /login (auth_routes.py): return render(
+POST /login (auth_routes.py): return resp
+GET /logout (auth_routes.py): return resp
+GET /setup-2fa (auth_routes.py): return RedirectResponse("/login", status_code=302)
+GET /setup-2fa (auth_routes.py): return render("setup_2fa.html", totp_secret=user.totp_secret, qr_code=qr_b64, error=None)
+POST /setup-2fa (auth_routes.py): return RedirectResponse("/login", status_code=302)
+POST /setup-2fa (auth_routes.py): return render(
+POST /setup-2fa (auth_routes.py): return RedirectResponse("/", status_code=302)
+GET /system (system.py): return RedirectResponse("/login", status_code=302)
+GET /system (system.py): return render(
+POST /system/upgrade (system.py): return RedirectResponse("/login", status_code=302)
+POST /system/upgrade (system.py): if result.returncode != 0:
+POST /system/upgrade (system.py): if rb_result.returncode != 0:
+POST /system/upgrade (system.py): return render(
+GET /api/debug/logs (debug_api.py): return PlainTextResponse(await _run(args))
+GET /api/debug/certs (debug_api.py): return JSONResponse(certs)
+GET /api/debug/system (debug_api.py): return JSONResponse(
+GET /subdomains (subdomains.py): return RedirectResponse("/login", status_code=302)
+GET /subdomains (subdomains.py): return render("subdomains.html", user=user, subdomains=subdomains, error=None)
+POST /subdomains/add (subdomains.py): return RedirectResponse("/login", status_code=302)
+POST /subdomains/add (subdomains.py): return render(
+POST /subdomains/add (subdomains.py): return render(
+POST /subdomains/add (subdomains.py): return RedirectResponse("/subdomains", status_code=302)
+POST /subdomains/{sd_id}/edit (subdomains.py): return RedirectResponse("/login", status_code=302)
+POST /subdomains/{sd_id}/edit (subdomains.py): return RedirectResponse("/subdomains", status_code=302)
+POST /subdomains/{sd_id}/edit (subdomains.py): return RedirectResponse("/subdomains", status_code=302)
+POST /subdomains/{sd_id}/delete (subdomains.py): return RedirectResponse("/login", status_code=302)
+POST /subdomains/{sd_id}/delete (subdomains.py): return RedirectResponse("/subdomains", status_code=302)
+POST /subdomains/{sd_id}/delete (subdomains.py): return RedirectResponse("/subdomains", status_code=302)
+POST /apps/{sd_id}/restart (ops.py): return response
+POST /apps/{sd_id}/restart (ops.py): return response
+POST /apps/{sd_id}/update (ops.py): return response
+POST /apps/{sd_id}/update (ops.py): return response
+POST /apps/{sd_id}/renew-ssl (ops.py): return response
+POST /apps/{sd_id}/renew-ssl (ops.py): return HTMLResponse(
+POST /apps/{sd_id}/renew-ssl (ops.py): return HTMLResponse(
+POST /apps/{sd_id}/renew-ssl (ops.py): return HTMLResponse(
+POST /apps/{sd_id}/renew-ssl (ops.py): return HTMLResponse(f'<span class="text-red-500 text-xs">Error: {e}</span>')
+POST /apps/{sd_id}/stop (ops.py): return RedirectResponse("/login", status_code=302)
+POST /apps/{sd_id}/stop (ops.py): return RedirectResponse("/apps", status_code=302)
+POST /apps/{sd_id}/clone (ops.py): return RedirectResponse("/login", status_code=302)
+POST /apps/{sd_id}/clone (ops.py): return RedirectResponse("/apps", status_code=302)
+POST /apps/{sd_id}/clone (ops.py): return RedirectResponse(f"/apps/{clone_sd.id}", status_code=302)
+POST /apps/{sd_id}/delete (ops.py): return RedirectResponse("/login", status_code=302)
+POST /apps/{sd_id}/delete (ops.py): return RedirectResponse("/apps", status_code=302)
+GET /apps/{sd_id}/containers (ops.py): return response
+GET /apps/{sd_id}/containers (ops.py): return HTMLResponse("<div class='text-red-500'>App not found</div>")
+GET /apps/{sd_id}/containers (ops.py): return render("tabs/_containers.html", request=request, sd=sd, containers=containers)
+GET /apps/{sd_id}/backup (ops.py): return response
+GET /apps/{sd_id}/backup (ops.py): return HTMLResponse("<div class='text-red-500'>App not found</div>")
+GET /apps/{sd_id}/backup (ops.py): return render(
+POST /apps/{sd_id}/backup/run (ops.py): return HTMLResponse("<p class='text-red-500'>Unauthorized</p>", status_code=401)
+POST /apps/{sd_id}/backup/run (ops.py): return HTMLResponse("<p class='text-red-500'>App not found</p>", status_code=404)
+POST /apps/{sd_id}/backup/run (ops.py): return HTMLResponse(html_ok)
+POST /apps/{sd_id}/backup/run (ops.py): return HTMLResponse(html_err)
+POST /apps/{sd_id}/backup/restore (ops.py): return HTMLResponse("<p class='text-red-500'>Unauthorized</p>", status_code=401)
+POST /apps/{sd_id}/backup/restore (ops.py): return HTMLResponse("<p class='text-red-500'>App not found</p>", status_code=404)
+POST /apps/{sd_id}/backup/restore (ops.py): return HTMLResponse("<p class='text-red-500'>Backup not found</p>", status_code=404)
+POST /apps/{sd_id}/backup/restore (ops.py): return HTMLResponse(
+POST /apps/{sd_id}/backup/restore (ops.py): return HTMLResponse(
+GET /apps/{sd_id}/logs (ops.py): return response
+GET /apps/{sd_id}/logs (ops.py): return HTMLResponse("<div class='text-red-500'>App not found</div>")
+GET /apps/{sd_id}/logs (ops.py): return render("tabs/_logs.html", request=request, sd=sd, logs=logs)
+GET /apps/{sd_id}/logs (ops.py): return
+GET /apps/{sd_id}/logs (ops.py): return
+GET /apps/{sd_id}/env (ops.py): return response
+GET /apps/{sd_id}/env (ops.py): return "<div class='text-red-500'>App not found</div>"
+GET /apps/{sd_id}/env (ops.py): return render(
+POST /apps/{sd_id}/env (ops.py): return response
+POST /apps/{sd_id}/env (ops.py): return "<div class='text-red-500'>App not found</div>"
+POST /apps/{sd_id}/env (ops.py): return HTMLResponse("Quotes are not allowed to prevent quote evasion.", status_code=400)
+POST /apps/{sd_id}/env (ops.py): return HTMLResponse("Shell operators are not allowed.", status_code=400)
+POST /apps/{sd_id}/env (ops.py): return render(
+GET /apps/{sd_id}/status (ops.py): return response
+GET /apps/{sd_id}/status (ops.py): return HTMLResponse("<div class='text-red-500'>App not found</div>")
+GET /apps/{sd_id}/status (ops.py): return render(
+GET /apps/{sd_id}/files (ops.py): return response
+GET /apps/{sd_id}/files (ops.py): return HTMLResponse("<div class='text-red-500'>App not found</div>")
+GET /apps/{sd_id}/files (ops.py): return HTMLResponse("<div class='text-red-500'>Invalid path</div>", status_code=400)
+GET /apps/{sd_id}/files (ops.py): return render(
+GET /apps/{sd_id}/files (ops.py): return HTMLResponse("<div class='text-red-500'>Cannot read directory</div>")
+GET /apps/{sd_id}/files (ops.py): return render(
+POST /apps/{sd_id}/files/save (ops.py): return response
+POST /apps/{sd_id}/files/save (ops.py): return HTMLResponse("<div class='text-red-500'>App not found</div>", status_code=404)
+POST /apps/{sd_id}/files/save (ops.py): return HTMLResponse("<div class='text-red-500'>Invalid path</div>", status_code=400)
+POST /apps/{sd_id}/files/save (ops.py): return HTMLResponse("<div class='text-red-500'>File not found</div>", status_code=404)
+POST /apps/{sd_id}/files/save (ops.py): return HTMLResponse("<span class='text-green-600 text-sm'>Saved ✓</span>")
+POST /apps/{sd_id}/files/save (ops.py): return HTMLResponse(f"<span class='text-red-500 text-sm'>Error: {e}</span>")
+POST /apps/{sd_id}/files/save (ops.py): return None
+POST /apps/{sd_id}/files/save (ops.py): return name
+POST /apps/{sd_id}/files/save (ops.py): return None
+POST /apps/{sd_id}/files/save (ops.py): return None
+GET /apps/{sd_id}/terminal (ops.py): return RedirectResponse(url=f"/auth/login?next=/apps/{sd_id}/terminal")
+GET /apps/{sd_id}/terminal (ops.py): return RedirectResponse("/apps", status_code=302)
+GET /apps/{sd_id}/terminal (ops.py): return render("terminal.html", request=request, sd=sd, service=service)
+GET /apps/{sd_id}/terminal (ops.py): return
+GET /apps/{sd_id}/terminal (ops.py): return
+GET /apps (main.py): return RedirectResponse("/login", status_code=302)
+GET /apps (main.py): return render(
+POST /apps/analyze-repo (main.py): return HTMLResponse("")
+POST /apps/analyze-repo (main.py): return HTMLResponse('<p class="text-red-500 text-sm">Inserisci un URL GitHub</p>')
+POST /apps/analyze-repo (main.py): return HTMLResponse(f'<p class="text-red-500 text-sm">{e}</p>')
+POST /apps/analyze-repo (main.py): return HTMLResponse(f'<p class="text-red-500 text-sm">Errore: {e}</p>')
+POST /apps/analyze-repo (main.py): return HTMLResponse(f'''
+POST /apps/analyze-repo (main.py): return HTMLResponse(f"<div class='text-red-500'>{html.escape(error or 'App not found')}</div>")
+POST /apps/analyze-repo (main.py): return HTMLResponse(f"<div class='text-red-500'>{html.escape(str(e))}</div>")
+POST /apps/analyze-repo (main.py): return HTMLResponse(
+POST /apps/analyze-repo (main.py): return HTMLResponse(
+POST /apps/deploy-from-repo (main.py): return RedirectResponse("/login", status_code=302)
+POST /apps/deploy-from-repo (main.py): return HTMLResponse('<p class="text-red-500">Base domain not configured</p>')
+POST /apps/deploy-from-repo (main.py): return HTMLResponse(f'<p class="text-red-500">{e}</p>')
+POST /apps/deploy-from-repo (main.py): return RedirectResponse(f"/apps/{sd.id}", status_code=302)
+GET /apps/{sd_id} (main.py): return RedirectResponse("/login", status_code=302)
+GET /apps/{sd_id} (main.py): return RedirectResponse("/apps", status_code=302)
+GET /apps/{sd_id} (main.py): return render(
+POST /apps/update-all (main.py): return response
+POST /apps/update-all (main.py): return (sd.subdomain, pull_ok)
+POST /apps/update-all (main.py): return (sd.subdomain, False)
+POST /apps/update-all (main.py): return HTMLResponse(html, headers={"HX-Refresh": "true"})
+POST /apps/{sd_id}/wp/flush-cache (wordpress.py): return response
+POST /apps/{sd_id}/wp/flush-cache (wordpress.py): return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
+POST /apps/{sd_id}/wp/flush-cache (wordpress.py): if r["returncode"] != 0:
+POST /apps/{sd_id}/wp/flush-cache (wordpress.py): return HTMLResponse(f"<span class='text-red-500 text-xs'>Error: {r['stderr']}</span>")
+POST /apps/{sd_id}/wp/flush-cache (wordpress.py): return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {e}</span>")
+POST /apps/{sd_id}/wp/flush-cache (wordpress.py): return HTMLResponse(
+POST /apps/{sd_id}/wp/update-plugins (wordpress.py): return response
+POST /apps/{sd_id}/wp/update-plugins (wordpress.py): return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
+POST /apps/{sd_id}/wp/update-plugins (wordpress.py): if r["returncode"] != 0:
+POST /apps/{sd_id}/wp/update-plugins (wordpress.py): return HTMLResponse(f"<span class='text-red-500 text-xs'>Error: {r['stderr']}</span>")
+POST /apps/{sd_id}/wp/update-plugins (wordpress.py): return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {e}</span>")
+POST /apps/{sd_id}/wp/update-plugins (wordpress.py): return HTMLResponse(
+POST /apps/{sd_id}/wp/update-core (wordpress.py): return response
+POST /apps/{sd_id}/wp/update-core (wordpress.py): return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
+POST /apps/{sd_id}/wp/update-core (wordpress.py): if r["returncode"] != 0:
+POST /apps/{sd_id}/wp/update-core (wordpress.py): return HTMLResponse(f"<span class='text-red-500 text-xs'>Error: {r['stderr']}</span>")
+POST /apps/{sd_id}/wp/update-core (wordpress.py): return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {e}</span>")
+POST /apps/{sd_id}/wp/update-core (wordpress.py): return HTMLResponse(
+POST /apps/{sd_id}/wp/update-core (wordpress.py): return RedirectResponse(url=f"https://{fqdn}/wp-content/pit-auth.php?token={token}")
+POST /apps/{sd_id}/wp/update-core (wordpress.py): return None
+GET /apps/{sd_id}/wp-auto-login (wordpress.py): return RedirectResponse(url=f"/auth/login?next=/apps/{sd_id}")
+GET /apps/{sd_id}/wp-auto-login (wordpress.py): return RedirectResponse(url="/apps", status_code=302)
+GET /apps/{sd_id}/wp-auto-login (wordpress.py): return redirect_resp
+GET /apps/{sd_id}/wp-auto-login (wordpress.py): return RedirectResponse(url=f"https://{fqdn}/wp-admin")
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return response
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return HTMLResponse("Not a WordPress app", status_code=400)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return HTMLResponse(f'<p class="text-sm {cls}">{msg}</p>')
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return Response("Unauthorized", status_code=401)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return Response("App not found", status_code=404)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return RedirectResponse(url=request.url.path + "/", status_code=302)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return Response(f"Service '{name}' not found", status_code=404)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return Response(f"Invalid port for '{name}'", status_code=500)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return Response(f"Service '{name}' unreachable", status_code=502)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return Response(content=content, status_code=resp.status_code, headers=resp_headers)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return Response("Unauthorized", status_code=401)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return Response("App not found", status_code=404)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return Response("WordPress port not found", status_code=500)
+POST /apps/{sd_id}/wp-fix-url (wordpress.py): return await wp_proxy_request(request, port, sd_id)
