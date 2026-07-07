@@ -1,4 +1,3 @@
-import html
 """App deployment main routes: list, analyze, deploy, detail."""
 
 import asyncio
@@ -217,14 +216,117 @@ async def _resolve_subdomain(
     else:
         error = "Select an existing subdomain or enter a new name"
 
+    return sd, error
+
+
+async def _render_apps_error(user, settings, db: AsyncSession, error: str):
+    result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
+    subdomains = result.scalars().all()
+    mgr2 = AppManager()
+    templates = mgr2.list_templates()
+    template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
+    return render(
+        "apps.html",
+        user=user,
+        settings=settings,
+        subdomains=subdomains,
+        templates=templates,
+        template_infos=template_infos,
+        error=error,
+        detected=None,
+    )
+
+
+async def _auto_setup_wordpress(settings, sd, docker_mgr):
+    fqdn = f"{sd.subdomain}.{settings.base_domain}"
+    try:
+        env_path = Path(settings.apps_dir) / sd.subdomain / ".env"
+        env_vars = {}
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    env_vars[k.strip()] = v.strip()
+        import shlex
+
+        wp_title = shlex.quote(env_vars.get("WP_TITLE", "My Blog"))
+        wp_user = shlex.quote(env_vars.get("WP_ADMIN_USER", "admin"))
+        wp_pass = shlex.quote(env_vars.get("WP_ADMIN_PASSWORD", "admin"))
+        wp_email = shlex.quote(env_vars.get("WP_ADMIN_EMAIL", "admin@localhost"))
+        wp_locale = shlex.quote(env_vars.get("WP_LOCALE", "it_IT"))
+        fqdn_q = shlex.quote(f"https://{fqdn}")
+        await asyncio.sleep(8)
+        await docker_mgr.exec_command(
+            sd.subdomain,
+            "wordpress",
+            [
+                "sh",
+                "-c",
+                f"curl -sSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+                f" -o /tmp/wp-cli.phar"
+                f" && php /tmp/wp-cli.phar core install"
+                f" --url={fqdn_q}"
+                f" --title={wp_title}"
+                f" --admin_user={wp_user}"
+                f" --admin_password={wp_pass}"
+                f" --admin_email={wp_email}"
+                f" --locale={wp_locale}"
+                f" --skip-email"
+                f" && rm /tmp/wp-cli.phar",
+            ],
+        )
+    except Exception as e:
+        logger.warning(f"WordPress auto-setup failed: {e}")
+
+
+async def _setup_caddy_route(
+    settings, sd, port: int, error: str | None, stack_type: str
+) -> str | None:
+    try:
+        caddy = CaddyManager(settings.caddy_admin_url)
+        if sd.is_main_domain:
+            await caddy.add_main_domain(settings.base_domain, port=port)
+        elif sd.app_type != stack_type:
+            await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
+            fqdn = f"{sd.subdomain}.{settings.base_domain}"
+            await caddy.renew_certificate(fqdn)
+    except Exception as e:
+        logger.error(f"Caddy route error for {sd.subdomain}: {e}")
+        error = (error or "") + f" | Caddy route error: {e}"
+    return error
+
+
+@router.post("/apps/deploy", response_class=HTMLResponse)
+async def app_deploy(
+    request: Request,
+    subdomain_id: int = Form(-1),
+    new_subdomain: str = Form(""),
+    stack_type: str = Form(...),
+    port: int = Form(8000),
+    is_main_domain: bool = Form(False),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    settings = get_settings()
+    mgr = AppManager(settings.apps_dir)
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    # Resolve subdomain: use existing by ID or create new
+    sd, error = await _resolve_subdomain(
+        db, user.id, settings, is_main_domain, subdomain_id, new_subdomain
+    )
+
     if error or not sd:
-        return HTMLResponse(f"<div class='text-red-500'>{html.escape(error or 'App not found')}</div>")
+        return await _render_apps_error(user, settings, db, error)
 
     # Deploy template
     try:
         mgr.deploy_template(sd.subdomain, stack_type, variables={"PORT": str(port)})
     except ValueError as e:
-        return HTMLResponse(f"<div class='text-red-500'>{html.escape(str(e))}</div>")
+        return await _render_apps_error(user, settings, db, str(e))
 
     # Docker compose up
     compose_ok = False

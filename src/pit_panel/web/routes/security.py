@@ -1,7 +1,5 @@
-
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
-import asyncio
 import contextlib
 import ipaddress
 from typing import Any
@@ -173,20 +171,17 @@ async def _load_scan_interval_hours(db: AsyncSession) -> int:
 
 
 async def _render_security_page(request: Request, db: AsyncSession, user: User, **kwargs):
-    async def _db_group():
-        bans = await _load_bans(db)
-        attempts = await _load_attempts(db)
-        active_sessions = await _load_active_sessions(db)
-        scan_history = await _load_scan_history(db)
-        scan_interval_hours = await _load_scan_interval_hours(db)
-        return bans, attempts, active_sessions, scan_history, scan_interval_hours
+    bans = await _load_bans(db)
+    attempts = await _load_attempts(db)
+    active_sessions = await _load_active_sessions(db)
 
-    (bans, attempts, active_sessions, scan_history, scan_interval_hours), (fw, f2b) = (
-        await asyncio.gather(_db_group(), asyncio.gather(_firewall_status(), _fail2ban_status()))
-    )
+    fw = await _firewall_status()
+    f2b = await _fail2ban_status()
+    scan_history = await _load_scan_history(db)
 
     settings = get_settings()
     abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
+    scan_interval_hours = await _load_scan_interval_hours(db)
 
     ctx = {
         "user": user,
@@ -418,7 +413,7 @@ async def security_clamav_status(request: Request, db: AsyncSession = Depends(ge
         return HTMLResponse('<span class="text-yellow-600">🛡️ ClamAV: Not running</span>')
     except Exception:
         with __import__("contextlib").suppress(Exception):
-            if 'proc' in locals():
+            if "proc" in locals():
                 proc.kill()
         return HTMLResponse('<span class="text-gray-400">🛡️ ClamAV: N/A</span>')
 
@@ -535,7 +530,7 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
         )
     except Exception as e:
         with __import__("contextlib").suppress(Exception):
-            if 'proc' in locals():
+            if "proc" in locals():
                 proc.kill()
         return HTMLResponse(f'<span class="text-red-600 text-xs">Error: {e}</span>')
 
@@ -786,20 +781,25 @@ async def security_firewall_rule_add(
         return HTMLResponse("Unauthorized", status_code=401)
 
     import re
+
     if action not in ("allow", "deny"):
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid action</span>', status_code=400
+            '<span class="text-red-600 text-sm">Invalid action</span>',
+            status_code=400,
         )
     if protocol not in ("tcp", "udp", "any"):
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid protocol</span>', status_code=400
+            '<span class="text-red-600 text-sm">Invalid protocol</span>',
+            status_code=400,
         )
     if not re.match(r"^[a-zA-Z0-9]+$", port) and port != "any":
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid port</span>', status_code=400
+            '<span class="text-red-600 text-sm">Invalid port</span>',
+            status_code=400,
         )
     if source:
         import ipaddress
+
         try:
             ipaddress.ip_network(source, strict=False)
         except ValueError:
@@ -810,8 +810,8 @@ async def security_firewall_rule_add(
 
     ok = await _add_ufw_rule(port, protocol, action, source)
     if ok:
-        return HTMLResponse("", headers={"HX-Refresh": "true"})
-    return HTMLResponse("", headers={"HX-Refresh": "true"})
+        return HTMLResponse('<span class="text-green-600 text-sm">Rule added</span>')
+    return HTMLResponse('<span class="text-red-600 text-sm">Failed to add rule</span>')
 
 
 @router.post("/security/firewall/rule/delete", response_class=HTMLResponse)
@@ -830,10 +830,10 @@ async def security_firewall_rule_delete(
     try:
         ok = await _delete_ufw_rule(index, client_ip=client_ip, ssh_port=ssh_port)
         if ok:
-            return HTMLResponse("", headers={"HX-Refresh": "true"})
-        return HTMLResponse("", headers={"HX-Refresh": "true"})
+            return HTMLResponse('<span class="text-green-600 text-sm">Rule deleted</span>')
+        return HTMLResponse('<span class="text-red-600 text-sm">Failed to delete rule</span>')
     except ValueError as e:
-        return HTMLResponse("", headers={"HX-Refresh": "true"})
+        return HTMLResponse(f'<span class="text-red-600 text-sm">{e}</span>', status_code=400)
 
 
 # Fail2ban config overrides
@@ -846,6 +846,7 @@ async def security_fail2ban_get_config(
         return HTMLResponse("Unauthorized", status_code=401)
 
     import re
+
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse("Invalid jail name", status_code=400)
 
@@ -867,9 +868,11 @@ async def security_fail2ban_config(
         return HTMLResponse("Unauthorized", status_code=401)
 
     import re
+
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid jail name</span>', status_code=400
+            '<span class="text-red-600 text-sm">Invalid jail name</span>',
+            status_code=400,
         )
 
     try:
