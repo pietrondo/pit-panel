@@ -56,6 +56,10 @@ def _has_db_container(settings, subdomain: str) -> bool:
 async def apps_list(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = "/login"
+            return response
         return RedirectResponse("/login", status_code=302)
 
     settings = get_settings()
@@ -160,6 +164,17 @@ async def _resolve_subdomain(
     subdomain_id: int,
     new_subdomain: str,
 ):
+    user = await get_user(request, db)
+    if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = "/login"
+            return response
+        return RedirectResponse("/login", status_code=302)
+
+    settings = get_settings()
+    mgr = AppManager(settings.apps_dir)
+    docker_mgr = DockerManager(settings.apps_dir)
     sd = None
     error = None
 
@@ -309,6 +324,10 @@ async def app_deploy_from_repo(
 ):
     user = await get_user(request, db)
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = "/login"
+            return response
         return RedirectResponse("/login", status_code=302)
 
     settings = get_settings()
@@ -392,6 +411,10 @@ async def app_deploy_from_repo(
     )
     await db.commit()
 
+    if "hx-request" in request.headers:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = f"/apps/{sd.id}"
+        return response
     return RedirectResponse(f"/apps/{sd.id}", status_code=302)
 
 
@@ -399,6 +422,10 @@ async def app_deploy_from_repo(
 async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = "/login"
+            return response
         return RedirectResponse("/login", status_code=302)
 
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
@@ -479,9 +506,11 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
 async def app_update_all(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
     if not user:
-        response = HTMLResponse("")
-        response.headers["HX-Redirect"] = "/login"
-        return response
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = "/login"
+            return response
+        return RedirectResponse("/login", status_code=302)
 
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
