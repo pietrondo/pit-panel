@@ -1,5 +1,9 @@
-## 2025-02-28 - Caddyfile Directive Injection
+## 2024-03-22 - Prevent Caddyfile Directive Injection
+**Vulnerability:** The `_sanitize` function previously mutated inputs by stripping dangerous characters (like quotes and newlines) silently, which could mask malicious intent or result in corrupted but parsable configurations.
+**Learning:** Silently modifying user input (sanitization via mutation) is an anti-pattern for security. It can lead to bypasses if the regex isn't comprehensive, and doesn't clearly inform the caller that an injection attempt occurred.
+**Prevention:** Always validate user input strictly and abort execution (e.g., raise an error or return HTTP 400 Bad Request) when forbidden characters or patterns are detected, rather than attempting to silently sanitize the input.
 
-**Vulnerability:** A Caddyfile Directive Injection vulnerability in `_get_acme_config` due to insufficient sanitization of `eab_key_id` and `eab_hmac` inputs in the `_sanitize` function.
-**Learning:** Silently mutating user input (e.g. replacing quotes with empty strings) is dangerous because it can mask malicious intent and fail to account for other dangerous characters like newlines (`\n`, `\r`) which can lead to directive injection in configuration files.
-**Prevention:** Strictly validate untrusted user input and fail closed by raising errors (e.g., ValueError) or aborting execution when forbidden characters or patterns are detected, rather than stripping or sanitizing them silently.
+## 2024-05-20 - Caddyfile Directive Injection in SSL Config
+**Vulnerability:** The `_sanitize` function in `src/pit_panel/web/routes/ssl.py` used `re.sub(r"[\r\n\"\'{}\`\\]", "", val)` to prevent Caddyfile directive injection from user-provided inputs like `eab_hmac`. However, due to character class handling or potential string interpretation, raw `\n` characters injected directly or provided from requests bypassed this regex, allowing attackers to break out of the Caddyfile definition block and inject arbitrary directives.
+**Learning:** Security validations utilizing string regex manipulations, particularly with nested escape sequences and character classes containing control characters (like `\r` and `\n`), can behave unpredictably depending on how the string is constructed. Regular expressions with complex escaping inside character classes are prone to subtle bugs.
+**Prevention:** Avoid relying solely on complex regular expressions for string sanitization of dangerous injection characters. When multiple specific characters must be blocked unconditionally (such as quotes, newlines, and brackets), an explicit `replace()` loop over an array of strict target literals is clearer, safer, and less prone to regex evaluation edge cases.
