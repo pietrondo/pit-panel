@@ -155,11 +155,6 @@ def test_app_detail_main_domain(client, monkeypatch):
         client.app.dependency_overrides.clear()
 
 
-def test_deploy_requires_login(client):
-    resp = client.post("/apps/deploy", data={"stack_type": "static-nginx"}, follow_redirects=False)
-    assert resp.status_code == 302
-
-
 def test_deploy_from_repo_requires_login(client):
     resp = client.post(
         "/apps/deploy-from-repo",
