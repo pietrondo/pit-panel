@@ -56,6 +56,12 @@ def _sanitize(val: str) -> str:
     return val
 
 
+def _validate_domain(val: str) -> bool:
+    if not val:
+        return True
+    return bool(re.fullmatch(r"^[a-zA-Z0-9.-]+$", val))
+
+
 def _get_acme_config(
     acme_provider: str,
     eab_key_id: str,
@@ -144,8 +150,8 @@ def _generate_caddyfile(config: CaddyfileConfig) -> str:
         raise ValueError("Invalid panel subdomain")
 
     email = _sanitize(config.email)
-    domain = _sanitize(config.domain)
-    panel_sub = _sanitize(config.panel_sub)
+    domain = config.domain
+    panel_sub = config.panel_sub
     dns_provider = _sanitize(config.dns_provider)
     api_var = _sanitize(config.api_var)
 
@@ -265,6 +271,11 @@ async def ssl_generate(
     settings = get_settings()
     domain = settings.effective_domain
     panel_sub = settings.panel_subdomain
+
+    if not _validate_domain(domain):
+        return HTMLResponse("Invalid base domain.", status_code=400)
+    if not _validate_domain(panel_sub):
+        return HTMLResponse("Invalid panel subdomain.", status_code=400)
 
     caddy_config = CaddyfileConfig(
         email=form.email,
