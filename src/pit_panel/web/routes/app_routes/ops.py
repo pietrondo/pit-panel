@@ -509,7 +509,7 @@ async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(g
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if not sd:
-        return "<div class='text-red-500'>App not found</div>"
+        return HTMLResponse("<div class='text-red-500'>App not found</div>")
 
     settings = get_settings()
     env_path = os.path.join(settings.apps_dir, sd.subdomain, ".env")
@@ -542,7 +542,7 @@ async def app_env_post(
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if not sd:
-        return "<div class='text-red-500'>App not found</div>"
+        return HTMLResponse("<div class='text-red-500'>App not found</div>")
 
     settings = get_settings()
     env_path = os.path.join(settings.apps_dir, sd.subdomain, ".env")
