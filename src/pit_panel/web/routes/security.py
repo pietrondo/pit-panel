@@ -1,5 +1,7 @@
+
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
+import asyncio
 import contextlib
 import ipaddress
 from typing import Any
@@ -171,17 +173,20 @@ async def _load_scan_interval_hours(db: AsyncSession) -> int:
 
 
 async def _render_security_page(request: Request, db: AsyncSession, user: User, **kwargs):
-    bans = await _load_bans(db)
-    attempts = await _load_attempts(db)
-    active_sessions = await _load_active_sessions(db)
+    async def _db_group():
+        bans = await _load_bans(db)
+        attempts = await _load_attempts(db)
+        active_sessions = await _load_active_sessions(db)
+        scan_history = await _load_scan_history(db)
+        scan_interval_hours = await _load_scan_interval_hours(db)
+        return bans, attempts, active_sessions, scan_history, scan_interval_hours
 
-    fw = await _firewall_status()
-    f2b = await _fail2ban_status()
-    scan_history = await _load_scan_history(db)
+    (bans, attempts, active_sessions, scan_history, scan_interval_hours), (fw, f2b) = (
+        await asyncio.gather(_db_group(), asyncio.gather(_firewall_status(), _fail2ban_status()))
+    )
 
     settings = get_settings()
     abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
-    scan_interval_hours = await _load_scan_interval_hours(db)
 
     ctx = {
         "user": user,
@@ -805,8 +810,8 @@ async def security_firewall_rule_add(
 
     ok = await _add_ufw_rule(port, protocol, action, source)
     if ok:
-        return HTMLResponse('<span class="text-green-600 text-sm">Rule added</span>')
-    return HTMLResponse('<span class="text-red-600 text-sm">Failed to add rule</span>')
+        return HTMLResponse("", headers={"HX-Refresh": "true"})
+    return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 @router.post("/security/firewall/rule/delete", response_class=HTMLResponse)
@@ -825,10 +830,10 @@ async def security_firewall_rule_delete(
     try:
         ok = await _delete_ufw_rule(index, client_ip=client_ip, ssh_port=ssh_port)
         if ok:
-            return HTMLResponse('<span class="text-green-600 text-sm">Rule deleted</span>')
-        return HTMLResponse('<span class="text-red-600 text-sm">Failed to delete rule</span>')
+            return HTMLResponse("", headers={"HX-Refresh": "true"})
+        return HTMLResponse("", headers={"HX-Refresh": "true"})
     except ValueError as e:
-        return HTMLResponse(f'<span class="text-red-600 text-sm">{e}</span>', status_code=400)
+        return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 # Fail2ban config overrides
