@@ -181,9 +181,10 @@ async def _render_security_page(request: Request, db: AsyncSession, user: User, 
         scan_interval_hours = await _load_scan_interval_hours(db)
         return bans, attempts, active_sessions, scan_history, scan_interval_hours
 
-    (bans, attempts, active_sessions, scan_history, scan_interval_hours), (fw, f2b) = (
-        await asyncio.gather(_db_group(), asyncio.gather(_firewall_status(), _fail2ban_status()))
-    )
+    (
+        (bans, attempts, active_sessions, scan_history, scan_interval_hours),
+        (fw, f2b),
+    ) = await asyncio.gather(_db_group(), asyncio.gather(_firewall_status(), _fail2ban_status()))
 
     settings = get_settings()
     abuseipdb_key = getattr(settings, "abuseipdb_api_key", "")
@@ -418,7 +419,7 @@ async def security_clamav_status(request: Request, db: AsyncSession = Depends(ge
         return HTMLResponse('<span class="text-yellow-600">🛡️ ClamAV: Not running</span>')
     except Exception:
         with __import__("contextlib").suppress(Exception):
-            if 'proc' in locals():
+            if "proc" in locals():
                 proc.kill()
         return HTMLResponse('<span class="text-gray-400">🛡️ ClamAV: N/A</span>')
 
@@ -535,7 +536,7 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
         )
     except Exception as e:
         with __import__("contextlib").suppress(Exception):
-            if 'proc' in locals():
+            if "proc" in locals():
                 proc.kill()
         return HTMLResponse(f'<span class="text-red-600 text-xs">Error: {e}</span>')
 
@@ -786,20 +787,25 @@ async def security_firewall_rule_add(
         return HTMLResponse("Unauthorized", status_code=401)
 
     import re
+
     if action not in ("allow", "deny"):
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid action</span>', status_code=400
+            '<span class="text-red-600 text-sm">Invalid action</span>',
+            status_code=400,
         )
     if protocol not in ("tcp", "udp", "any"):
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid protocol</span>', status_code=400
+            '<span class="text-red-600 text-sm">Invalid protocol</span>',
+            status_code=400,
         )
     if not re.match(r"^[a-zA-Z0-9]+$", port) and port != "any":
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid port</span>', status_code=400
+            '<span class="text-red-600 text-sm">Invalid port</span>',
+            status_code=400,
         )
     if source:
         import ipaddress
+
         try:
             ipaddress.ip_network(source, strict=False)
         except ValueError:
@@ -832,7 +838,7 @@ async def security_firewall_rule_delete(
         if ok:
             return HTMLResponse("", headers={"HX-Refresh": "true"})
         return HTMLResponse("", headers={"HX-Refresh": "true"})
-    except ValueError as e:
+    except ValueError:
         return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
@@ -846,6 +852,7 @@ async def security_fail2ban_get_config(
         return HTMLResponse("Unauthorized", status_code=401)
 
     import re
+
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse("Invalid jail name", status_code=400)
 
@@ -867,9 +874,15 @@ async def security_fail2ban_config(
         return HTMLResponse("Unauthorized", status_code=401)
 
     import re
+
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
+<<<<<<< HEAD
+            '<span class="text-red-600 text-sm">Invalid jail name</span>',
+            status_code=400,
+=======
             '<span class="text-red-600 text-sm">Invalid jail name</span>', status_code=400
+>>>>>>> origin/main
         )
 
     try:

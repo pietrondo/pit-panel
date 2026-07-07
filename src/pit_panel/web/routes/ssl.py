@@ -50,9 +50,9 @@ DNS_PROVIDERS = [
 def _sanitize(val: str) -> str:
     if not val:
         return ""
-    # Strip dangerous characters that could break out of a Caddyfile value
-    for c in ["\r", "\n", '"', "'", "{", "}", "`", "\\"]:
-        val = val.replace(c, "")
+    # Ensure any user input failing validation instantly aborts execution
+    if re.search(r"[\r\n\"\'\{\}\`\\]", val):
+        raise ValueError("Invalid characters in input")
     return val
 
 

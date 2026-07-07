@@ -1,3 +1,8 @@
+## 2024-03-22 - Prevent Caddyfile Directive Injection
+**Vulnerability:** The `_sanitize` function previously mutated inputs by stripping dangerous characters (like quotes and newlines) silently, which could mask malicious intent or result in corrupted but parsable configurations.
+**Learning:** Silently modifying user input (sanitization via mutation) is an anti-pattern for security. It can lead to bypasses if the regex isn't comprehensive, and doesn't clearly inform the caller that an injection attempt occurred.
+**Prevention:** Always validate user input strictly and abort execution (e.g., raise an error or return HTTP 400 Bad Request) when forbidden characters or patterns are detected, rather than attempting to silently sanitize the input.
+
 ## 2024-05-20 - Caddyfile Directive Injection in SSL Config
 **Vulnerability:** The `_sanitize` function in `src/pit_panel/web/routes/ssl.py` used `re.sub(r"[\r\n\"\'{}\`\\]", "", val)` to prevent Caddyfile directive injection from user-provided inputs like `eab_hmac`. However, due to character class handling or potential string interpretation, raw `\n` characters injected directly or provided from requests bypassed this regex, allowing attackers to break out of the Caddyfile definition block and inject arbitrary directives.
 **Learning:** Security validations utilizing string regex manipulations, particularly with nested escape sequences and character classes containing control characters (like `\r` and `\n`), can behave unpredictably depending on how the string is constructed. Regular expressions with complex escaping inside character classes are prone to subtle bugs.
