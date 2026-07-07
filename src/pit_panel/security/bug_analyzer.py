@@ -1,9 +1,12 @@
 """Software bug and error analysis tool."""
 
 import asyncio
+import json
 import re
 from collections import defaultdict
 from typing import Any
+
+from pit_panel.core.sudo_ops import run_cmd
 
 SEVERITY_RANK = {"critical": 0, "error": 1, "warning": 2}
 
@@ -17,8 +20,9 @@ TRIAGE_RULES = [
     (
         "critical",
         re.compile(
-            r"(?i)\b(CRITICAL|ExceptionGroup|Traceback \(most recent call last\)|"
-            r"panic:|segmentation fault|fatal error)\b"
+            r"(?i)\b(CRITICAL|ExceptionGroup|Traceback \(most recent call "
+            r"last\)|panic:|segmentation "
+            r"fault|fatal error)\b"
         ),
         "Crash o eccezione non gestita: controlla stack trace e ultimo deploy.",
     ),
@@ -185,23 +189,17 @@ async def analyze_container_logs() -> list[dict[str, Any]]:
 
 
 async def analyze_system_logs() -> list[str]:
-    """Scan system logs for grouped Pit Panel issues."""
+    """Analyze system logs (journalctl) for recent errors."""
     try:
-        proc = await asyncio.create_subprocess_exec(
-            "journalctl",
-            "-u",
-            "pit-panel",
-            "-n",
-            "500",
-            "--no-pager",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await proc.communicate()
-        if proc.returncode != 0:
-            return []
-
-        issues = group_log_issues(stdout.decode(errors="replace").splitlines(), limit=15)
-        return [_format_issue(issue) for issue in issues]
+        cmd = ["journalctl", "-p", "err", "-n", "50", "--no-pager", "-o", "json"]
+        out = await run_cmd(cmd)
+        errors = []
+        for line in str(out).splitlines():
+            try:
+                data = json.loads(line)
+                errors.append(data.get("MESSAGE", "Unknown Error"))
+            except Exception:
+                pass
+        return errors
     except Exception:
         return []
