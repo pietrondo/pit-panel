@@ -31,31 +31,7 @@ async def run_cmd(
     cwd: str | None = None,
     input: str | None = None,
 ) -> CmdResult:
-    """Run a command asynchronously with a timeout, optional working directory, and stdin input.
-    Automatically injects the sudo password if the command starts with sudo and a password is
-    configured.
-    """
-    from pit_panel.config import get_settings
-
-    # Check for sudo password and replace -n/inject -S
-    try:
-        settings = get_settings()
-        if cmd and cmd[0] == "sudo" and settings.sudo_password:
-            new_cmd = list(cmd)
-            if len(new_cmd) > 1 and new_cmd[1] == "-n":
-                new_cmd[1] = "-S"
-            elif "-n" in new_cmd:
-                idx = new_cmd.index("-n")
-                new_cmd[idx] = "-S"
-            else:
-                new_cmd.insert(1, "-S")
-            cmd = new_cmd
-
-            pw_prefix = f"{settings.sudo_password}\n"
-            input = pw_prefix + input if input is not None else pw_prefix
-    except Exception:
-        pass
-
+    """Run a command asynchronously with a timeout, optional working directory, and stdin input."""
     input_bytes = input.encode() if input is not None else None
 
     try:

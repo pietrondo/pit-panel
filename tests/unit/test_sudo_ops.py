@@ -41,42 +41,6 @@ async def test_run_cmd_success(mock_subprocess, mock_settings):
     )
 
 @pytest.mark.asyncio
-async def test_run_cmd_sudo_injection(mock_subprocess, mock_settings):
-    mock_settings.sudo_password = "mypassword"
-
-    result = await run_cmd(["sudo", "ls"])
-
-    assert isinstance(result, CmdResult)
-
-    mock_subprocess.assert_called_once_with(
-        "sudo", "-S", "ls",
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=None
-    )
-
-    # communicate should have been called with input
-    process = mock_subprocess.return_value
-    process.communicate.assert_called_once_with(input=b"mypassword\n")
-
-@pytest.mark.asyncio
-async def test_run_cmd_sudo_injection_with_n(mock_subprocess, mock_settings):
-    mock_settings.sudo_password = "mypassword"
-
-    result = await run_cmd(["sudo", "-n", "ls"])
-
-    assert isinstance(result, CmdResult)
-
-    mock_subprocess.assert_called_once_with(
-        "sudo", "-S", "ls",
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=None
-    )
-
-@pytest.mark.asyncio
 async def test_run_cmd_timeout(mock_subprocess, mock_settings):
     process = mock_subprocess.return_value
     process.communicate.side_effect = TimeoutError()
