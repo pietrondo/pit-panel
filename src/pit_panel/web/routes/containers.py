@@ -18,17 +18,9 @@ from pit_panel.web.render import render
 router = APIRouter()
 
 
-@router.get("/containers/fragment", response_class=HTMLResponse)
-async def containers_fragment(request: Request, db: AsyncSession = Depends(get_db)):
-    user = await get_user(request, db)
-    if not user:
-        response = HTMLResponse("")
-        response.headers["HX-Redirect"] = "/login"
-        return response
-
-    settings = get_settings()
-    docker_mgr = DockerManager(settings.apps_dir)
-
+async def _get_containers_data(
+    db: AsyncSession, docker_mgr: DockerManager
+) -> tuple[dict[str, Subdomain], dict[int, list[dict[str, Any]]], list[dict[str, Any]]]:
     all_containers = await docker_mgr.ps_all()
 
     result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
@@ -54,6 +46,22 @@ async def containers_fragment(request: Request, db: AsyncSession = Depends(get_d
             containers_data.setdefault(sd.id, []).append(c)
         else:
             orphan_containers.append(c)
+
+    return subdomains, containers_data, orphan_containers
+
+
+@router.get("/containers/fragment", response_class=HTMLResponse)
+async def containers_fragment(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/login"
+        return response
+
+    settings = get_settings()
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    subdomains, containers_data, orphan_containers = await _get_containers_data(db, docker_mgr)
 
     return HTMLResponse(  # noqa: E501
         '<div id="containers-list-wrapper" hx-get="/containers/fragment" hx-trigger="every 15s" hx-swap="outerHTML">'  # noqa: E501
@@ -78,31 +86,7 @@ async def containers_list(request: Request, db: AsyncSession = Depends(get_db)) 
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
 
-    all_containers = await docker_mgr.ps_all()
-
-    result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
-    subdomains = {sd.subdomain: sd for sd in result.scalars().all()}
-
-    containers_data: dict[int, list[dict[str, Any]]] = {}
-    orphan_containers: list[dict[str, Any]] = []
-
-    for c in all_containers:
-        if "Name" not in c and "Names" in c:
-            c["Name"] = c["Names"]
-
-        labels = c.get("Labels", "") or ""
-        project = ""
-        for part in labels.split(","):
-            part = part.strip()
-            if part.startswith("com.docker.compose.project="):
-                project = part.split("=", 1)[1]
-                break
-
-        if project and project in subdomains:
-            sd = subdomains[project]
-            containers_data.setdefault(sd.id, []).append(c)
-        else:
-            orphan_containers.append(c)
+    subdomains, containers_data, orphan_containers = await _get_containers_data(db, docker_mgr)
 
     return render(
         "containers.html",

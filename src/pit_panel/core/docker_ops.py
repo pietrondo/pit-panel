@@ -38,6 +38,42 @@ class DockerManager:
                 "error": f"Failed to execute docker compose command: {e}",
             }
 
+    async def exec_command(
+        self,
+        subdomain: str,
+        service: str,
+        cmd: list[str],
+        env: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        path = self.apps_dir / subdomain
+        env_args = []
+        if env:
+            for k, v in env.items():
+                env_args.extend(["-e", f"{k}={v}"])
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "docker",
+                "compose",
+                "-f",
+                str(path / "docker-compose.yml"),
+                "exec",
+                "-T",
+                *env_args,
+                service,
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=str(path),
+            )
+            stdout, stderr = await proc.communicate()
+            return {
+                "success": proc.returncode == 0,
+                "stdout": stdout.decode(),
+                "stderr": stderr.decode(),
+            }
+        except OSError as e:
+            return {"success": False, "stdout": "", "stderr": str(e)}
+
     async def compose_ps(self, subdomain: str) -> list[dict[str, Any]]:
         path = self.apps_dir / subdomain
         try:
@@ -106,6 +142,25 @@ class DockerManager:
             return containers
         except OSError:
             return []
+
+    async def containers_count(self) -> tuple[int, int]:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "docker",
+                "ps",
+                "-a",
+                "--format",
+                "{{.State}}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            lines = stdout.decode().strip().split("\n")
+            if not lines or not lines[0]:
+                return 0, 0
+            return len(lines), sum(1 for line in lines if line == "running")
+        except OSError:
+            return 0, 0
 
     async def container_stop(self, container_id: str) -> dict[str, Any]:
         try:

@@ -1,44 +1,11 @@
 """Self-update mechanism with healthcheck and rollback."""
 
-import asyncio
-import contextlib
 import datetime
-from dataclasses import dataclass
-
-import httpx
 
 from pit_panel.config import Settings
+from pit_panel.core.sudo_ops import run_cmd as _run_cmd
 from pit_panel.db.models import UpdateHistory
 from pit_panel.db.session import get_sessionmaker
-
-
-@dataclass
-class _CmdResult:
-    returncode: int
-    stdout: str
-    stderr: str
-
-
-async def _run_cmd(cmd: list[str], timeout: int, cwd: str | None = None) -> _CmdResult:
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=cwd,
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        return _CmdResult(
-            returncode=proc.returncode or 0,
-            stdout=stdout.decode(errors="replace"),
-            stderr=stderr.decode(errors="replace"),
-        )
-    except TimeoutError:
-        with contextlib.suppress(Exception):
-            proc.kill()
-        return _CmdResult(returncode=-1, stdout="", stderr="Timeout")
-    except Exception as e:
-        return _CmdResult(returncode=-1, stdout="", stderr=str(e))
 
 
 class Updater:
@@ -143,13 +110,7 @@ class Updater:
         retries: int = 30,
         delay: float = 2.0,
     ) -> bool:
-        async with httpx.AsyncClient() as client:
-            for _ in range(retries):
-                try:
-                    resp = await client.get(url, timeout=5)
-                    if resp.status_code == 200:
-                        return True
-                except Exception:
-                    pass
-                await asyncio.sleep(delay)
-        return False
+        from pit_panel.core.health import check_post_update
+
+        base_url = url.rsplit("/health", 1)[0]
+        return await check_post_update(base_url=base_url, retries=retries, delay=delay)

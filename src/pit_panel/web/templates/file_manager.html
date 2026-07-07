@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div x-data="fileManager" class="space-y-6" x-cloak>
+    <!-- Header Card -->
+    <div class="card p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex-1 min-w-0">
+            <h1 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>📁 File Manager</span>
+            </h1>
+            <div class="mt-2 text-xs font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 p-2 rounded truncate" :title="currentPath">
+                Path: <span x-text="currentPath"></span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <button @click="if(parentPath) { loadPath(parentPath); }" :disabled="!parentPath"
+                    class="btn btn-ghost" :class="{'opacity-50 cursor-not-allowed': !parentPath}">
+                <span>← Up</span>
+            </button>
+            <button @click="createOpen = true" class="btn btn-primary">
+                <span>+ Create</span>
+            </button>
+            <button @click="uploadOpen = true" class="btn btn-ghost border-slate-300 dark:border-slate-700">
+                <span>↑ Upload</span>
+            </button>
+            <button @click="loadPath(currentPath)" class="btn btn-ghost flex items-center gap-1.5">
+                <span class="inline-block" :class="{'animate-spin': loading}">↻</span>
+                <span>Refresh</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Panel -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- Sidebar Folders list -->
+        <div class="card p-4 lg:col-span-1 flex flex-col gap-2 bg-slate-50 dark:bg-slate-900/50">
+            <h3 class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Folders</h3>
+            <div class="space-y-1 overflow-y-auto max-h-[500px]">
+                <template x-if="folders.length === 0">
+                    <div class="text-sm text-slate-500 italic p-2">No subfolders</div>
+                </template>
+                <template x-for="folder in folders" :key="folder.path">
+                    <button @click="loadPath(folder.path)"
+                            class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition-colors truncate">
+                        <span class="text-yellow-500">📁</span>
+                        <span x-text="folder.name" class="truncate"></span>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        <!-- Files list with details -->
+        <div class="card p-0 lg:col-span-3 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                            <th class="px-6 py-3">Name</th>
+                            <th class="px-6 py-3">Size</th>
+                            <th class="px-6 py-3">Perms</th>
+                            <th class="px-6 py-3">Modified</th>
+                            <th class="px-6 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                        <!-- Up directory indicator -->
+                        <template x-if="parentPath">
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer" @click="loadPath(parentPath)">
+                                <td class="px-6 py-3 font-medium text-slate-900 dark:text-white flex items-center gap-2">
+                                    <span class="text-yellow-500">📁</span>
+                                    <span>..</span>
+                                </td>
+                                <td class="px-6 py-3 text-slate-500">-</td>
+                                <td class="px-6 py-3 text-slate-500">-</td>
+                                <td class="px-6 py-3 text-slate-500">-</td>
+                                <td class="px-6 py-3 text-right">-</td>
+                            </tr>
+                        </template>
+
+                        <!-- Items list -->
+                        <template x-if="items.length === 0 && !parentPath">
+                            <tr>
+                                <td colspan="5" class="px-6 py-12 text-center text-slate-500 dark:text-slate-400 italic">
+                                    This directory is empty
+                                </td>
+                            </tr>
+                        </template>
+                        <template x-for="item in items" :key="item.path">
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td class="px-6 py-3 font-medium text-slate-900 dark:text-white">
+                                    <button @click="item.is_dir ? loadPath(item.path) : openFile(item.path)"
+                                            class="flex items-center gap-2 hover:underline text-left truncate max-w-xs md:max-w-md">
+                                        <span x-text="item.is_dir ? '📁' : '📄'"></span>
+                                        <span x-text="item.name" class="truncate"></span>
+                                    </button>
+                                </td>
+                                <td class="px-6 py-3 text-slate-500" x-text="formatSize(item.size)"></td>
+                                <td class="px-6 py-3 text-slate-500 font-mono text-xs" x-text="item.permissions"></td>
+                                <td class="px-6 py-3 text-slate-500" x-text="formatDate(item.mtime)"></td>
+                                <td class="px-6 py-3 text-right space-x-1">
+                                    <template x-if="!item.is_dir">
+                                        <button @click="openFile(item.path)" class="btn btn-ghost py-1 px-2.5 text-xs text-indigo-600 dark:text-indigo-400">
+                                            Edit
+                                        </button>
+                                    </template>
+                                    <button @click="deleteResource(item.path)" class="btn btn-ghost py-1 px-2.5 text-xs text-red-600 dark:text-red-400">
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Textarea Editor Modal -->
+    <div x-show="editorOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" style="display: none;">
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-4xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-slate-800">
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <h3 class="text-base font-semibold text-slate-900 dark:text-white truncate" x-text="editFilePath"></h3>
+                <button @click="editorOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 flex-1 overflow-hidden flex flex-col">
+                <textarea x-model="editFileContent" class="flex-1 w-full p-4 font-mono text-sm border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none min-h-[400px]"></textarea>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/80 rounded-b-xl">
+                <button @click="editorOpen = false" class="btn btn-ghost">Cancel</button>
+                <button @click="saveFile()" class="btn btn-primary flex items-center justify-center gap-2" :disabled="saving" :class="{'opacity-75 cursor-wait': saving}">
+                <svg x-show="saving" x-cloak class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span x-text="saving ? 'Saving...' : 'Save File'"></span>
+            </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create File/Dir Modal -->
+    <div x-show="createOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" style="display: none;">
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-md border border-slate-200 dark:border-slate-800">
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <h3 class="text-base font-semibold text-slate-900 dark:text-white">Create New Resource</h3>
+                <button @click="createOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="label">Type</label>
+                    <div class="grid grid-cols-2 gap-2 mt-1">
+                        <button type="button" @click="createType = 'file'"
+                                :class="createType === 'file' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'"
+                                class="py-2 text-sm font-medium rounded-lg transition-colors">
+                            📄 File
+                        </button>
+                        <button type="button" @click="createType = 'directory'"
+                                :class="createType === 'directory' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'"
+                                class="py-2 text-sm font-medium rounded-lg transition-colors">
+                            📁 Directory
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="label" for="create-name">Name</label>
+                    <input id="create-name" type="text" x-model="createName" placeholder="Enter name" class="input mt-1" @keyup.enter="createResource()">
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/80 rounded-b-xl">
+                <button @click="createOpen = false" class="btn btn-ghost">Cancel</button>
+                <button @click="createResource()" class="btn btn-primary">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div x-show="uploadOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" style="display: none;">
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-md border border-slate-200 dark:border-slate-800">
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <h3 class="text-base font-semibold text-slate-900 dark:text-white">Upload File</h3>
+                <button @click="uploadOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-8 text-center bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors">
+                    <label class="cursor-pointer block">
+                        <span class="text-4xl block mb-2">📥</span>
+                        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Click to choose a file</span>
+                        <input type="file" class="hidden" @change="uploadFile($event)">
+                    </label>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-900/80 rounded-b-xl">
+                <button @click="uploadOpen = false" class="btn btn-ghost">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('fileManager', () => ({
+        currentPath: '',
+        parentPath: '',
+        items: [],
+        folders: [],
+        loading: false,
+        
+        // Editor modal state
+        editorOpen: false,
+        saving: false,
+        editFilePath: '',
+        editFileContent: '',
+        
+        // Create modal state
+        createOpen: false,
+        createType: 'file',
+        createName: '',
+        
+        // Upload state
+        uploadOpen: false,
+
+        async init() {
+            await this.loadPath('');
+        },
+
+        async loadPath(path) {
+            this.loading = true;
+            try {
+                let url = '/api/file-manager/list';
+                if (path) {
+                    url += '?path=' + encodeURIComponent(path);
+                }
+                const response = await fetch(url);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.currentPath = data.path;
+                    this.items = data.items;
+                    this.items.sort((a, b) => {
+                        if (a.is_dir && !b.is_dir) return -1;
+                        if (!a.is_dir && b.is_dir) return 1;
+                        return a.name.localeCompare(b.name);
+                    });
+                    
+                    this.folders = this.items.filter(item => item.is_dir);
+                    
+                    const isWindows = this.currentPath.includes('\\');
+                    const separator = isWindows ? '\\' : '/';
+                    const parts = this.currentPath.split(separator);
+                    if (parts.length > 1 && parts[parts.length - 1] !== '') {
+                        parts.pop();
+                        // Handle windows drive letters (e.g. C:\)
+                        this.parentPath = parts.join(separator);
+                        if (isWindows && this.parentPath.endsWith(':')) {
+                            this.parentPath += '\\';
+                        }
+                    } else {
+                        this.parentPath = '';
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('Error loading directory: ' + (err.detail || response.statusText));
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error loading directory');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async openFile(path) {
+            this.loading = true;
+            try {
+                const response = await fetch('/api/file-manager/file?path=' + encodeURIComponent(path));
+                if (response.ok) {
+                    const data = await response.json();
+                    this.editFilePath = data.path;
+                    this.editFileContent = data.content;
+                    this.editorOpen = true;
+                } else {
+                    const err = await response.json();
+                    alert('Error opening file: ' + (err.detail || response.statusText));
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error opening file');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async saveFile() {
+            this.saving = true;
+            try {
+                const response = await fetch('/api/file-manager/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: this.editFilePath,
+                        content: this.editFileContent
+                    })
+                });
+                if (response.ok) {
+                    this.editorOpen = false;
+                    await this.loadPath(this.currentPath);
+                } else {
+                    const err = await response.json();
+                    alert('Error saving file: ' + (err.detail || response.statusText));
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error saving file');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        async createResource() {
+            if (!this.createName) return;
+            try {
+                const response = await fetch('/api/file-manager/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        parent_path: this.currentPath,
+                        name: this.createName,
+                        type: this.createType
+                    })
+                });
+                if (response.ok) {
+                    this.createOpen = false;
+                    this.createName = '';
+                    await this.loadPath(this.currentPath);
+                } else {
+                    const err = await response.json();
+                    alert('Error creating resource: ' + (err.detail || response.statusText));
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error creating resource');
+            }
+        },
+
+        async deleteResource(path) {
+            if (!confirm('Are you sure you want to delete this resource?')) return;
+            try {
+                const response = await fetch('/api/file-manager/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: path })
+                });
+                if (response.ok) {
+                    await this.loadPath(this.currentPath);
+                } else {
+                    const err = await response.json();
+                    alert('Error deleting resource: ' + (err.detail || response.statusText));
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error deleting resource');
+            }
+        },
+
+        async uploadFile(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+            
+            const formData = new FormData();
+            formData.append('parent_path', this.currentPath);
+            formData.append('file', files[0]);
+
+            this.loading = true;
+            try {
+                const response = await fetch('/api/file-manager/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (response.ok) {
+                    this.uploadOpen = false;
+                    await this.loadPath(this.currentPath);
+                } else {
+                    const err = await response.json();
+                    alert('Error uploading file: ' + (err.detail || response.statusText));
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error uploading file');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        formatSize(bytes) {
+            if (bytes === 0) return '-';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+
+        formatDate(timestamp) {
+            return new Date(timestamp * 1000).toLocaleString();
+        }
+    }));
+});
+</script>
+
+{% endblock %}

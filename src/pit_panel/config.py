@@ -61,8 +61,20 @@ class Settings(BaseSettings):  # type: ignore[misc]
     auto_update: bool = True
     update_interval_hours: int = 6
 
+    # Notifications
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
+    # Backup
+    backup_enabled: bool = False
+    backup_retention_days: int = 7
+
     # Docker
     docker_socket: str = "unix:///var/run/docker.sock"
+
+    # Backup
+    backup_enabled: bool = False
+    backup_retention_days: int = 7
 
     # Debug API
     debug_token_path: str = "/etc/pit-panel/debug_token"
@@ -74,17 +86,15 @@ class Settings(BaseSettings):  # type: ignore[misc]
     @classmethod
     def from_config_file(cls, path: str | None = None) -> "Settings":
         import os
-        config_path_str = (
-            path
-            or os.environ.get("PITPANEL_CONFIG_PATH")
-            or "/etc/pit-panel/config.toml"
-        )
-        config_file = Path(config_path_str)
-        if config_file.exists():
-            with open(config_file, "rb") as f:
-                data = tomli.load(f)
-            return cls(**data)
-        return cls()
+
+        cfg = path or os.environ.get("PITPANEL_CONFIG_PATH") or "/etc/pit-panel/config.toml"
+        data = {}
+        for p in [cfg, "/var/lib/pit-panel/config.toml"]:
+            fpath = Path(p)
+            if fpath.exists():
+                with open(fpath, "rb") as f:
+                    data.update(tomli.load(f))
+        return cls(**data)
 
     def ensure_paths(self) -> None:
         for p in [self.data_dir, self.apps_dir]:
@@ -94,6 +104,28 @@ class Settings(BaseSettings):  # type: ignore[misc]
         if self.database_url:
             return self.database_url
         return f"sqlite+aiosqlite:///{self.data_dir}/pit-panel.db"
+
+    def save_config_file(self) -> None:
+        import tomli_w
+
+        config_path = Path(self.data_dir) / "config.toml"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "base_domain": self.base_domain,
+            "panel_subdomain": self.panel_subdomain,
+            "host": self.host,
+            "abuseipdb_api_key": self.abuseipdb_api_key,
+            "sudo_password": self.sudo_password,
+            "telegram_bot_token": self.telegram_bot_token,
+            "telegram_chat_id": self.telegram_chat_id,
+            "caddy_admin_url": self.caddy_admin_url,
+            "secret_key": self.secret_key,
+            "database_url": self.database_url,
+            "debug": self.debug,
+            "backup_enabled": self.backup_enabled,
+            "backup_retention_days": self.backup_retention_days,
+        }
+        config_path.write_bytes(tomli_w.dumps(data).encode())
 
 
 _settings: Settings | None = None

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <span>🖥️ Host Terminal</span>
+        </h2>
+        <span class="text-xs px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 rounded font-mono">system-terminal</span>
+    </div>
+    <div id="terminal-container" class="p-2 bg-black rounded-b-lg" style="min-height: 480px;"></div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css" />
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+
+<script>
+(function() {
+    const term = new Terminal({
+        cursorBlink: true,
+        fontSize: 14,
+        fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
+        theme: {
+            background: '#0f172a', // Slate 900
+            foreground: '#f8fafc', // Slate 50
+            cursor: '#6366f1',
+            black: '#000000',
+            red: '#ef4444',
+            green: '#22c55e',
+            yellow: '#eab308',
+            blue: '#3b82f6',
+            magenta: '#a855f7',
+            cyan: '#06b6d4',
+            white: '#f8fafc'
+        },
+        cols: 100,
+        rows: 30,
+    });
+    const fit = new FitAddon.FitAddon();
+    term.loadAddon(fit);
+    term.open(document.getElementById('terminal-container'));
+    fit.fit();
+
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(proto + '//' + location.host + '/system/terminal/ws');
+
+    ws.onopen = () => {
+        term.focus();
+        term.write('\r\n\x1b[32mConnected to host system terminal successfully.\x1b[0m\r\n');
+    };
+    ws.onmessage = (e) => term.write(e.data);
+    ws.onclose = () => term.write('\r\n\x1b[31mConnection closed\x1b[0m\r\n');
+
+    term.onData((data) => {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data);
+        }
+    });
+
+    window.addEventListener('resize', () => fit.fit());
+    window.addEventListener('beforeunload', () => ws.close());
+})();
+</script>
+
+<style>
+#terminal-container .xterm { height: 100%; padding: 8px; }
+#terminal-container .xterm-viewport { scrollbar-width: thin; }
+</style>
+{% endblock %}

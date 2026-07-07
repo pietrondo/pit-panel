@@ -27,6 +27,13 @@ async def analyze_repo(repo_url: str) -> DetectedStack:
 
 
 async def clone_repo(repo_url: str) -> Path:
+    import re
+
+    if repo_url.startswith("-"):
+        raise ValueError("Invalid repository URL format.")
+    if not re.match(r"^(https?|git)://[a-zA-Z0-9.-]+", repo_url):
+        raise ValueError("Invalid repository URL format.")
+
     dest = Path(tempfile.mkdtemp(prefix="pit-panel-repo-"))
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -34,6 +41,7 @@ async def clone_repo(repo_url: str) -> Path:
             "clone",
             "--depth",
             "1",
+            "--",
             repo_url,
             str(dest),
             stdout=asyncio.subprocess.PIPE,

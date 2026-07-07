@@ -1,0 +1,9 @@
+{
+    "name": "n8n",
+    "display_name": "n8n",
+    "version": "latest",
+    "description": "Workflow automation with 400+ integrations. Connect any app to any API.",
+    "icon": "⚡",
+    "requires_db": false,
+    "default_port": 5678
+}

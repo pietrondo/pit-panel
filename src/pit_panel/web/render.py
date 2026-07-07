@@ -17,6 +17,7 @@ def _get_templates() -> Environment:
         from jinja2 import FileSystemLoader
 
         _templates = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=True)
+        _templates.tests["contains"] = lambda container, item: item in container
     return _templates
 
 

@@ -3,7 +3,6 @@
 import asyncio
 import datetime as dt
 import logging
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -55,13 +54,13 @@ class CaddyManager:
             "match": [{"host": [fqdn]}],
             "handle": [{"handler": "reverse_proxy", "upstreams": [{"dial": f"127.0.0.1:{port}"}]}],
         }
-        return await self._patch_routes(route)
+        return await self._patch_or_create_route(route)
 
     async def remove_subdomain(self, subdomain: str, base_domain: str) -> dict[str, Any]:
         fqdn = f"{subdomain}.{base_domain}"
         return await self._delete_route(fqdn)
 
-    async def _patch_routes(self, route: dict[str, Any]) -> dict[str, Any]:
+    async def _patch_or_create_route(self, route: dict[str, Any]) -> dict[str, Any]:
         route_id = route["@id"]
         async with httpx.AsyncClient() as client:
             resp = await client.patch(
@@ -69,6 +68,14 @@ class CaddyManager:
                 json=route,
                 headers={"Content-Type": "application/json"},
             )
+            if resp.status_code == 404:
+                resp2 = await client.post(
+                    f"{self.admin_url}/config/apps/http/servers/srv0/routes/",
+                    json=route,
+                    headers={"Content-Type": "application/json"},
+                )
+                resp2.raise_for_status()
+                return resp2.json() if resp2.text else {}
             resp.raise_for_status()
             return resp.json() if resp.text else {}
 
@@ -86,7 +93,7 @@ class CaddyManager:
                 }
             ],
         }
-        return await self._patch_routes(route)
+        return await self._patch_or_create_route(route)
 
     async def add_main_domain(self, base_domain: str, port: int = 80) -> dict[str, Any]:
         route = {
@@ -94,7 +101,7 @@ class CaddyManager:
             "match": [{"host": [base_domain]}],
             "handle": [{"handler": "reverse_proxy", "upstreams": [{"dial": f"127.0.0.1:{port}"}]}],
         }
-        return await self._patch_routes(route)
+        return await self._patch_or_create_route(route)
 
     async def remove_main_domain(self, base_domain: str) -> dict[str, Any]:
         return await self._delete_route(f"main-{base_domain}")
@@ -124,52 +131,56 @@ class CaddyManager:
             return []
 
     def _check_certs_via_openssl(self, domains: list[str]) -> list[dict[str, Any]]:
+        import socket
+        import ssl
+
         certs = []
         for domain in domains:
             try:
-                # 🛡️ Sentinel: Removed shell=True to prevent command injection
-                r1 = subprocess.run(
-                    ["openssl", "s_client", "-connect", "127.0.0.1:443", "-servername", domain],
-                    input="\n",
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                r2 = subprocess.run(
-                    ["openssl", "x509", "-noout", "-enddate", "-issuer"],
-                    input=r1.stdout,
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
+                context = ssl.create_default_context()
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_REQUIRED
 
-                not_after = ""
-                issuer = ""
-                for line in r2.stdout.split("\n"):
-                    if line.startswith("notAfter="):
-                        not_after = line.split("=", 1)[1].strip()
-                    elif line.startswith("issuer="):
-                        issuer = line.split("=", 1)[1].strip()
-                if not not_after:
-                    continue
-                try:
-                    cleaned = " ".join(not_after.rsplit(None, 1)[:-1])
-                    expiry = dt.datetime.strptime(cleaned, "%b %d %H:%M:%S %Y")
-                    days = (expiry.replace(tzinfo=dt.UTC) - dt.datetime.now(dt.UTC)).days
-                except (ValueError, OSError):
-                    days = None
-                certs.append(
-                    {
-                        "serial": "?",
-                        "domains": domain,
-                        "not_before": "",
-                        "not_after": not_after,
-                        "expires_in_days": days,
-                        "issuer": issuer or "Unknown",
-                    }
-                )
-            except Exception:
-                pass
+                with (
+                    socket.create_connection(("127.0.0.1", 443), timeout=5) as sock,
+                    context.wrap_socket(sock, server_hostname=domain) as ssock,
+                ):
+                    cert = ssock.getpeercert()
+                    if not cert:
+                        continue
+
+                        not_after = cert.get("notAfter", "")
+                        if not not_after:
+                            continue
+
+                        # Parse not_after using ssl.cert_time_to_seconds
+                        try:
+                            expiry_timestamp = ssl.cert_time_to_seconds(not_after)
+                            expiry_dt = dt.datetime.fromtimestamp(expiry_timestamp, dt.UTC)
+                            days = (expiry_dt - dt.datetime.now(dt.UTC)).days
+                        except Exception:
+                            days = None
+
+                        # format issuer
+                        issuer_parts = []
+                        for rdns in cert.get("issuer", ()):
+                            for rdn in rdns:
+                                name, val = rdn[0], rdn[1]
+                                issuer_parts.append(f"{name}={val}")
+                        issuer = ", ".join(issuer_parts)
+
+                        certs.append(
+                            {
+                                "serial": cert.get("serialNumber", "?"),
+                                "domains": domain,
+                                "not_before": cert.get("notBefore", ""),
+                                "not_after": not_after,
+                                "expires_in_days": days,
+                                "issuer": issuer or "Unknown",
+                            }
+                        )
+            except Exception as e:
+                logger.warning(f"Failed native SSL cert check for {domain}: {e}")
         return certs
 
     async def renew_certificate(self, domain: str) -> dict[str, Any]:
@@ -205,6 +216,15 @@ class CaddyManager:
                 logger.info(f"Auto-renewing certificate for {cert['domains']} ({days} days left)")
                 result = await self.renew_certificate(cert["domains"])
                 results.append(result)
+                if days is not None and days <= 7:
+                    from pit_panel.core.notifier import notify_ssl_expiring
+
+                    domains = (
+                        cert["domains"].split(", ")
+                        if isinstance(cert["domains"], str)
+                        else [cert["domains"]]
+                    )
+                    await notify_ssl_expiring(domains, days)
         if not results:
             logger.info(f"Auto-renew: no certificates expiring within {renew_days} days")
         return results

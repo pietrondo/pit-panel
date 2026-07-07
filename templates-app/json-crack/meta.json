@@ -1,0 +1,10 @@
+{
+    "name": "json-crack",
+    "display_name": "JSON Crack",
+    "version": "latest",
+    "description": "Visualizzatore JSON interattivo. Incolla JSON e vedilo come grafico. Modifica, formatta, confronta.",
+    "icon": "🔍",
+    "requires_db": false,
+    "default_port": 8086,
+    "admin_path": "/"
+}

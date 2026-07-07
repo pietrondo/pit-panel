@@ -143,32 +143,50 @@
 
         <!-- Resources Tab -->
         <div x-show="activeTab === 'resources'" x-cloak>
+            {% if not settings.sudo_password %}
+            <div class="mb-4 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-sm text-yellow-700 dark:text-yellow-300">
+                <strong>⚠️ sudo_password not configured.</strong>
+                <a href="/settings" class="underline ml-1">Set it in Settings</a> to view system resources.
+            </div>
+            {% endif %}
             <div class="grid grid-cols-1 gap-4">
                 <div class="card p-6">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center justify-between mb-2">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Disk Usage</h3>
-                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "df"}' hx-target="#result"
-                                hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "df"}' hx-target="#disk-output"
+                                hx-swap="innerHTML">
                             &#x21bb; Refresh
                         </button>
                     </div>
+                    <div id="disk-output" hx-post="/system/manage/action" hx-vals='{"action": "df"}' hx-trigger="load" hx-swap="innerHTML"
+                         class="font-mono text-xs text-emerald-400 bg-gray-950 p-3 rounded-lg whitespace-pre-wrap max-h-40 overflow-y-auto">
+                        Loading...
+                    </div>
                 </div>
                 <div class="card p-6">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center justify-between mb-2">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Memory</h3>
-                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "free"}' hx-target="#result"
-                                hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "free"}' hx-target="#memory-output"
+                                hx-swap="innerHTML">
                             &#x21bb; Refresh
                         </button>
                     </div>
+                    <div id="memory-output" hx-post="/system/manage/action" hx-vals='{"action": "free"}' hx-trigger="load" hx-swap="innerHTML"
+                         class="font-mono text-xs text-emerald-400 bg-gray-950 p-3 rounded-lg whitespace-pre-wrap max-h-40 overflow-y-auto">
+                        Loading...
+                    </div>
                 </div>
                 <div class="card p-6">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center justify-between mb-2">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Uptime</h3>
-                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "uptime"}' hx-target="#result"
-                                hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "uptime"}' hx-target="#uptime-output"
+                                hx-swap="innerHTML">
                             &#x21bb; Refresh
                         </button>
+                    </div>
+                    <div id="uptime-output" hx-post="/system/manage/action" hx-vals='{"action": "uptime"}' hx-trigger="load" hx-swap="innerHTML"
+                         class="font-mono text-xs text-emerald-400 bg-gray-950 p-3 rounded-lg whitespace-pre-wrap">
+                        Loading...
                     </div>
                 </div>
             </div>
@@ -220,9 +238,9 @@
                     Rebooting the server will disconnect all users and stop all services.
                     Ensure no critical operations are in progress.
                 </p>
-                <div x-data="{ armed: false, countdown: 10 }">
+                <div x-data="rebootManager">
                     <template x-if="!armed">
-                        <button type="button" @click="armed = true; countdown = 10" class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">
+                        <button type="button" @click="arm()" class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">
                             Reboot System
                         </button>
                     </template>
@@ -239,7 +257,7 @@
                                         hx-target="#result">
                                     CONFIRM REBOOT NOW
                                 </button>
-                                <button type="button" @click="armed = false" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">
+                                <button type="button" @click="cancel()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">
                                     Cancel
                                 </button>
                             </div>
@@ -281,6 +299,29 @@
 </div>
 
 <script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('rebootManager', () => ({
+            armed: false,
+            countdown: 10,
+            interval: null,
+            arm() {
+                this.armed = true;
+                this.countdown = 10;
+                this.interval = setInterval(() => {
+                    if (this.countdown > 0) {
+                        this.countdown--;
+                    } else {
+                        clearInterval(this.interval);
+                    }
+                }, 1000);
+            },
+            cancel() {
+                this.armed = false;
+                if (this.interval) clearInterval(this.interval);
+            }
+        }));
+    });
+
     document.addEventListener('htmx:afterRequest', function() {
         var el = document.getElementById('result');
         if (el) {

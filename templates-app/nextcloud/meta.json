@@ -1,0 +1,9 @@
+{
+    "name": "nextcloud",
+    "display_name": "Nextcloud",
+    "version": "latest",
+    "description": "Self-hosted productivity platform. Files, calendar, contacts, chat, and more.",
+    "icon": "☁️",
+    "requires_db": true,
+    "default_port": 8082
+}

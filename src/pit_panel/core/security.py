@@ -2,28 +2,97 @@
 
 import asyncio
 import contextlib
+import re
 from typing import Any
 
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pit_panel.core.sudo_ops import run_cmd
 from pit_panel.security.ipban import ban_ip
 
 
 async def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) -> str:
-    try:
-        input_bytes = input.encode() if input is not None else None
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdin=asyncio.subprocess.PIPE if input is not None else None,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(input=input_bytes), timeout=timeout
-        )
-        return stdout.decode().strip() or stderr.decode().strip()
-    except Exception:
+    res = await run_cmd(cmd, timeout=timeout, input=input)
+    if res.returncode == -1:
         return "unavailable"
+    return res.stdout.strip() or res.stderr.strip()
+
+
+def _get_client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    xri = request.headers.get("x-real-ip")
+    if xri:
+        return xri.strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "127.0.0.1"
+
+
+def _read_ssh_config(path: str) -> str:
+    with open(path, encoding="utf-8", errors="replace") as f:
+        return f.read()
+
+
+async def _detect_ssh_port() -> int:
+    path = "/etc/ssh/sshd_config"
+    content = ""
+    try:
+        content = await asyncio.to_thread(_read_ssh_config, path)
+    except PermissionError:
+        content = await _run_cmd(["sudo", "-n", "cat", path])
+    except Exception:
+        return 22
+
+    for line in content.splitlines():
+        line = line.strip()
+        if line.startswith("#"):
+            continue
+        m = re.match(r"^Port\s+(\d+)", line, re.IGNORECASE)
+        if m:
+            return int(m.group(1))
+    return 22
+
+
+def _parse_ufw_rules(ufw_output: str) -> list[dict[str, Any]]:
+    rules = []
+    pattern = re.compile(
+        r"^\[\s*(\d+)\]\s+(.*?)\s{2,}(ALLOW IN|DENY IN|LIMIT IN|ALLOW OUT|DENY OUT|LIMIT OUT|ALLOW|DENY|LIMIT)\s{2,}(.*)$",  # noqa: E501
+        re.IGNORECASE,
+    )
+    for line in ufw_output.splitlines():
+        line = line.strip()
+        m = pattern.match(line)
+        if m:
+            index = int(m.group(1))
+            port_proto = m.group(2).strip()
+            action = m.group(3).strip()
+            source = m.group(4).strip()
+
+            protocol = "any"
+            port = port_proto
+            if "/" in port_proto:
+                parts = port_proto.split("/")
+                port = parts[0].strip()
+                proto_part = parts[1].strip()
+                if "tcp" in proto_part.lower():
+                    protocol = "tcp"
+                elif "udp" in proto_part.lower():
+                    protocol = "udp"
+
+            rules.append(
+                {
+                    "index": index,
+                    "port": port,
+                    "protocol": protocol,
+                    "action": action,
+                    "source": source,
+                    "raw": line,
+                }
+            )
+    return rules
 
 
 async def _firewall_status() -> dict[str, Any]:
@@ -42,12 +111,68 @@ async def _firewall_status() -> dict[str, Any]:
             await _run_cmd(["sudo", "-n", "ufw", "allow", port])
         ufw = await _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
         active = "Status: active" in ufw
-    rules = []
-    for line in ufw.split("\n"):
-        stripped = line.strip()
-        if stripped and stripped != "Status: active" and "sudo:" not in stripped:
-            rules.append(stripped)
-    return {"active": active, "rules": rules[:20]}
+
+    parsed_rules = _parse_ufw_rules(ufw)
+    return {"active": active, "rules": parsed_rules[:20]}
+
+
+async def _add_ufw_rule(
+    port: str | None, protocol: str, action: str, source_ip: str | None = None
+) -> bool:  # noqa: E501
+    cmd = ["sudo", "-n", "ufw"]
+    action_lower = action.lower()
+    if port in (None, "any"):
+        if source_ip:
+            cmd += [action_lower, "from", source_ip]
+        else:
+            return False
+    else:
+        if source_ip:
+            cmd += [action_lower, "from", source_ip, "to", "any", "port", port]
+            if protocol and protocol.lower() != "any":
+                cmd += ["proto", protocol.lower()]
+        else:
+            rule = port
+            if protocol and protocol.lower() != "any":
+                rule = f"{port}/{protocol.lower()}"
+            cmd += [action_lower, rule]
+    res = await _run_cmd(cmd)
+    await _run_cmd(["sudo", "-n", "ufw", "reload"])
+    return res != "unavailable"
+
+
+async def _delete_ufw_rule(index: int, client_ip: str, ssh_port: int) -> bool:
+    status = await _firewall_status()
+    rule = None
+    for r in status["rules"]:
+        if r["index"] == index:
+            rule = r
+            break
+    if not rule:
+        raise ValueError(f"Rule with index {index} not found")
+
+    if (rule["port"] == str(ssh_port) or rule["port"].lower() == "ssh") and "allow" in rule[
+        "action"
+    ].lower():  # noqa: E501
+        raise ValueError("Cannot delete active SSH rule")
+    if rule["source"] == client_ip and "allow" in rule["action"].lower():
+        raise ValueError("Cannot delete active client IP bypass rule")
+
+    res = await _run_cmd(["sudo", "-n", "ufw", "--force", "delete", str(index)])
+    await _run_cmd(["sudo", "-n", "ufw", "reload"])
+    return res != "unavailable"
+
+
+async def _enable_ufw(client_ip: str, ssh_port: int) -> bool:
+    await _add_ufw_rule(str(ssh_port), "tcp", "allow")
+    await _add_ufw_rule("any", "any", "allow", source_ip=client_ip)
+    res = await _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
+    return res != "unavailable"
+
+
+async def _disable_ufw() -> bool:
+    res = await _run_cmd(["sudo", "-n", "ufw", "disable"])
+    return res != "unavailable"
 
 
 async def _fail2ban_status() -> dict[str, Any]:
@@ -127,7 +252,26 @@ async def _ensure_fail2ban_jails():
         timeout=10,
         input=content,
     )
-    await _run_cmd(["sudo", "-n", "systemctl", "restart", "fail2ban"])
+    await _run_cmd(["sudo", "-n", "/usr/bin/systemctl", "restart", "fail2ban"])
+
+
+async def _fail2ban_jail_banned(jail: str) -> list[dict[str, str]]:
+    out = await _run_cmd(["sudo", "-n", "/usr/bin/fail2ban-client", "status", jail], timeout=10)
+    ips = []
+    for line in out.split("\n"):
+        line = line.strip()
+        if "Banned IP list:" in line:
+            raw = line.split(":", 1)[1].strip()
+            if raw and raw != "None":
+                for ip in raw.split():
+                    ips.append({"ip": ip.strip()})
+            break
+    return ips
+
+
+async def _fail2ban_unban(jail: str, ip: str) -> bool:
+    out = await _run_cmd(["sudo", "-n", "fail2ban-client", "set", jail, "unbanip", ip], timeout=10)
+    return ip not in out
 
 
 async def ban_ip_address(
@@ -152,3 +296,143 @@ async def unban_ip_address(db: AsyncSession, ip: str, user_id: int | None = None
 
     # Database level unban
     return await unban_ip(db, ip, user_id)
+
+
+async def _get_jail_config(jail: str) -> dict[str, Any]:
+    bantime = await _run_cmd(["sudo", "-n", "fail2ban-client", "get", jail, "bantime"])
+    findtime = await _run_cmd(["sudo", "-n", "fail2ban-client", "get", jail, "findtime"])
+    maxretry = await _run_cmd(["sudo", "-n", "fail2ban-client", "get", jail, "maxretry"])
+
+    def parse_val(val, default):
+        try:
+            return int(val.strip())
+        except Exception:
+            return int(default)
+
+    defaults = JAIL_DEFAULTS.get(jail, {"bantime": 600, "findtime": 600, "maxretry": 5})
+    return {
+        "bantime": parse_val(bantime, defaults.get("bantime", 600)),
+        "findtime": parse_val(findtime, defaults.get("findtime", 600)),
+        "maxretry": parse_val(maxretry, defaults.get("maxretry", 5)),
+    }
+
+
+async def _save_jail_config(jail: str, bantime: Any, findtime: Any, maxretry: Any) -> bool:
+    import configparser
+    from io import StringIO
+
+    try:
+        b = int(bantime)
+        f = int(findtime)
+        m = int(maxretry)
+        if b <= 0 or f <= 0 or m <= 0:
+            raise ValueError()
+    except Exception as e:
+        raise ValueError("Parameters must be positive integers") from e
+
+    path = "/etc/fail2ban/jail.d/pit-panel-overrides.local"
+    content = ""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as file:
+            content = file.read()
+    except PermissionError:
+        content = await _run_cmd(["sudo", "-n", "cat", path])
+    except Exception:
+        pass
+
+    config = configparser.ConfigParser()
+    if "[" in content:
+        config.read_string(content)
+
+    if not config.has_section(jail):
+        config.add_section(jail)
+    config.set(jail, "bantime", str(b))
+    config.set(jail, "findtime", str(f))
+    config.set(jail, "maxretry", str(m))
+
+    out = StringIO()
+    config.write(out)
+    new_content = out.getvalue()
+
+    write_res = await _run_cmd(["sudo", "-n", "tee", path], timeout=10, input=new_content)
+    if write_res == "unavailable":
+        return False
+
+    reload_res = await _run_cmd(["sudo", "-n", "fail2ban-client", "reload"])
+    return reload_res != "unavailable"
+
+
+def _parse_lynis_report(dat_content: str) -> dict[str, Any]:
+    from datetime import UTC, datetime
+
+    hardening_index = 0
+    warnings = []
+    suggestions = []
+
+    for line in dat_content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" in line:
+            parts = line.split("=", 1)
+            key = parts[0].strip()
+            val = parts[1].strip()
+            if key == "hardening_index":
+                with contextlib.suppress(Exception):
+                    hardening_index = int(val)
+            elif key == "warning[]":
+                warnings.append(val)
+            elif key == "suggestion[]":
+                suggestions.append(val)
+
+    return {
+        "hardening_index": hardening_index,
+        "scan_timestamp": datetime.now(UTC).isoformat(),
+        "warnings": warnings,
+        "suggestions": suggestions,
+    }
+
+
+async def run_lynis_audit() -> dict[str, Any]:
+    import json
+    import os
+    import shutil
+
+    lynis_path = shutil.which("lynis")
+    if not lynis_path:
+        await _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "lynis"], timeout=60)
+        lynis_path = shutil.which("lynis")
+        if not lynis_path:
+            return {
+                "status": "failed",
+                "error": "Lynis binary not found and auto-installation failed.",
+            }
+
+    await _run_cmd(["sudo", "-n", "lynis", "audit", "system", "--quick"], timeout=180)
+
+    dat_path = "/var/log/lynis-report.dat"
+    dat_content = ""
+    try:
+        with open(dat_path, encoding="utf-8", errors="replace") as f:
+            dat_content = f.read()
+    except PermissionError:
+        dat_content = await _run_cmd(["sudo", "-n", "cat", dat_path])
+    except Exception as e:
+        return {"status": "failed", "error": f"Failed to read Lynis report file: {e}"}
+
+    report = _parse_lynis_report(dat_content)
+
+    cache_dir = "/var/lib/pit-panel"
+    cache_path = f"{cache_dir}/lynis_last_report.json"
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2)
+    except Exception:
+        try:
+            content_str = json.dumps(report, indent=2)
+            await _run_cmd(["sudo", "-n", "tee", cache_path], input=content_str)
+        except Exception:
+            pass
+
+    return report

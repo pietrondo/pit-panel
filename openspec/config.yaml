@@ -27,7 +27,7 @@ formatting:
 testing:
   runner: pytest
   command: uv run pytest
-  strict_tdd: false
+  strict_tdd: true
   capabilities:
     unit:
       command: uv run pytest tests/unit

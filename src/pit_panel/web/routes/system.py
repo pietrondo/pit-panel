@@ -1,7 +1,10 @@
 """System: upgrade check and trigger via sudo."""
 
 import datetime as dt
+import os
+import shutil
 import subprocess
+import sys
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -18,27 +21,80 @@ router = APIRouter()
 INSTALL_DIR = "/opt/pit-panel"
 
 
-def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
+async def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
     """Run a privileged command via sudo -n (non-interactive, no password prompt).
 
     Used for systemctl and cp operations that require root.
     """
-    return subprocess.run(
-        ["sudo", "-n", *cmd],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
+    import asyncio
+
+    proc = await asyncio.create_subprocess_exec(
+        "sudo", "-n", *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except TimeoutError:
+        proc.kill()
+        await proc.communicate()
+        return subprocess.CompletedProcess(
+            args=["sudo", "-n", *cmd], returncode=-1, stdout="", stderr="Timeout"
+        )
+
+    return subprocess.CompletedProcess(
+        args=["sudo", "-n", *cmd],
+        returncode=proc.returncode or 0,
+        stdout=stdout.decode(errors="replace"),
+        stderr=stderr.decode(errors="replace"),
     )
 
 
-def _run(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
+async def _run(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
     """Run a command as the pit-panel user (no sudo)."""
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
+    import asyncio
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except TimeoutError:
+        proc.kill()
+        await proc.communicate()
+        return subprocess.CompletedProcess(args=cmd, returncode=-1, stdout="", stderr="Timeout")
+
+    return subprocess.CompletedProcess(
+        args=cmd,
+        returncode=proc.returncode or 0,
+        stdout=stdout.decode(errors="replace"),
+        stderr=stderr.decode(errors="replace"),
+    )
+
+
+async def _get_current_sha() -> str:
+    """Get the current git commit SHA of the installation directory."""
+    res = await _run(["git", "-C", INSTALL_DIR, "rev-parse", "HEAD"])
+    if res.returncode != 0:
+        raise RuntimeError(f"Failed to retrieve current git SHA: {res.stderr or res.stdout}")
+    return res.stdout.strip()
+
+
+def _resolve_uv_bin() -> str:
+    """Resolve the path of the uv executable dynamically."""
+    uv_path = shutil.which("uv")
+    if uv_path:
+        return uv_path
+
+    fallbacks = [
+        "/usr/local/bin/uv",
+        "/usr/bin/uv",
+        "/opt/pit-panel/.venv/bin/uv",
+        "/root/.cargo/bin/uv",
+    ]
+    for fb in fallbacks:
+        if os.path.exists(fb):
+            return fb
+
+    raise FileNotFoundError("Could not resolve uv binary path")
 
 
 async def _get_git_info() -> tuple[str, str]:
@@ -133,34 +189,71 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    # git and uv run directly (repo is owned by pit-panel, in ReadWritePaths).
-    # cp and systemctl require sudo.
-    steps = [
-        (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60, False),
-        (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30, False),
-        (["/usr/local/bin/uv", "--directory", INSTALL_DIR, "sync"], 180, False),
-        (
-            [
-                "cp",
-                f"{INSTALL_DIR}/packaging/pit-panel.service",
-                "/etc/systemd/system/",
-            ],
-            10,
-            True,
-        ),
-        (["systemctl", "daemon-reload"], 10, True),
-    ]
-
     log_lines: list[str] = []
     ok = True
-    for cmd, timeout, use_sudo in steps:
-        result = _sudo(cmd, timeout=timeout) if use_sudo else _run(cmd, timeout=timeout)
-        if result.returncode != 0:
-            err = (result.stderr or result.stdout or "").strip()[:200]
-            log_lines.append(f"FAIL {' '.join(cmd)}: {err}")
+
+    try:
+        original_sha = await _get_current_sha()
+    except Exception as e:
+        original_sha = "unknown"
+        log_lines.append(f"FAIL git SHA check: {e}")
+        ok = False
+
+    if ok:
+        try:
+            uv_bin = _resolve_uv_bin()
+        except Exception as e:
+            log_lines.append(f"FAIL uv path check: {e}")
             ok = False
-            break
-        log_lines.append(f"OK   {' '.join(cmd)}")
+
+    if ok:
+        python_bin = sys.executable
+        steps = [
+            (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60, False),
+            (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30, False),
+            ([uv_bin, "--directory", INSTALL_DIR, "sync"], 180, False),
+            ([python_bin, "-m", "compileall", "-q", f"{INSTALL_DIR}/src"], 30, False),
+            (
+                [
+                    "/bin/cp",
+                    f"{INSTALL_DIR}/packaging/pit-panel.service",
+                    "/etc/systemd/system/",
+                ],
+                10,
+                True,
+            ),
+            (["/usr/bin/systemctl", "daemon-reload"], 10, True),
+        ]
+
+        for cmd, timeout, use_sudo in steps:
+            result = (
+                await _sudo(cmd, timeout=timeout) if use_sudo else await _run(cmd, timeout=timeout)
+            )
+            if result.returncode != 0:
+                err = (result.stderr or result.stdout or "").strip()[:200]
+                log_lines.append(f"FAIL {' '.join(cmd)}: {err}")
+                ok = False
+                break
+            log_lines.append(f"OK   {' '.join(cmd)}")
+
+        if not ok:
+            log_lines.append(f"[ROLLBACK] Restoring codebase to SHA {original_sha[:7]}...")
+            rollback_steps = [
+                (["git", "-C", INSTALL_DIR, "reset", "--hard", original_sha], 30, False),
+                ([uv_bin, "--directory", INSTALL_DIR, "sync"], 180, False),
+                (["/usr/bin/systemctl", "daemon-reload"], 10, True),
+            ]
+            for rb_cmd, rb_timeout, rb_use_sudo in rollback_steps:
+                if rb_use_sudo:
+                    rb_result = await _sudo(rb_cmd, timeout=rb_timeout)
+                else:
+                    rb_result = await _run(rb_cmd, timeout=rb_timeout)
+
+                if rb_result.returncode != 0:
+                    rb_err = (rb_result.stderr or rb_result.stdout or "").strip()[:200]
+                    log_lines.append(f"[ROLLBACK] FAIL {' '.join(rb_cmd)}: {rb_err}")
+                else:
+                    log_lines.append(f"[ROLLBACK] OK   {' '.join(rb_cmd)}")
 
     result_msg = "\n".join(log_lines) if log_lines else "no steps ran"
 
@@ -182,11 +275,11 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
 
     if ok:
         subprocess.Popen(
-            ["sudo", "-n", "systemctl", "restart", "--no-block", "pit-panel.service"],
+            ["sudo", "-n", "/usr/bin/systemctl", "restart", "--no-block", "pit-panel.service"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        result_msg += "\nOK   systemctl restart --no-block pit-panel.service (queued)"
+        result_msg += "\nOK   /usr/bin/systemctl restart --no-block pit-panel.service (queued)"
 
     return render(
         "system.html",

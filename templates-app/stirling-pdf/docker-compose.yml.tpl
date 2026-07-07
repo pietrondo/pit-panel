@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   stirling-pdf:
     image: stirlingtools/stirling-pdf:latest
