@@ -5,7 +5,7 @@ import io
 import qrcode
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
@@ -90,11 +90,11 @@ async def login_post(
     if data:
         from pit_panel.db.models import Session as DBSession
 
-        sess_result = await db.execute(select(DBSession).where(DBSession.id == session_id))
-        sess_obj = sess_result.scalar_one_or_none()
-        if sess_obj:
-            sess_obj.token_hash = data["tok"]
-            await db.commit()
+        await db.execute(
+            update(DBSession)
+            .where(DBSession.id == session_id)
+            .values(token_hash=data["tok"])
+        )
 
     user.last_login = datetime.datetime.now(datetime.UTC)
     await db.commit()

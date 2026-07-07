@@ -150,27 +150,10 @@ async def app_wp_update_core(request: Request, sd_id: int, db: AsyncSession = De
     )
 
 
-@router.get("/apps/{sd_id}/wp-auto-login")
-async def app_wp_auto_login(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
-    user = await get_user(request, db)
-    if not user:
-        return RedirectResponse(url=f"/auth/login?next=/apps/{sd_id}")
-
-    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
-    sd = result.scalar_one_or_none()
-    if not sd or sd.app_type != "wordpress":
-        return RedirectResponse(url="/apps", status_code=302)
-
-    settings = get_settings()
-    base_domain = sd.base_domain or settings.base_domain
-    fqdn = f"{sd.subdomain}.{base_domain}"
-
-    docker_mgr = DockerManager(settings.apps_dir)
-
-    # Step 1: ensure WP-CLI phar is available
+async def _ensure_wp_cli(docker_mgr, subdomain: str) -> None:
     try:
         await docker_mgr.exec_command(
-            sd.subdomain,
+            subdomain,
             "wordpress",
             [
                 "sh",
@@ -180,12 +163,13 @@ async def app_wp_auto_login(request: Request, sd_id: int, db: AsyncSession = Dep
             ],
         )
     except Exception as e:
-        logger.warning(f"WP-CLI download failed for {sd.subdomain}: {e}")
+        logger.warning(f"WP-CLI download failed for {subdomain}: {e}")
 
-    # Step 2: fix site URL
+
+async def _fix_wp_site_url(docker_mgr, subdomain: str, fqdn: str) -> None:
     try:
         await docker_mgr.exec_command(
-            sd.subdomain,
+            subdomain,
             "wordpress",
             [
                 "sh",
@@ -197,10 +181,11 @@ async def app_wp_auto_login(request: Request, sd_id: int, db: AsyncSession = Dep
             ],
         )
     except Exception as e:
-        logger.warning(f"WP-CLI site URL fix failed for {sd.subdomain}: {e}")
+        logger.warning(f"WP-CLI site URL fix failed for {subdomain}: {e}")
 
-    # Step 3: ensure the auth-handler PHP file exists in WordPress web root
-    handler_path = Path(settings.apps_dir) / sd.subdomain / ".pit-auth-handler.php"
+
+async def _install_wp_auth_handler(docker_mgr, subdomain: str, apps_dir: str) -> None:
+    handler_path = Path(apps_dir) / subdomain / ".pit-auth-handler.php"
     if not handler_path.exists():
         handler_code = """<?php
 require_once dirname(__DIR__).'/wp-load.php';
@@ -216,7 +201,7 @@ header('Location: /wp-admin/');
         handler_path.write_text(handler_code)
         try:
             await docker_mgr.exec_command(
-                sd.subdomain,
+                subdomain,
                 "wordpress",
                 [
                     "sh",
@@ -226,7 +211,7 @@ header('Location: /wp-admin/');
             )
             b64 = base64.b64encode(handler_code.encode()).decode()
             await docker_mgr.exec_command(
-                sd.subdomain,
+                subdomain,
                 "wordpress",
                 [
                     "sh",
@@ -234,11 +219,14 @@ header('Location: /wp-admin/');
                     f"echo '{b64}' | base64 -d > wp-content/pit-auth.php",
                 ],
             )
-            logger.info("wp_auto_login[%s]: auth handler installed", sd.subdomain)
+            logger.info("wp_auto_login[%s]: auth handler installed", subdomain)
         except Exception as e:
-            logger.warning(f"Auth handler install failed for {sd.subdomain}: {e}")
+            logger.warning(f"Auth handler install failed for {subdomain}: {e}")
 
-    # Step 4: generate auth cookies and store as transient
+
+async def _generate_wp_auth_transient(
+    docker_mgr, subdomain: str, fqdn: str
+) -> RedirectResponse | None:
     token = base64.urlsafe_b64encode(os.urandom(12)).rstrip(b"=").decode()
     php_code = (
         "$id=1;$exp=time()+86400;"
@@ -258,7 +246,7 @@ header('Location: /wp-admin/');
     )
     try:
         r = await docker_mgr.exec_command(
-            sd.subdomain,
+            subdomain,
             "wordpress",
             [
                 "php",
@@ -271,15 +259,42 @@ header('Location: /wp-admin/');
             ],
         )
         if r.get("success"):
-            logger.info("wp_auto_login[%s]: transient stored, redirecting to blog", sd.subdomain)
+            logger.info("wp_auto_login[%s]: transient stored, redirecting to blog", subdomain)
             return RedirectResponse(url=f"https://{fqdn}/wp-content/pit-auth.php?token={token}")
         logger.warning(
             "wp_auto_login[%s]: WP-CLI transient failed: %s",
-            sd.subdomain,
+            subdomain,
             r.get("stderr", "")[:200],
         )
     except Exception as e:
-        logger.warning(f"wp_auto_login[%s]: transient error: {e}", sd.subdomain)
+        logger.warning(f"wp_auto_login[%s]: transient error: {e}", subdomain)
+    return None
+
+
+@router.get("/apps/{sd_id}/wp-auto-login")
+async def app_wp_auto_login(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    user = await get_user(request, db)
+    if not user:
+        return RedirectResponse(url=f"/auth/login?next=/apps/{sd_id}")
+
+    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
+    sd = result.scalar_one_or_none()
+    if not sd or sd.app_type != "wordpress":
+        return RedirectResponse(url="/apps", status_code=302)
+
+    settings = get_settings()
+    base_domain = sd.base_domain or settings.base_domain
+    fqdn = f"{sd.subdomain}.{base_domain}"
+
+    docker_mgr = DockerManager(settings.apps_dir)
+
+    await _ensure_wp_cli(docker_mgr, sd.subdomain)
+    await _fix_wp_site_url(docker_mgr, sd.subdomain, fqdn)
+    await _install_wp_auth_handler(docker_mgr, sd.subdomain, settings.apps_dir)
+
+    redirect_resp = await _generate_wp_auth_transient(docker_mgr, sd.subdomain, fqdn)
+    if redirect_resp:
+        return redirect_resp
 
     logger.info("wp_auto_login[%s]: fallback to direct https://%s/wp-admin", sd.subdomain, fqdn)
     return RedirectResponse(url=f"https://{fqdn}/wp-admin")
@@ -306,21 +321,40 @@ async def app_wp_fix_url(request: Request, sd_id: int, db: AsyncSession = Depend
     success = False
     error_msg = ""
     try:
-        r = await docker_mgr.exec_command(
+        r1 = await docker_mgr.exec_command(
             sd.subdomain,
             "wordpress",
             [
-                "sh",
-                "-c",
-                f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-                f" option update siteurl 'https://{fqdn}'"
-                f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-                f" option update home 'https://{fqdn}'",
+                "php",
+                "-d",
+                "memory_limit=256M",
+                "/tmp/wp-cli.phar",
+                "--allow-root",
+                "option",
+                "update",
+                "siteurl",
+                f"https://{fqdn}",
             ],
         )
-        success = r.get("success", False)
+        r2 = await docker_mgr.exec_command(
+            sd.subdomain,
+            "wordpress",
+            [
+                "php",
+                "-d",
+                "memory_limit=256M",
+                "/tmp/wp-cli.phar",
+                "--allow-root",
+                "option",
+                "update",
+                "home",
+                f"https://{fqdn}",
+            ],
+        )
+        success = r1.get("success", False) and r2.get("success", False)
         if not success:
-            error_msg = r.get("stderr", "Unknown error")[:300]
+            combined = f"{r1.get('stderr', '')} {r2.get('stderr', '')}".strip()
+            error_msg = combined[:300] or "Unknown error"
     except Exception as e:
         error_msg = str(e)
 

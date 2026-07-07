@@ -122,36 +122,36 @@ async def test_settings_update_existing_settings(monkeypatch):
     mock_row_abuseipdb = MagicMock()
     mock_row_sudo = MagicMock()
 
-    mock_result_base = MagicMock()
-    mock_result_base.scalar_one_or_none.return_value = mock_row_base
-    mock_result_panel = MagicMock()
-    mock_result_panel.scalar_one_or_none.return_value = mock_row_panel
-    mock_result_host = MagicMock()
-    mock_result_host.scalar_one_or_none.return_value = mock_row_host
-    mock_result_abuseipdb = MagicMock()
-    mock_result_abuseipdb.scalar_one_or_none.return_value = mock_row_abuseipdb
-    mock_result_sudo = MagicMock()
-    mock_result_sudo.scalar_one_or_none.return_value = mock_row_sudo
-    mock_result_telegram_token = MagicMock()
-    mock_result_telegram_token.scalar_one_or_none.return_value = MagicMock()
-    mock_result_telegram_chat = MagicMock()
-    mock_result_telegram_chat.scalar_one_or_none.return_value = MagicMock()
+    # Mock row setup
+    mock_row_base.key = "base_domain"
+    mock_row_panel.key = "panel_subdomain"
+    mock_row_host.key = "host"
+    mock_row_abuseipdb.key = "abuseipdb_api_key"
+    mock_row_sudo.key = "sudo_password"
+    mock_row_telegram_token = MagicMock()
+    mock_row_telegram_token.key = "telegram_bot_token"
+    mock_row_telegram_chat = MagicMock()
+    mock_row_telegram_chat.key = "telegram_chat_id"
+
+    mock_result_settings = MagicMock()
+    mock_result_settings.scalars.return_value.all.return_value = [
+        mock_row_base,
+        mock_row_panel,
+        mock_row_host,
+        mock_row_abuseipdb,
+        mock_row_sudo,
+        mock_row_telegram_token,
+        mock_row_telegram_chat,
+    ]
 
     # Mock DB select for AuditLog
     mock_result_audit = MagicMock()
     mock_audit = MagicMock(spec=AuditLog)
     mock_result_audit.scalars.return_value.all.return_value = [mock_audit]
 
-    # Return different mock results for multiple execute calls
-    # Route loops 7 keys + 1 audit = 8 db.execute() calls
+    # Route calls db.execute 1 time for settings IN query + 1 time for audit = 2 calls
     mock_db.execute.side_effect = [
-        mock_result_base,
-        mock_result_panel,
-        mock_result_host,
-        mock_result_abuseipdb,
-        mock_result_sudo,
-        mock_result_telegram_token,
-        mock_result_telegram_chat,
+        mock_result_settings,
         mock_result_audit,
     ]
 
@@ -220,24 +220,17 @@ async def test_settings_update_new_settings(monkeypatch):
 
     monkeypatch.setattr("pit_panel.web.routes.settings.get_admin", mock_get_admin)
 
-    # Mock DB select for SystemSettings (returns None for all rows)
+    # Mock DB select for SystemSettings (returns empty list for IN query)
     mock_result_settings = MagicMock()
-    mock_result_settings.scalar_one_or_none.return_value = None
+    mock_result_settings.scalars.return_value.all.return_value = []
 
     # Mock DB select for AuditLog
     mock_result_audit = MagicMock()
     mock_audit = MagicMock(spec=AuditLog)
     mock_result_audit.scalars.return_value.all.return_value = [mock_audit]
 
-    # Return different mock results for multiple execute calls
-    # Route loops 7 keys + 1 audit = 8 db.execute() calls
+    # Route calls db.execute 1 time for settings IN query + 1 time for audit = 2 calls
     mock_db.execute.side_effect = [
-        mock_result_settings,
-        mock_result_settings,
-        mock_result_settings,
-        mock_result_settings,
-        mock_result_settings,
-        mock_result_settings,
         mock_result_settings,
         mock_result_audit,
     ]
@@ -333,36 +326,36 @@ async def test_settings_update_empty_panel(monkeypatch):
     mock_row_abuseipdb = MagicMock()
     mock_row_sudo = MagicMock()
 
-    mock_result_base = MagicMock()
-    mock_result_base.scalar_one_or_none.return_value = mock_row_base
-    mock_result_panel = MagicMock()
-    mock_result_panel.scalar_one_or_none.return_value = mock_row_panel
-    mock_result_host = MagicMock()
-    mock_result_host.scalar_one_or_none.return_value = mock_row_host
-    mock_result_abuseipdb = MagicMock()
-    mock_result_abuseipdb.scalar_one_or_none.return_value = mock_row_abuseipdb
-    mock_result_sudo = MagicMock()
-    mock_result_sudo.scalar_one_or_none.return_value = mock_row_sudo
-    mock_result_telegram_token = MagicMock()
-    mock_result_telegram_token.scalar_one_or_none.return_value = MagicMock()
-    mock_result_telegram_chat = MagicMock()
-    mock_result_telegram_chat.scalar_one_or_none.return_value = MagicMock()
+    # Mock row setup
+    mock_row_base.key = "base_domain"
+    mock_row_panel.key = "panel_subdomain"
+    mock_row_host.key = "host"
+    mock_row_abuseipdb.key = "abuseipdb_api_key"
+    mock_row_sudo.key = "sudo_password"
+    mock_row_telegram_token = MagicMock()
+    mock_row_telegram_token.key = "telegram_bot_token"
+    mock_row_telegram_chat = MagicMock()
+    mock_row_telegram_chat.key = "telegram_chat_id"
+
+    mock_result_settings = MagicMock()
+    mock_result_settings.scalars.return_value.all.return_value = [
+        mock_row_base,
+        mock_row_panel,
+        mock_row_host,
+        mock_row_abuseipdb,
+        mock_row_sudo,
+        mock_row_telegram_token,
+        mock_row_telegram_chat,
+    ]
 
     # Mock DB select for AuditLog
     mock_result_audit = MagicMock()
     mock_audit = MagicMock(spec=AuditLog)
     mock_result_audit.scalars.return_value.all.return_value = [mock_audit]
 
-    # Return different mock results for multiple execute calls
-    # Route loops 7 keys + 1 audit = 8 db.execute() calls
+    # Route calls db.execute 1 time for settings IN query + 1 time for audit = 2 calls
     mock_db.execute.side_effect = [
-        mock_result_base,
-        mock_result_panel,
-        mock_result_host,
-        mock_result_abuseipdb,
-        mock_result_sudo,
-        mock_result_telegram_token,
-        mock_result_telegram_chat,
+        mock_result_settings,
         mock_result_audit,
     ]
 

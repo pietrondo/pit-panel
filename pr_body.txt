@@ -1,0 +1,8 @@
+🎯 **What:**
+The `_sanitize` function for EAB configurations in `src/pit_panel/web/routes/ssl.py` used a regular expression `re.sub(r"[\r\n\"\'{}\`\\]", "", val)` that failed to properly strip raw `\n` and `\r` control characters from user inputs due to complex character class evaluation in the regex. This has been replaced with an explicit iteration loop that uses `.replace()` over all strictly prohibited characters.
+
+⚠️ **Risk:**
+If left unfixed, attackers could input raw newlines into Caddy configuration parameters (e.g., `eab_hmac` or `eab_key_id`) from requests to break out of the configured issuer definitions. This enables arbitrary Caddyfile Directive Injection, which could allow malicious users to overwrite proxies, redirect traffic, or serve malicious content, compromising the integrity of the server proxy routing logic.
+
+🛡️ **Solution:**
+Replaced the regular expression matching with an explicit list iteration using `replace()` targeting all dangerous characters `["\r", "\n", '"', "'", "{", "}", "`", "\\"]`. This ensures inputs are safely stripped without relying on potentially brittle regex character class parsers or escape interpretations. Verified against unit tests successfully.

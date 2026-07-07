@@ -55,14 +55,14 @@ async def settings_update(
     new_base = base_domain.strip()
     new_panel = panel_subdomain.strip() or "panel"
 
-    if new_base and not re.match(r"^[a-zA-Z0-9.-]+$", new_base):
+    if new_base and not re.match(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", new_base):
         return HTMLResponse("Invalid base domain", status_code=400)
-    if new_panel and not re.match(r"^[a-zA-Z0-9.-]+$", new_panel):
+    if new_panel and not re.match(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", new_panel):
         return HTMLResponse("Invalid panel subdomain", status_code=400)
     new_host = "127.0.0.1" if new_base else "0.0.0.0"
 
     # Store in DB (no filesystem write needed)
-    for key, val in [
+    updates = [
         ("base_domain", new_base),
         ("panel_subdomain", new_panel),
         ("host", new_host),
@@ -70,12 +70,15 @@ async def settings_update(
         ("sudo_password", sudo_password),
         ("telegram_bot_token", telegram_bot_token.strip()),
         ("telegram_chat_id", telegram_chat_id.strip()),
-    ]:
-        result = await db.execute(select(SystemSettings).where(SystemSettings.key == key))
-        row = result.scalar_one_or_none()
-        if row:
-            row.value = {"v": val}
-            row.updated_by = user.id
+    ]
+    keys = [u[0] for u in updates]
+    result = await db.execute(select(SystemSettings).where(SystemSettings.key.in_(keys)))
+    existing_rows = {row.key: row for row in result.scalars().all()}
+
+    for key, val in updates:
+        if key in existing_rows:
+            existing_rows[key].value = {"v": val}
+            existing_rows[key].updated_by = user.id
         else:
             db.add(SystemSettings(key=key, value={"v": val}, updated_by=user.id))
     await db.commit()

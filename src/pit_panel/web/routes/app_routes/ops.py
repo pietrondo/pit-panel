@@ -311,6 +311,7 @@ async def app_backup_get(request: Request, sd_id: int, db: AsyncSession = Depend
         backups_json=_json.dumps(backups),
     )
 
+
 @router.post("/apps/{sd_id}/backup/run", response_class=HTMLResponse)
 async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
@@ -508,7 +509,7 @@ async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(g
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if not sd:
-        return "<div class='text-red-500'>App not found</div>"
+        return HTMLResponse("<div class='text-red-500'>App not found</div>")
 
     settings = get_settings()
     env_path = os.path.join(settings.apps_dir, sd.subdomain, ".env")
@@ -541,13 +542,15 @@ async def app_env_post(
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if not sd:
-        return "<div class='text-red-500'>App not found</div>"
+        return HTMLResponse("<div class='text-red-500'>App not found</div>")
 
     settings = get_settings()
     env_path = os.path.join(settings.apps_dir, sd.subdomain, ".env")
 
     if any(c in env_content for c in ['"', "'"]):
         return HTMLResponse("Quotes are not allowed to prevent quote evasion.", status_code=400)
+    if any(c in env_content for c in ["$", "`", "\\"]):
+        return HTMLResponse("Shell operators are not allowed.", status_code=400)
 
     error = None
     success = None

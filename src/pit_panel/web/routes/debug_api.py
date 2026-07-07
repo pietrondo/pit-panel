@@ -40,7 +40,6 @@ async def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str
     return (res.stdout + res.stderr).strip() or "(empty)"
 
 
-
 @router.get("/api/debug/logs")  # type: ignore[untyped-decorator]
 async def debug_logs(
     request: Request,

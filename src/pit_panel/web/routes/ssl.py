@@ -50,8 +50,10 @@ DNS_PROVIDERS = [
 def _sanitize(val: str) -> str:
     if not val:
         return ""
-    # Strip dangerous characters that could break out of a Caddyfile value
-    return re.sub(r"[\r\n\"\'{}\`\\]", "", val)
+    # Ensure any user input failing validation instantly aborts execution
+    if re.search(r"[\r\n\"\'\{\}\`\\]", val):
+        raise ValueError("Invalid characters in input")
+    return val
 
 
 def _get_acme_config(
@@ -136,6 +138,11 @@ class SSLGenerateForm:
 
 def _generate_caddyfile(config: CaddyfileConfig) -> str:
     """Generate a Caddyfile string based on the provided configuration."""
+    if not re.match(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", config.domain):
+        raise ValueError("Invalid domain name")
+    if not re.match(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", config.panel_sub):
+        raise ValueError("Invalid panel subdomain")
+
     email = _sanitize(config.email)
     domain = _sanitize(config.domain)
     panel_sub = _sanitize(config.panel_sub)
@@ -269,7 +276,11 @@ async def ssl_generate(
         eab_key_id=form.eab_key_id,
         eab_hmac=form.eab_hmac,
     )
-    caddyfile = _generate_caddyfile(caddy_config)
+
+    try:
+        caddyfile = _generate_caddyfile(caddy_config)
+    except ValueError as e:
+        return HTMLResponse(f"Error: {e}", status_code=400)
 
     caddy = CaddyManager(settings.caddy_admin_url)
     result_msg = await caddy.generate_and_reload(caddyfile, CADDYFILE_PATH)

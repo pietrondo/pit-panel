@@ -53,13 +53,22 @@ def test_system_page(client: TestClient, auth_headers: dict):
     assert b"System" in response.content
 
 
+@patch("pit_panel.web.routes.system._get_git_info", new_callable=AsyncMock)
 @patch("shutil.which")
 @patch("pit_panel.web.routes.system._run")
 @patch("pit_panel.web.routes.system._sudo")
 @patch("subprocess.Popen")
 def test_system_upgrade(
-    mock_popen, mock_sudo, mock_run, mock_which, client: TestClient, auth_headers: dict
+    mock_popen,
+    mock_sudo,
+    mock_run,
+    mock_which,
+    mock_git_info,
+    client: TestClient,
+    auth_headers: dict,
 ):
+    mock_git_info.return_value = ("mocked_current", "mocked_remote")
+
     class MockResult:
         def __init__(self, returncode=0, stdout="", stderr=""):
             self.returncode = returncode
