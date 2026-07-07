@@ -1,3 +1,4 @@
+import html
 """App deployment main routes: list, analyze, deploy, detail."""
 
 import asyncio
@@ -151,28 +152,17 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
 ''')
 
 
-@router.post("/apps/deploy", response_class=HTMLResponse)
-async def app_deploy(
-    request: Request,
-    subdomain_id: int = Form(-1),
-    new_subdomain: str = Form(""),
-    stack_type: str = Form(...),
-    port: int = Form(8000),
-    is_main_domain: bool = Form(False),
-    db: AsyncSession = Depends(get_db),
+async def _resolve_subdomain(
+    db: AsyncSession,
+    user_id: int,
+    settings,
+    is_main_domain: bool,
+    subdomain_id: int,
+    new_subdomain: str,
 ):
-    user = await get_user(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=302)
-
-    settings = get_settings()
-    mgr = AppManager(settings.apps_dir)
-    docker_mgr = DockerManager(settings.apps_dir)
-
     sd = None
     error = None
 
-    # Resolve subdomain: use existing by ID or create new
     if is_main_domain:
         if not settings.base_domain:
             error = "Base domain not configured. Set it in Settings."
@@ -191,7 +181,7 @@ async def app_deploy(
                 sd = Subdomain(
                     subdomain="_main_",
                     base_domain=settings.base_domain,
-                    owner_user_id=user.id,
+                    owner_user_id=user_id,
                     is_main_domain=True,
                 )
                 db.add(sd)
@@ -220,7 +210,7 @@ async def app_deploy(
                     sd = Subdomain(
                         subdomain=name,
                         base_domain=settings.base_domain,
-                        owner_user_id=user.id,
+                        owner_user_id=user_id,
                     )
                     db.add(sd)
                     await db.flush()
@@ -228,39 +218,13 @@ async def app_deploy(
         error = "Select an existing subdomain or enter a new name"
 
     if error or not sd:
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
-        subdomains = result.scalars().all()
-        templates = mgr.list_templates()
-        template_infos = [{"name": t, "meta": mgr.get_template_info(t)} for t in templates]
-        return render(
-            "apps.html",
-            user=user,
-            settings=settings,
-            subdomains=subdomains,
-            templates=templates,
-            template_infos=template_infos,
-            error=error,
-            detected=None,
-        )
+        return HTMLResponse(f"<div class='text-red-500'>{html.escape(error or 'App not found')}</div>")
 
     # Deploy template
     try:
         mgr.deploy_template(sd.subdomain, stack_type, variables={"PORT": str(port)})
     except ValueError as e:
-        result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
-        subdomains = result.scalars().all()
-        tpls = mgr.list_templates()
-        infos = [{"name": t, "meta": mgr.get_template_info(t)} for t in tpls]
-        return render(
-            "apps.html",
-            user=user,
-            settings=settings,
-            subdomains=subdomains,
-            templates=tpls,
-            template_infos=infos,
-            error=str(e),
-            detected=None,
-        )
+        return HTMLResponse(f"<div class='text-red-500'>{html.escape(str(e))}</div>")
 
     # Docker compose up
     compose_ok = False
@@ -276,59 +240,11 @@ async def app_deploy(
 
     # Auto-setup WordPress
     if compose_ok and stack_type == "wordpress" and settings.base_domain:
-        fqdn = f"{sd.subdomain}.{settings.base_domain}"
-        try:
-            env_path = Path(settings.apps_dir) / sd.subdomain / ".env"
-            env_vars = {}
-            if env_path.exists():
-                for line in env_path.read_text().splitlines():
-                    if "=" in line:
-                        k, v = line.split("=", 1)
-                        env_vars[k.strip()] = v.strip()
-            import shlex
-
-            wp_title = shlex.quote(env_vars.get("WP_TITLE", "My Blog"))
-            wp_user = shlex.quote(env_vars.get("WP_ADMIN_USER", "admin"))
-            wp_pass = shlex.quote(env_vars.get("WP_ADMIN_PASSWORD", "admin"))
-            wp_email = shlex.quote(env_vars.get("WP_ADMIN_EMAIL", "admin@localhost"))
-            wp_locale = shlex.quote(env_vars.get("WP_LOCALE", "it_IT"))
-            fqdn_q = shlex.quote(f"https://{fqdn}")
-            await asyncio.sleep(8)
-            await docker_mgr.exec_command(
-                sd.subdomain,
-                "wordpress",
-                [
-                    "sh",
-                    "-c",
-                    f"curl -sSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
-                    f" -o /tmp/wp-cli.phar"
-                    f" && php /tmp/wp-cli.phar core install"
-                    f" --url={fqdn_q}"
-                    f" --title={wp_title}"
-                    f" --admin_user={wp_user}"
-                    f" --admin_password={wp_pass}"
-                    f" --admin_email={wp_email}"
-                    f" --locale={wp_locale}"
-                    f" --skip-email"
-                    f" && rm /tmp/wp-cli.phar",
-                ],
-            )
-        except Exception as e:
-            logger.warning(f"WordPress auto-setup failed: {e}")
+        await _auto_setup_wordpress(settings, sd, docker_mgr)
 
     # Caddy route
     if settings.base_domain:
-        try:
-            caddy = CaddyManager(settings.caddy_admin_url)
-            if sd.is_main_domain:
-                await caddy.add_main_domain(settings.base_domain, port=port)
-            elif sd.app_type != stack_type:
-                await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
-                fqdn = f"{sd.subdomain}.{settings.base_domain}"
-                await caddy.renew_certificate(fqdn)
-        except Exception as e:
-            logger.error(f"Caddy route error for {sd.subdomain}: {e}")
-            error = (error or "") + f" | Caddy route error: {e}"
+        error = await _setup_caddy_route(settings, sd, port, error, stack_type)
 
     sd.app_type = stack_type
     sd.last_deployed = datetime.datetime.now(datetime.UTC)
