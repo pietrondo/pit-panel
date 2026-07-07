@@ -674,6 +674,9 @@ async def app_env_post(
     if any(c in env_content for c in ['"', "'"]):
         return HTMLResponse("Quotes are not allowed to prevent quote evasion.", status_code=400)
 
+    if "`" in env_content or "$(" in env_content:
+        return HTMLResponse("Shell command execution syntax is not allowed.", status_code=400)
+
     error = None
     success = None
     try:
