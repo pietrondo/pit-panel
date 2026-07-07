@@ -49,6 +49,14 @@
         <p class="text-lg font-bold text-gray-900 dark:text-white">{{ certs|length }}</p>
         <p class="text-xs text-gray-500 mt-1">Active Let's Encrypt certs</p>
     </div>
+    <div class="stat-card border-blue-200 dark:border-blue-800">
+        <span class="stat-label">Auto-Renew</span>
+        <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ 'Active' if last_ssl_renew_check else 'Starting...' }}</p>
+        <p class="text-xs text-gray-500 mt-1">
+            {% if last_ssl_renew_check %}Last check: {{ last_ssl_renew_check.strftime('%Y-%m-%d %H:%M') }}{% else %}First check in ~6h{% endif %}
+            &middot; Renew at {{ settings.ssl_auto_renew_days }} days
+        </p>
+    </div>
 </div>
 
 <!-- SSL Wizard -->
@@ -141,6 +149,68 @@
         <p>3. Run: <code class="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">sudo systemctl restart caddy</code></p>
         <p class="text-xs mt-2">Note: pit-panel manages subdomain routes via Caddy admin API automatically.</p>
     </div>
+</div>
+
+<!-- Auto-SSL Info -->
+<div class="card mb-6 bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800">
+    <div class="px-6 py-4 border-b border-green-200 dark:border-green-800">
+        <h2 class="text-lg font-semibold text-green-900 dark:text-green-100">Auto-SSL for Subdomains</h2>
+    </div>
+    <div class="p-6 text-sm text-green-800 dark:text-green-200">
+        <p class="mb-2">SSL certificates are automatically requested when a subdomain is created. Caddy handles the ACME challenge in the background.</p>
+        <p>If a subdomain already exists but has no cert yet, click <strong>Renew</strong> below to trigger certificate issuance.</p>
+    </div>
+</div>
+
+{% if subdomains %}
+<!-- Existing Subdomains -->
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Existing Subdomains</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subdomain</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
+                    <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                    <th class="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for sd in subdomains %}
+                <tr>
+                    <td class="px-6 py-3 text-xs font-mono text-gray-900 dark:text-white">{{ sd.subdomain }}.{{ sd.base_domain }}</td>
+                    <td class="px-6 py-3 text-xs text-gray-500">{{ sd.app_type or '-' }}</td>
+                    <td class="px-6 py-3">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if sd.status == 'active' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                            {% else %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+                            {{ sd.status }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-3 text-right">
+                        <form method="POST" action="/ssl/renew" class="inline">
+                            <input type="hidden" name="domain" value="{{ sd.subdomain }}.{{ sd.base_domain }}">
+                            <button class="btn-ghost text-xs text-orange-600">Get SSL Cert</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="mb-6">
+    <form method="POST" action="/ssl/renew-all" class="inline">
+        <button class="btn-ghost text-sm text-indigo-600 flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Re-add all Caddy routes &amp; renew SSL
+        </button>
+    </form>
 </div>
 
 <!-- Active Certificates -->

@@ -1,0 +1,10 @@
+{
+    "name": "calibre-web",
+    "display_name": "Calibre Web",
+    "version": "latest",
+    "description": "Gestione e lettura ebook stile Zotero. Organizza per autore/serie/tag, leggi nel browser, OPDS, note, ricerca full-text.",
+    "icon": "📚",
+    "requires_db": false,
+    "default_port": 8088,
+    "admin_path": "/"
+}

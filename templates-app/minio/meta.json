@@ -1,0 +1,9 @@
+{
+    "name": "minio",
+    "display_name": "MinIO",
+    "version": "latest",
+    "description": "S3-compatible object storage for photos, videos, backups, and static files.",
+    "icon": "📦",
+    "requires_db": false,
+    "default_port": 9000
+}

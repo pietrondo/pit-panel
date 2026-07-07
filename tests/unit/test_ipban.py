@@ -1,26 +1,16 @@
 import datetime as dt
+from typing import Any
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from pit_panel.db.models import Base, IPBan, LoginAttempt
+from pit_panel.db.models import IPBan, LoginAttempt, User
 from pit_panel.security.ipban import ban_ip, is_ip_banned
 
 
-@pytest.fixture
-async def db_session():
-    engine = create_async_engine("sqlite+aiosqlite://")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
-    async with sessionmaker() as db:
-        yield db
-
-
 class TestIPBanModel:
-    @pytest.mark.asyncio
-    async def test_create_ban(self, db_session):
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_create_ban(self: Any, db_session: Any) -> None:
         ban = IPBan(ip_address="10.0.0.5", reason="test", failed_attempts=3)
         db_session.add(ban)
         await db_session.commit()
@@ -31,8 +21,8 @@ class TestIPBanModel:
         assert ban.reason == "test"
         assert ban.failed_attempts == 3
 
-    @pytest.mark.asyncio
-    async def test_ban_expiry(self, db_session):
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_ban_expiry(self: Any, db_session: Any) -> None:
         expires = dt.datetime.now(dt.UTC) + dt.timedelta(minutes=30)
         ban = IPBan(ip_address="10.0.0.6", reason="auto", expires_at=expires)
         db_session.add(ban)
@@ -45,8 +35,8 @@ class TestIPBanModel:
 
 
 class TestLoginAttemptModel:
-    @pytest.mark.asyncio
-    async def test_create_attempt(self, db_session):
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_create_attempt(self: Any, db_session: Any) -> None:
         attempt = LoginAttempt(ip_address="1.2.3.4", username="admin", success=False)
         db_session.add(attempt)
         await db_session.commit()
@@ -56,8 +46,8 @@ class TestLoginAttemptModel:
         assert not attempt.success
         assert attempt.username == "admin"
 
-    @pytest.mark.asyncio
-    async def test_multiple_attempts(self, db_session):
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_multiple_attempts(self: Any, db_session: Any) -> None:
         for _ in range(5):
             db_session.add(LoginAttempt(ip_address="5.5.5.5", username="user", success=False))
         await db_session.commit()
@@ -69,15 +59,15 @@ class TestLoginAttemptModel:
 
 
 class TestIPBanLogic:
-    @pytest.mark.asyncio
-    async def test_is_ip_banned_false(self, db_session):
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_is_ip_banned_false(self: Any, db_session: Any) -> None:
         from pit_panel.security.ipban import is_ip_banned
 
         banned = await is_ip_banned(db_session, "10.0.0.1")
         assert not banned
 
-    @pytest.mark.asyncio
-    async def test_is_ip_banned_true(self, db_session):
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_is_ip_banned_true(self: Any, db_session: Any) -> None:
         from pit_panel.security.ipban import is_ip_banned
 
         ban = IPBan(ip_address="10.0.0.2", reason="test", failed_attempts=5)
@@ -87,8 +77,8 @@ class TestIPBanLogic:
         banned = await is_ip_banned(db_session, "10.0.0.2")
         assert banned
 
-    @pytest.mark.asyncio
-    async def test_record_login_failure_triggers_ban(self, db_session):
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_record_login_failure_triggers_ban(self: Any, db_session: Any) -> None:
         from pit_panel.security.ipban import is_ip_banned, record_login_attempt
 
         for _ in range(5):
@@ -97,8 +87,8 @@ class TestIPBanLogic:
         banned = await is_ip_banned(db_session, "192.168.1.100")
         assert banned
 
-    @pytest.mark.asyncio
-    async def test_successful_login_no_ban(self, db_session):
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_successful_login_no_ban(self: Any, db_session: Any) -> None:
         from pit_panel.security.ipban import is_ip_banned, record_login_attempt
 
         await record_login_attempt(db_session, "192.168.1.200", "admin", True)
@@ -107,8 +97,8 @@ class TestIPBanLogic:
         banned = await is_ip_banned(db_session, "192.168.1.200")
         assert not banned
 
-    @pytest.mark.asyncio
-    async def test_unban_ip(self, db_session):
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_unban_ip(self: Any, db_session: Any) -> None:
         from pit_panel.security.ipban import is_ip_banned, unban_ip
 
         ban = IPBan(ip_address="10.0.0.99", reason="test")
@@ -119,8 +109,8 @@ class TestIPBanLogic:
         await unban_ip(db_session, "10.0.0.99")
         assert not await is_ip_banned(db_session, "10.0.0.99")
 
-    @pytest.mark.asyncio
-    async def test_get_banned_ips(self, db_session):
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_get_banned_ips(self: Any, db_session: Any) -> None:
         from pit_panel.security.ipban import get_banned_ips
 
         db_session.add(IPBan(ip_address="10.0.0.10", reason="a"))
@@ -132,7 +122,7 @@ class TestIPBanLogic:
 
 
 class TestSecurityApp:
-    def test_security_routes_registered(self, settings):
+    def test_security_routes_registered(self: Any, settings: Any) -> None:
         from pit_panel.web.app import create_app
 
         app = create_app(settings)
@@ -142,9 +132,45 @@ class TestSecurityApp:
         assert "/security/revoke-session" in paths
         assert "/security/ban-ip" in paths
 
+    @pytest.mark.asyncio  # type: ignore[untyped-decorator]
+    async def test_security_overview_degrades_when_db_panels_fail(
+        self: Any, monkeypatch: Any
+    ) -> None:
+        from pit_panel.web.routes import security
 
-@pytest.mark.asyncio
-async def test_ban_ip_adds_record(db_session):
+        class BrokenDb:
+            def __init__(self) -> None:
+                self.rollback_calls = 0
+
+            async def execute(self, *args: Any, **kwargs: Any) -> Any:
+                raise RuntimeError("missing table")
+
+            async def rollback(self) -> None:
+                self.rollback_calls += 1
+
+        async def mock_firewall_status() -> Any:
+            return {"active": False, "rules": []}
+
+        async def mock_fail2ban_status() -> Any:
+            return {"active": False, "jails": []}
+
+        monkeypatch.setattr(security, "_firewall_status", mock_firewall_status)
+        monkeypatch.setattr(security, "_fail2ban_status", mock_fail2ban_status)
+
+        db = BrokenDb()
+        response = await security._render_security_page(
+            None,
+            db,
+            User(id=1, username="admin", is_admin=True),
+        )
+
+        assert response.status_code == 200
+        assert "Security" in response.body.decode()
+        assert db.rollback_calls >= 1
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+async def test_ban_ip_adds_record(db_session: Any) -> None:
     result = await ban_ip(db_session, "1.2.3.4", "test ban", 60)
     assert result is True
 
@@ -152,15 +178,15 @@ async def test_ban_ip_adds_record(db_session):
     assert banned is True
 
 
-@pytest.mark.asyncio
-async def test_ban_ip_duplicate_rejected(db_session):
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+async def test_ban_ip_duplicate_rejected(db_session: Any) -> None:
     await ban_ip(db_session, "1.2.3.4", "first", 60)
     result = await ban_ip(db_session, "1.2.3.4", "second", 120)
     assert result is False
 
 
-@pytest.mark.asyncio
-async def test_ban_ip_no_expiry(db_session):
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+async def test_ban_ip_no_expiry(db_session: Any) -> None:
     await ban_ip(db_session, "5.6.7.8", "permanent", duration_minutes=60)
     check = await db_session.execute(select(IPBan).where(IPBan.ip_address == "5.6.7.8"))
     ban = check.scalar_one_or_none()
@@ -169,7 +195,7 @@ async def test_ban_ip_no_expiry(db_session):
 
 
 class TestSystemApp:
-    def test_system_routes_registered(self, settings):
+    def test_system_routes_registered(self: Any, settings: Any) -> None:
         from pit_panel.web.app import create_app
 
         app = create_app(settings)
@@ -178,8 +204,8 @@ class TestSystemApp:
         assert "/system/upgrade" in paths
 
 
-@pytest.mark.asyncio
-async def test_ban_ips_bulk(db_session):
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+async def test_ban_ips_bulk(db_session: Any) -> None:
     from pit_panel.security.ipban import ban_ips_bulk, is_ip_banned
 
     ips = ["1.1.1.1", "1.1.1.2", "1.1.1.3"]

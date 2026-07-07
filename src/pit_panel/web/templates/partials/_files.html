@@ -1,0 +1,31 @@
+<div class="flex gap-4 h-[70vh]">
+    <div class="w-64 shrink-0 border-r border-gray-200 dark:border-gray-700 overflow-y-auto text-sm">
+        <div class="p-2 font-medium text-gray-500 text-xs uppercase tracking-wider">{{ app_dir_name }}</div>
+        {% if parent %}
+        <a href="?path={{ parent }}" class="flex items-center gap-1.5 px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 text-indigo-600"
+           hx-get="/apps/{{ sd.id }}/files?path={{ parent }}" hx-target="#file-manager" hx-swap="innerHTML">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            ..
+        </a>
+        {% endif %}
+        {% for e in entries %}
+        <div class="flex items-center gap-1.5 px-2 py-0.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded {% if e.is_dir %}font-medium{% endif %}">
+            <span class="text-gray-400 shrink-0">{{ '📁' if e.is_dir else '📄' }}</span>
+            {% if e.is_dir %}
+            <a href="?path={{ current + '/' + e.name if current else e.name }}" class="truncate"
+               hx-get="/apps/{{ sd.id }}/files?path={{ current + '/' + e.name if current else e.name }}" hx-target="#file-manager" hx-swap="innerHTML">{{ e.name }}</a>
+            {% else %}
+            <a href="?path={{ current + '/' + e.name if current else e.name }}" class="truncate"
+               hx-get="/apps/{{ sd.id }}/files?path={{ current + '/' + e.name if current else e.name }}" hx-target="#file-manager" hx-swap="innerHTML">{{ e.name }}</a>
+            <span class="text-xs text-gray-400 ml-auto">{{ '{:,}'.format(e.size) if e.size else '' }}</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% if not entries %}
+        <div class="p-2 text-gray-500 text-xs">Empty directory</div>
+        {% endif %}
+    </div>
+    <div class="flex-1 flex items-center justify-center text-gray-500 text-sm">
+        Select a file to view
+    </div>
+</div>

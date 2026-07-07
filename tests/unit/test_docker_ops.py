@@ -15,6 +15,29 @@ def mock_proc():
 
 
 @pytest.mark.asyncio
+async def test_containers_count(mock_proc: AsyncMock) -> None:
+    mgr = DockerManager()
+    mock_proc.communicate.return_value = (b"running\nexited\nrunning\n", b"")
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
+        total, running = await mgr.containers_count()
+        assert total == 3
+        assert running == 2
+        mock_exec.assert_called_once()
+        assert "docker" in mock_exec.call_args[0]
+        assert "ps" in mock_exec.call_args[0]
+        assert "{{.State}}" in mock_exec.call_args[0]
+
+
+@pytest.mark.asyncio
+async def test_containers_count_oserror(mock_proc: AsyncMock) -> None:
+    mgr = DockerManager()
+    with patch("asyncio.create_subprocess_exec", side_effect=OSError("Exec failed")):
+        total, running = await mgr.containers_count()
+        assert total == 0
+        assert running == 0
+
+
+@pytest.mark.asyncio
 async def test_run_compose_command_up_success(mock_proc):
     manager = DockerManager()
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
@@ -257,3 +280,56 @@ async def test_container_logs_live(mock_proc):
         )
     assert "[2025-06-25T10:00:00Z] Started" in result
     assert "warning: deprecated" in result
+
+
+@pytest.mark.asyncio
+async def test_exec_command_no_env(mock_proc):
+    manager = DockerManager()
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
+        result = await manager.exec_command("test_app", "web", ["ls", "-l"])
+        mock_exec.assert_called_once_with(
+            "docker",
+            "compose",
+            "-f",
+            str(manager.apps_dir / "test_app" / "docker-compose.yml"),
+            "exec",
+            "-T",
+            "web",
+            "ls",
+            "-l",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(manager.apps_dir / "test_app"),
+        )
+        assert result == {"success": True, "stdout": "stdout_mock", "stderr": "stderr_mock"}
+
+
+@pytest.mark.asyncio
+async def test_exec_command_with_env(mock_proc):
+    manager = DockerManager()
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
+        result = await manager.exec_command(
+            "test_app",
+            "web",
+            ["ls", "-l"],
+            env={"VAR1": "val1", "VAR2": "val2"},
+        )
+        mock_exec.assert_called_once_with(
+            "docker",
+            "compose",
+            "-f",
+            str(manager.apps_dir / "test_app" / "docker-compose.yml"),
+            "exec",
+            "-T",
+            "-e",
+            "VAR1=val1",
+            "-e",
+            "VAR2=val2",
+            "web",
+            "ls",
+            "-l",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(manager.apps_dir / "test_app"),
+        )
+        assert result == {"success": True, "stdout": "stdout_mock", "stderr": "stderr_mock"}

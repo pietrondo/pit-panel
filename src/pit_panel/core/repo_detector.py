@@ -27,20 +27,33 @@ async def analyze_repo(repo_url: str) -> DetectedStack:
 
 
 async def clone_repo(repo_url: str) -> Path:
+    import re
+
+    if repo_url.startswith("-"):
+        raise ValueError("Invalid repository URL format.")
+    if not re.match(r"^(https?|git)://[a-zA-Z0-9.-]+", repo_url):
+        raise ValueError("Invalid repository URL format.")
+
     dest = Path(tempfile.mkdtemp(prefix="pit-panel-repo-"))
-    proc = await asyncio.create_subprocess_exec(
-        "git",
-        "clone",
-        "--depth",
-        "1",
-        repo_url,
-        str(dest),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    _, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
-    if proc.returncode != 0:
-        raise ValueError(f"Git clone failed: {stderr.decode(errors='replace')[:500]}")
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--",
+            repo_url,
+            str(dest),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
+        if proc.returncode != 0:
+            raise ValueError(f"Git clone failed: {stderr.decode(errors='replace')[:500]}")
+    except TimeoutError as e:
+        raise ValueError(f"Git clone timed out for repository: {repo_url}") from e
+    except OSError as e:
+        raise ValueError(f"Git executable not found or inaccessible: {e}") from e
     return dest
 
 

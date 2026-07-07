@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+            🖥️ Terminal — {{ sd.subdomain }} / {{ service }}
+        </h2>
+        <a href="/apps/{{ sd.id }}" class="btn-ghost text-sm text-gray-500">← Back to app</a>
+    </div>
+    <div id="terminal-container" class="p-2 bg-black rounded-b-lg"></div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.5.0/css/xterm.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+
+<script>
+(function() {
+    const term = new Terminal({
+        cursorBlink: true,
+        fontSize: 13,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        theme: { background: '#000', foreground: '#f0f0f0' },
+        cols: 80,
+        rows: 24,
+    });
+    const fit = new FitAddon.FitAddon();
+    term.loadAddon(fit);
+    term.open(document.getElementById('terminal-container'));
+    fit.fit();
+
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(proto + '//' + location.host + '/apps/{{ sd.id }}/terminal/ws');
+
+    ws.onopen = () => term.focus();
+    ws.onmessage = (e) => term.write(e.data);
+    ws.onclose = () => term.write('\r\n\x1b[31mConnection closed\x1b[0m');
+
+    term.onData((data) => { if (ws.readyState === WebSocket.OPEN) ws.send(data); });
+
+    window.addEventListener('resize', () => fit.fit());
+    window.addEventListener('beforeunload', () => ws.close());
+})();
+</script>
+
+<style>
+#terminal-container .xterm { height: 100%; padding: 4px; }
+#terminal-container .xterm-viewport { scrollbar-width: thin; }
+</style>
+{% endblock %}

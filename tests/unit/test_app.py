@@ -16,13 +16,17 @@ async def test_internal_lifespan_creates_cancels_task():
 
     with (
         patch("asyncio.create_task", return_value=mock_task) as mock_create,
+        patch("pit_panel.core.backup.scheduled_backup_loop", new_callable=MagicMock),
         patch("pit_panel.core.blocklist.daily_blocklist_import", new_callable=MagicMock),
+        patch("pit_panel.core.caddy.ssl_auto_renew_loop", new_callable=MagicMock),
+        patch("pit_panel.core.health.docker_health_monitor_loop", new_callable=MagicMock),
+        patch("pit_panel.core.backup.scheduled_backup_loop", new_callable=MagicMock),
     ):
         async with _lifespan(app):
-            mock_create.assert_called_once()
+            assert mock_create.call_count == 4
             mock_task.cancel.assert_not_called()
 
             # satisfy the await task
             mock_task.set_result(None)
 
-        mock_task.cancel.assert_called_once()
+        assert mock_task.cancel.call_count == 4

@@ -1,0 +1,10 @@
+{
+    "name": "plane",
+    "display_name": "Plane",
+    "version": "latest",
+    "description": "Project management tool stile Jira. Sprint planning, issue tracking, roadmap, cicli, dashboards, e team collaboration. Moderno e open-source.",
+    "icon": "🎯",
+    "requires_db": true,
+    "default_port": 8087,
+    "admin_path": "/"
+}

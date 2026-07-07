@@ -1,0 +1,9 @@
+{
+    "name": "meilisearch",
+    "display_name": "Meilisearch",
+    "version": "latest",
+    "description": "Lightning-fast search engine. Typo-tolerant, instant, and customizable.",
+    "icon": "🔍",
+    "requires_db": false,
+    "default_port": 7700
+}

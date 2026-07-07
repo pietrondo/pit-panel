@@ -1,46 +1,504 @@
-from pit_panel.web.routes.ssl import CaddyfileConfig, _generate_caddyfile, _sanitize
+import unittest.mock as mock
+
+import pytest
+
+from pit_panel.web.routes.ssl import (
+    CaddyfileConfig,
+    SSLGenerateForm,
+    _check_caddy_running,
+    _check_port80,
+    _generate_caddyfile,
+    _get_acme_config,
+    _get_tls_block,
+    _sanitize,
+    ssl_generate,
+    ssl_renew,
+    ssl_renew_all,
+    ssl_setup,
+)
 
 
-def test_sanitize_removes_dangerous_characters():
-    assert _sanitize('test"test') == "testtest"
-    assert _sanitize("test\ntest") == "testtest"
-    assert _sanitize("test\rtest") == "testtest"
-    assert _sanitize("test{test}") == "testtest"
-    assert _sanitize('a\nb\rc"d{e}f') == "abcdef"
+def test_sanitize_removes_dangerous_characters() -> None:
+    import pytest
+
+    for bad in ['test"test', "test\ntest", "test\rtest", "test{test}", 'a\nb\rc"d{e}f']:
+        with pytest.raises(ValueError, match="Invalid characters in input"):
+            _sanitize(bad)
     assert _sanitize("") == ""
 
 
-def test_generate_caddyfile_prevents_injection():
+def test_generate_caddyfile_prevents_injection() -> None:
+    import pytest
+
     malicious_email = "admin@a.com\nmalicious_directive"
-    caddyfile = _generate_caddyfile(
-        CaddyfileConfig(
-            email=malicious_email,
-            domain="example.com",
-            panel_sub="panel",
-            dns_provider="cloudflare",
+    with pytest.raises(ValueError, match="Invalid characters in input"):
+        _generate_caddyfile(
+            CaddyfileConfig(
+                email=malicious_email,
+                domain="example.com",
+                panel_sub="panel",
+                dns_provider="cloudflare",
+            )
         )
-    )
-    assert "admin@a.commalicious_directive" in caddyfile
-    assert "\nmalicious_directive" not in caddyfile
 
     malicious_eab = 'key"\nother_directive {'
-    caddyfile2 = _generate_caddyfile(
-        CaddyfileConfig(
-            email="admin@a.com",
-            domain="example.com",
-            panel_sub="panel",
-            dns_provider="",
-            acme_provider="zerossl",
-            eab_key_id=malicious_eab,
-            eab_hmac="hmac",
+    with pytest.raises(ValueError, match="Invalid characters in input"):
+        _generate_caddyfile(
+            CaddyfileConfig(
+                email="admin@a.com",
+                domain="example.com",
+                panel_sub="panel",
+                dns_provider="",
+                acme_provider="zerossl",
+                eab_key_id=malicious_eab,
+                eab_hmac="hmac",
+            )
         )
+
+
+def test_sanitize_removes_backslashes() -> None:
+    import pytest
+
+    for bad in ["test\\test", "test\rtest", "test\ntest", 'a\\b\\c"d{e}f`']:
+        with pytest.raises(ValueError, match="Invalid characters in input"):
+            _sanitize(bad)
+
+
+def test_get_acme_config() -> None:
+    assert _get_acme_config("buypass", "", "") == "issuer buypass"
+    assert _get_acme_config("google", "key", "hmac") == 'issuer google {eab "key" "hmac"}'
+    assert _get_acme_config("unknown", "", "") == ""
+
+
+def test_get_tls_block() -> None:
+    assert _get_tls_block("", "", "") == ""
+
+
+def test_ssl_generate_form_as_form() -> None:
+    form = SSLGenerateForm.as_form(email="test@example.com")
+    assert form.email == "test@example.com"
+
+
+def test_generate_caddyfile_no_dns_no_acme_clause() -> None:
+
+    config = CaddyfileConfig(
+        email="test@example.com",
+        domain="example.com",
+        panel_sub="panel",
+        dns_provider="",
+        acme_provider="letsencrypt",
     )
-    assert "\n" not in _sanitize(malicious_eab)
-    assert 'eab "keyother_directive " "hmac"' in caddyfile2
+    caddyfile = _generate_caddyfile(config)
+    assert "panel.example.com {" in caddyfile
 
 
-def test_sanitize_removes_backslashes():
-    assert _sanitize("test\\test") == "testtest"
-    assert _sanitize("test\rtest") == "testtest"
-    assert _sanitize("test\ntest") == "testtest"
-    assert _sanitize('a\\b\\c"d{e}f`') == "abcdef"
+@mock.patch("subprocess.run")
+def test_check_caddy_running(mock_run: mock.MagicMock) -> None:
+    mock_run.return_value.returncode = 0
+    assert _check_caddy_running() is True
+
+    mock_run.return_value.returncode = 1
+    assert _check_caddy_running() is False
+
+    mock_run.side_effect = Exception("error")
+    assert _check_caddy_running() is False
+
+
+@mock.patch("socket.socket")
+def test_check_port80(mock_socket: mock.MagicMock) -> None:
+    mock_s = mock.MagicMock()
+    mock_socket.return_value = mock_s
+    assert _check_port80() is True
+
+    mock_s.bind.side_effect = OSError("error")
+    assert _check_port80() is False
+
+
+class MockRequest:
+    def __init__(self, session: dict[str, str] | None = None) -> None:
+        self.session = session or {}
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+async def test_ssl_setup_no_user(mock_get_admin: mock.MagicMock) -> None:
+    mock_get_admin.return_value = None
+    req = MockRequest()
+    db = mock.AsyncMock()
+    resp = await ssl_setup(req, db)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == "/login"
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+async def test_ssl_generate_no_user(mock_get_admin: mock.MagicMock) -> None:
+    mock_get_admin.return_value = None
+    req = MockRequest()
+    form = SSLGenerateForm()
+    db = mock.AsyncMock()
+    resp = await ssl_generate(req, form, db)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == "/login"
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+async def test_ssl_renew_no_user(mock_get_admin: mock.MagicMock) -> None:
+    mock_get_admin.return_value = None
+    req = MockRequest()
+    db = mock.AsyncMock()
+    resp = await ssl_renew(req, "test.com", db)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == "/login"
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+async def test_ssl_renew_invalid_domain(mock_get_admin: mock.MagicMock) -> None:
+    mock_get_admin.return_value = mock.MagicMock()
+    req = MockRequest()
+    db = mock.AsyncMock()
+    resp = await ssl_renew(req, "invalid domain", db)
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+async def test_ssl_renew_all_no_user(mock_get_admin: mock.MagicMock) -> None:
+    mock_get_admin.return_value = None
+    req = MockRequest()
+    db = mock.AsyncMock()
+    resp = await ssl_renew_all(req, db)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == "/login"
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+@mock.patch("pit_panel.web.routes.ssl.CaddyManager")
+@mock.patch("pit_panel.web.routes.ssl._check_caddy_running")
+@mock.patch("pit_panel.web.routes.ssl._check_port80")
+@mock.patch("pit_panel.web.routes.ssl.Path")
+@mock.patch("pit_panel.web.routes.ssl.render")
+@mock.patch("pit_panel.web.routes.ssl.get_last_ssl_renew_check")
+async def test_ssl_setup_with_user(
+    mock_get_last_ssl_renew_check: mock.MagicMock,
+    mock_render: mock.MagicMock,
+    mock_path: mock.MagicMock,
+    mock_check_port80: mock.MagicMock,
+    mock_check_caddy: mock.MagicMock,
+    mock_caddy_manager_class: mock.MagicMock,
+    mock_get_settings: mock.MagicMock,
+    mock_get_admin: mock.MagicMock,
+) -> None:
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_get_settings.return_value = mock_settings
+
+    mock_caddy_manager = mock.MagicMock()
+    mock_caddy_manager.get_certificates = mock.AsyncMock(return_value=[])
+    mock_caddy_manager.generate_and_reload = mock.AsyncMock(return_value="Success")
+    mock_caddy_manager.renew_certificate = mock.AsyncMock()
+    mock_caddy_manager.save_api_token.return_value = " - Token saved"
+    mock_caddy_manager_class.return_value = mock_caddy_manager
+
+    mock_check_caddy.return_value = True
+    mock_check_port80.return_value = True
+
+    mock_path_instance = mock.MagicMock()
+    mock_path_instance.exists.return_value = True
+    mock_path_instance.read_text.return_value = "existing_caddyfile"
+    mock_path.return_value = mock_path_instance
+
+    mock_render.return_value = "rendered html"
+
+    db_result = mock.MagicMock()
+    db_result.scalars.return_value.all.return_value = []
+    db = mock.AsyncMock()
+    db.execute.return_value = db_result
+
+    req = MockRequest()
+
+    resp = await ssl_setup(req, db)
+
+    assert resp == "rendered html"
+    mock_render.assert_called_once()
+    kwargs = mock_render.call_args[1]
+    assert kwargs["caddy_running"] is True
+    assert kwargs["port80_free"] is True
+    assert kwargs["current_caddyfile"] == "existing_caddyfile"
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+@mock.patch("pit_panel.web.routes.ssl.CaddyManager")
+@mock.patch("pit_panel.web.routes.ssl._check_caddy_running")
+@mock.patch("pit_panel.web.routes.ssl._check_port80")
+@mock.patch("pit_panel.web.routes.ssl.render")
+@mock.patch("pit_panel.web.routes.ssl.get_last_ssl_renew_check")
+async def test_ssl_generate_with_user(
+    mock_get_last_ssl_renew_check: mock.MagicMock,
+    mock_render: mock.MagicMock,
+    mock_check_port80: mock.MagicMock,
+    mock_check_caddy: mock.MagicMock,
+    mock_caddy_manager_class: mock.MagicMock,
+    mock_get_settings: mock.MagicMock,
+    mock_get_admin: mock.MagicMock,
+) -> None:
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_settings.effective_domain = "example.com"
+    mock_settings.panel_subdomain = "panel"
+    mock_get_settings.return_value = mock_settings
+
+    mock_caddy_manager = mock.MagicMock()
+    mock_caddy_manager.get_certificates = mock.AsyncMock(return_value=[])
+    mock_caddy_manager.generate_and_reload = mock.AsyncMock(return_value="Success")
+    mock_caddy_manager.renew_certificate = mock.AsyncMock()
+    mock_caddy_manager.save_api_token.return_value = " - Token saved"
+    mock_caddy_manager_class.return_value = mock_caddy_manager
+
+    mock_check_caddy.return_value = True
+    mock_check_port80.return_value = True
+
+    mock_render.return_value = "rendered html"
+
+    db_result = mock.MagicMock()
+    db_result.scalars.return_value.all.return_value = []
+    db = mock.AsyncMock()
+    db.execute.return_value = db_result
+
+    req = MockRequest()
+    form = SSLGenerateForm(
+        email="test@example.com",
+        acme_provider="letsencrypt",
+        dns_provider="cloudflare",
+        api_var="CF_API_TOKEN",
+        api_token="mytoken",
+        eab_key_id="",
+        eab_hmac="",
+    )
+
+    resp = await ssl_generate(req, form, db)
+
+    assert resp == "rendered html"
+    mock_render.assert_called_once()
+    kwargs = mock_render.call_args[1]
+    assert kwargs["caddy_result"] == "Success - Token saved"
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+@mock.patch("pit_panel.web.routes.ssl.CaddyManager")
+@mock.patch("pit_panel.web.routes.ssl.AppManager")
+@mock.patch("pit_panel.web.routes.ssl._check_caddy_running")
+@mock.patch("pit_panel.web.routes.ssl._check_port80")
+@mock.patch("pit_panel.web.routes.ssl.Path")
+@mock.patch("pit_panel.web.routes.ssl.render")
+@mock.patch("pit_panel.web.routes.ssl.get_last_ssl_renew_check")
+async def test_ssl_renew_with_user(
+    mock_get_last_ssl_renew_check: mock.MagicMock,
+    mock_render: mock.MagicMock,
+    mock_path: mock.MagicMock,
+    mock_check_port80: mock.MagicMock,
+    mock_check_caddy: mock.MagicMock,
+    mock_app_manager_class: mock.MagicMock,
+    mock_caddy_manager_class: mock.MagicMock,
+    mock_get_settings: mock.MagicMock,
+    mock_get_admin: mock.MagicMock,
+) -> None:
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_settings.base_domain = "example.com"
+    mock_get_settings.return_value = mock_settings
+
+    mock_caddy_manager = mock.MagicMock()
+    mock_caddy_manager.get_certificates = mock.AsyncMock(return_value=[])
+    mock_caddy_manager.renew_certificate = mock.AsyncMock(return_value="Renewed")
+    mock_caddy_manager.add_subdomain = mock.AsyncMock()
+    mock_caddy_manager_class.return_value = mock_caddy_manager
+
+    mock_app_manager = mock.MagicMock()
+    mock_app_manager.get_template_info.return_value = {"default_port": 8080}
+    mock_app_manager_class.return_value = mock_app_manager
+
+    mock_check_caddy.return_value = True
+    mock_check_port80.return_value = True
+
+    mock_path_instance = mock.MagicMock()
+    mock_path_instance.exists.return_value = True
+    mock_path_instance.read_text.return_value = "existing_caddyfile"
+    mock_path.return_value = mock_path_instance
+
+    mock_render.return_value = "rendered html"
+
+    db_result = mock.MagicMock()
+    mock_sd = mock.MagicMock()
+    mock_sd.app_type = "some_app"
+    db_result.scalar_one_or_none.return_value = mock_sd
+
+    db_result2 = mock.MagicMock()
+    db_result2.scalars.return_value.all.return_value = []
+
+    db = mock.AsyncMock()
+    db.execute.side_effect = [db_result, db_result2]
+
+    req = MockRequest()
+
+    resp = await ssl_renew(req, "test.example.com", db)
+
+    assert resp == "rendered html"
+    mock_render.assert_called_once()
+    kwargs = mock_render.call_args[1]
+    assert kwargs["renew_result"] == "Renewed"
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+@mock.patch("pit_panel.web.routes.ssl.CaddyManager")
+@mock.patch("pit_panel.web.routes.ssl.AppManager")
+@mock.patch("pit_panel.web.routes.ssl._check_caddy_running")
+@mock.patch("pit_panel.web.routes.ssl._check_port80")
+@mock.patch("pit_panel.web.routes.ssl.Path")
+@mock.patch("pit_panel.web.routes.ssl.render")
+@mock.patch("pit_panel.web.routes.ssl.get_last_ssl_renew_check")
+async def test_ssl_renew_all_with_user(
+    mock_get_last_ssl_renew_check: mock.MagicMock,
+    mock_render: mock.MagicMock,
+    mock_path: mock.MagicMock,
+    mock_check_port80: mock.MagicMock,
+    mock_check_caddy: mock.MagicMock,
+    mock_app_manager_class: mock.MagicMock,
+    mock_caddy_manager_class: mock.MagicMock,
+    mock_get_settings: mock.MagicMock,
+    mock_get_admin: mock.MagicMock,
+) -> None:
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_settings.base_domain = "example.com"
+    mock_settings.effective_domain = "panel.example.com"
+    mock_get_settings.return_value = mock_settings
+
+    mock_caddy_manager = mock.MagicMock()
+    mock_caddy_manager.get_certificates = mock.AsyncMock(return_value=[])
+    mock_caddy_manager.renew_certificate = mock.AsyncMock()
+
+    async def add_subdomain_side_effect(subdomain: str, base: str, port: int = 80) -> None:
+        if subdomain == "fail":
+            raise Exception("Failed")
+
+    mock_caddy_manager.add_subdomain = mock.AsyncMock(side_effect=add_subdomain_side_effect)
+    mock_caddy_manager_class.return_value = mock_caddy_manager
+
+    mock_app_manager = mock.MagicMock()
+    mock_app_manager.get_template_info.return_value = {"default_port": 8080}
+    mock_app_manager_class.return_value = mock_app_manager
+
+    mock_check_caddy.return_value = True
+    mock_check_port80.return_value = True
+
+    mock_path_instance = mock.MagicMock()
+    mock_path_instance.exists.return_value = True
+    mock_path_instance.read_text.return_value = "existing_caddyfile"
+    mock_path.return_value = mock_path_instance
+
+    mock_render.return_value = "rendered html"
+
+    db_result = mock.MagicMock()
+    mock_sd1 = mock.MagicMock()
+    mock_sd1.app_type = "app1"
+    mock_sd1.subdomain = "ok"
+    mock_sd1.base_domain = "example.com"
+
+    mock_sd2 = mock.MagicMock()
+    mock_sd2.app_type = "app2"
+    mock_sd2.subdomain = "fail"
+    mock_sd2.base_domain = "example.com"
+
+    db_result.scalars.return_value.all.return_value = [mock_sd1, mock_sd2]
+
+    db_result2 = mock.MagicMock()
+    db_result2.scalars.return_value.all.return_value = []
+
+    db = mock.AsyncMock()
+    db.execute.side_effect = [db_result, db_result2]
+
+    req = MockRequest()
+
+    resp = await ssl_renew_all(req, db)
+
+    assert resp == "rendered html"
+    mock_render.assert_called_once()
+    kwargs = mock_render.call_args[1]
+    assert kwargs["renew_result"] == {"success": True, "ok": 1, "fail": 1}
+    mock_caddy_manager.renew_certificate.assert_called_once_with("panel.example.com")
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+@mock.patch("pit_panel.web.routes.ssl.CaddyManager")
+@mock.patch("pit_panel.web.routes.ssl.AppManager")
+@mock.patch("pit_panel.web.routes.ssl._check_caddy_running")
+@mock.patch("pit_panel.web.routes.ssl._check_port80")
+@mock.patch("pit_panel.web.routes.ssl.Path")
+@mock.patch("pit_panel.web.routes.ssl.render")
+@mock.patch("pit_panel.web.routes.ssl.get_last_ssl_renew_check")
+async def test_ssl_renew_exception(
+    mock_get_last_ssl_renew_check: mock.MagicMock,
+    mock_render: mock.MagicMock,
+    mock_path: mock.MagicMock,
+    mock_check_port80: mock.MagicMock,
+    mock_check_caddy: mock.MagicMock,
+    mock_app_manager_class: mock.MagicMock,
+    mock_caddy_manager_class: mock.MagicMock,
+    mock_get_settings: mock.MagicMock,
+    mock_get_admin: mock.MagicMock,
+) -> None:
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_settings.base_domain = "example.com"
+    mock_get_settings.return_value = mock_settings
+
+    mock_caddy_manager = mock.MagicMock()
+    mock_caddy_manager.get_certificates = mock.AsyncMock(return_value=[])
+    mock_caddy_manager.renew_certificate = mock.AsyncMock(return_value="Renewed")
+    mock_caddy_manager.add_subdomain = mock.AsyncMock(side_effect=Exception("Failed"))
+    mock_caddy_manager_class.return_value = mock_caddy_manager
+
+    mock_app_manager = mock.MagicMock()
+    mock_app_manager.get_template_info.return_value = {"default_port": 8080}
+    mock_app_manager_class.return_value = mock_app_manager
+
+    mock_check_caddy.return_value = True
+    mock_check_port80.return_value = True
+
+    mock_path_instance = mock.MagicMock()
+    mock_path_instance.exists.return_value = True
+    mock_path_instance.read_text.return_value = "existing_caddyfile"
+    mock_path.return_value = mock_path_instance
+
+    mock_render.return_value = "rendered html"
+
+    db_result = mock.MagicMock()
+    mock_sd = mock.MagicMock()
+    mock_sd.app_type = "some_app"
+    db_result.scalar_one_or_none.return_value = mock_sd
+
+    db_result2 = mock.MagicMock()
+    db_result2.scalars.return_value.all.return_value = []
+
+    db = mock.AsyncMock()
+    db.execute.side_effect = [db_result, db_result2]
+
+    req = MockRequest()
+
+    resp = await ssl_renew(req, "test.example.com", db)
+
+    assert resp == "rendered html"
+    mock_render.assert_called_once()

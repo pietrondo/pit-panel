@@ -5,7 +5,7 @@ import io
 import qrcode
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
@@ -50,9 +50,11 @@ async def login_post(
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(password, user.password_hash):
-        await record_login_attempt(
-            db, request.client.host if request.client else "unknown", username, False
-        )
+        ip = request.client.host if request.client else "unknown"
+        await record_login_attempt(db, ip, username, False)
+        from pit_panel.core.notifier import notify_login_failed
+
+        await notify_login_failed(username, ip)
         return render("login.html", error="Invalid credentials")
 
     if user.totp_enabled:
@@ -88,18 +90,20 @@ async def login_post(
     if data:
         from pit_panel.db.models import Session as DBSession
 
-        sess_result = await db.execute(select(DBSession).where(DBSession.id == session_id))
-        sess_obj = sess_result.scalar_one_or_none()
-        if sess_obj:
-            sess_obj.token_hash = data["tok"]
-            await db.commit()
+        await db.execute(
+            update(DBSession)
+            .where(DBSession.id == session_id)
+            .values(token_hash=data["tok"])
+        )
 
     user.last_login = datetime.datetime.now(datetime.UTC)
     await db.commit()
 
-    await record_login_attempt(
-        db, request.client.host if request.client else "unknown", username, True
-    )
+    ip = request.client.host if request.client else "unknown"
+    await record_login_attempt(db, ip, username, True)
+    from pit_panel.core.notifier import notify_login_success
+
+    await notify_login_success(username, ip)
 
     resp = RedirectResponse("/", status_code=302)
     is_https = request.url.scheme == "https" or (
@@ -148,6 +152,7 @@ async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/setup-2fa", response_class=HTMLResponse)
+@limiter.limit("5/minute")
 async def setup_2fa_post(
     request: Request,
     code: str = Form(...),

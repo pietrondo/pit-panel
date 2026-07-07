@@ -1,6 +1,6 @@
 import datetime
 import secrets
-from typing import Any
+from typing import Any, cast
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -50,7 +50,7 @@ def unsign_session_token(settings: Settings, cookie_value: str) -> dict[str, Any
     serializer = get_serializer(settings)
     try:
         data = serializer.loads(cookie_value, max_age=settings.session_duration_hours * 3600)
-        return data
+        return cast(dict[str, Any], data)
     except (BadSignature, SignatureExpired):
         return None
 
@@ -82,7 +82,7 @@ async def validate_session(
             DBSession.expires_at > datetime.datetime.now(datetime.UTC),
         )
     )
-    return result.scalar_one_or_none()
+    return cast(User | None, result.scalar_one_or_none())
 
 
 async def create_session_record(
@@ -106,7 +106,7 @@ async def create_session_record(
     db_session.add(sess)
     await db_session.commit()
     await db_session.refresh(sess)
-    return sess.id
+    return cast(int, sess.id)
 
 
 async def revoke_session(db_session: Any, session_id: int) -> None:

@@ -2,138 +2,331 @@
 {% block content %}
 {% set title = "System Management" %}
 
-<div class="mb-8">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">System Management</h1>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Administer services, logs, and system state</p>
-</div>
+<div x-data="{ activeTab: 'services', loading: false }"
+     x-init="$watch('activeTab', () => loading = false)">
 
-<div x-data="{ activeTab: 'services' }" class="mb-6">
-    <div class="border-b border-gray-200 dark:border-gray-700">
-        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">System Management</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Administer services, packages, and system state</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+        <nav class="-mb-px flex space-x-6" aria-label="Tabs">
             <button @click="activeTab = 'services'"
                     :class="activeTab === 'services' ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
-                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-150">
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                 Services
             </button>
             <button @click="activeTab = 'updates'"
                     :class="activeTab === 'updates' ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
-                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-150">
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                 Updates
             </button>
             <button @click="activeTab = 'resources'"
                     :class="activeTab === 'resources' ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
-                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-150">
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                 Resources
             </button>
             <button @click="activeTab = 'logs'"
                     :class="activeTab === 'logs' ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
-                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-150">
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                 Logs
+            </button>
+            <button @click="activeTab = 'docker'"
+                    :class="activeTab === 'docker' ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                Docker
             </button>
             <button @click="activeTab = 'reboot'"
                     :class="activeTab === 'reboot' ? 'border-red-500 text-red-600 dark:border-red-400 dark:text-red-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-300'"
-                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-150">
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                 Reboot
             </button>
         </nav>
     </div>
 
-    <div class="mt-6">
+    <div>
         <!-- Services Tab -->
-        <div x-show="activeTab === 'services'" class="grid gap-4">
+        <div x-show="activeTab === 'services'" x-cloak>
             <div class="card p-6">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Restart Services</h3>
-                <div class="flex gap-4">
-                    <button hx-post="/system/manage/action" hx-vals='{"action": "restart_caddy"}' hx-target="#result"
-                            class="btn btn-primary">
-                        Restart Caddy
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Service Status</h3>
+                    <button class="btn-ghost text-xs" hx-get="/system/manage/services" hx-target="#service-list" hx-swap="innerHTML"
+                            hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                        &#x21bb; Refresh
                     </button>
-                    <button hx-post="/system/manage/action" hx-vals='{"action": "restart_panel"}' hx-target="#result"
-                            class="btn btn-primary">
-                        Restart Pit-Panel
-                    </button>
+                </div>
+                <div id="service-list" class="space-y-2"
+                     hx-get="/system/manage/services" hx-trigger="load" hx-swap="innerHTML">
+                    <div class="text-sm text-gray-500">Loading services...</div>
                 </div>
             </div>
         </div>
 
         <!-- Updates Tab -->
-        <div x-show="activeTab === 'updates'" style="display: none;" class="grid gap-4">
-            <div class="card p-6">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Package Management</h3>
-                <button hx-post="/system/manage/action" hx-vals='{"action": "apt_update"}' hx-target="#result"
-                        class="btn btn-primary">
-                    Run apt-get update
-                </button>
+        <div x-show="activeTab === 'updates'" x-cloak>
+            <div class="card p-6 mb-4">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">&#x1F4E6; Package Management</h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-lg">&#x1F504;</span>
+                            <span class="font-medium text-sm text-gray-900 dark:text-white">Step 1: Refresh</span>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Update package lists from repositories</p>
+                        <button class="btn-primary text-sm w-full justify-center" hx-post="/system/manage/action" hx-vals='{"action": "apt_update"}' hx-target="#result"
+                                hx-on::before-request="loading = true;this.disabled=true;this.innerText='Updating...'"
+                                hx-on::after-request="loading = false;this.disabled=false;this.innerHTML='&#x1F504; apt-get update'">
+                            &#x1F504; apt-get update
+                        </button>
+                    </div>
+
+                    <div class="p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-lg">&#x1F4E2;</span>
+                            <span class="font-medium text-sm text-gray-900 dark:text-white">Step 2: Preview</span>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">See what packages can be upgraded</p>
+                        <button class="btn-ghost text-sm w-full justify-center border border-green-300 dark:border-green-700" hx-post="/system/manage/action" hx-vals='{"action": "apt_list_upgradable"}' hx-target="#result"
+                                hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                            &#x1F50D; List upgradable
+                        </button>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-4">
+                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">&#x26A1; Apply Upgrades</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">Standard Upgrade</span>
+                                <span class="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded">Safe</span>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Upgrades packages without changing dependencies</p>
+                            <button class="btn-primary text-sm w-full justify-center" hx-post="/system/manage/action" hx-vals='{"action": "apt_upgrade"}' hx-target="#result"
+                                    hx-on::before-request="loading = true;this.disabled=true;this.innerText='Upgrading...'"
+                                    hx-on::after-request="loading = false;this.disabled=false;this.innerHTML='&#x1F4E2; apt-get upgrade -y'"
+                                    hx-confirm="This will upgrade all upgradable packages. Continue?">
+                                &#x1F4E2; apt-get upgrade -y
+                            </button>
+                        </div>
+
+                        <div class="p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">Full Upgrade</span>
+                                <span class="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded">Caution</span>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">May add or remove packages to satisfy new dependencies</p>
+                            <button class="w-full justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors" hx-post="/system/manage/action" hx-vals='{"action": "apt_dist_upgrade"}' hx-target="#result"
+                                    hx-on::before-request="loading = true;this.disabled=true;this.innerText='Dist-upgrading...'"
+                                    hx-on::after-request="loading = false;this.disabled=false;this.innerHTML='&#x26A1; apt-get dist-upgrade -y'"
+                                    hx-confirm="DIST-UPGRADE may REMOVE packages to satisfy new dependencies. Are you sure?">
+                                &#x26A1; apt-get dist-upgrade -y
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                    <div class="flex items-start gap-2">
+                        <span class="text-sm mt-0.5">&#x2139;&#xFE0F;</span>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                            <strong>Recommended workflow:</strong> Run <strong>apt-get update</strong> first, then check <strong>List upgradable</strong>, finally choose <strong>Standard Upgrade</strong> or <strong>Full Upgrade</strong>.
+                            Full upgrade is only needed when standard upgrade reports packages "kept back".
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Resources Tab -->
-        <div x-show="activeTab === 'resources'" style="display: none;" class="grid gap-4">
-            <div class="card p-6">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">System Resources</h3>
-                <div class="flex gap-4">
-                    <button hx-post="/system/manage/action" hx-vals='{"action": "df"}' hx-target="#result"
-                            class="btn btn-primary">
-                        Disk Usage (df -h)
-                    </button>
-                    <button hx-post="/system/manage/action" hx-vals='{"action": "free"}' hx-target="#result"
-                            class="btn btn-primary">
-                        Memory (free -m)
-                    </button>
+        <div x-show="activeTab === 'resources'" x-cloak>
+            {% if not settings.sudo_password %}
+            <div class="mb-4 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-sm text-yellow-700 dark:text-yellow-300">
+                <strong>⚠️ sudo_password not configured.</strong>
+                <a href="/settings" class="underline ml-1">Set it in Settings</a> to view system resources.
+            </div>
+            {% endif %}
+            <div class="grid grid-cols-1 gap-4">
+                <div class="card p-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Disk Usage</h3>
+                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "df"}' hx-target="#disk-output"
+                                hx-swap="innerHTML">
+                            &#x21bb; Refresh
+                        </button>
+                    </div>
+                    <div id="disk-output" hx-post="/system/manage/action" hx-vals='{"action": "df"}' hx-trigger="load" hx-swap="innerHTML"
+                         class="font-mono text-xs text-emerald-400 bg-gray-950 p-3 rounded-lg whitespace-pre-wrap max-h-40 overflow-y-auto">
+                        Loading...
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Memory</h3>
+                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "free"}' hx-target="#memory-output"
+                                hx-swap="innerHTML">
+                            &#x21bb; Refresh
+                        </button>
+                    </div>
+                    <div id="memory-output" hx-post="/system/manage/action" hx-vals='{"action": "free"}' hx-trigger="load" hx-swap="innerHTML"
+                         class="font-mono text-xs text-emerald-400 bg-gray-950 p-3 rounded-lg whitespace-pre-wrap max-h-40 overflow-y-auto">
+                        Loading...
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Uptime</h3>
+                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "uptime"}' hx-target="#uptime-output"
+                                hx-swap="innerHTML">
+                            &#x21bb; Refresh
+                        </button>
+                    </div>
+                    <div id="uptime-output" hx-post="/system/manage/action" hx-vals='{"action": "uptime"}' hx-trigger="load" hx-swap="innerHTML"
+                         class="font-mono text-xs text-emerald-400 bg-gray-950 p-3 rounded-lg whitespace-pre-wrap">
+                        Loading...
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Logs Tab -->
-        <div x-show="activeTab === 'logs'" style="display: none;" class="grid gap-4">
+        <div x-show="activeTab === 'logs'" x-cloak>
             <div class="card p-6">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">System Logs</h3>
-                <button hx-post="/system/manage/action" hx-vals='{"action": "journal_panel"}' hx-target="#result"
-                        class="btn btn-primary">
-                    View Pit-Panel Journal
-                </button>
+                <div class="flex flex-wrap gap-3">
+                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_panel"}' hx-target="#result"
+                            hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                        Pit-Panel
+                    </button>
+                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_caddy"}' hx-target="#result"
+                            hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                        Caddy
+                    </button>
+                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_docker"}' hx-target="#result"
+                            hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                        Docker
+                    </button>
+                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_ssh"}' hx-target="#result"
+                            hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                        SSH
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Docker Tab -->
+        <div x-show="activeTab === 'docker'" x-cloak>
+            <div class="card p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Running Containers</h3>
+                    <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "docker_ps"}' hx-target="#result"
+                            hx-on::before-request="loading = true" hx-on::after-request="loading = false">
+                        &#x21bb; Refresh
+                    </button>
+                </div>
             </div>
         </div>
 
         <!-- Reboot Tab -->
-        <div x-show="activeTab === 'reboot'" style="display: none;" class="grid gap-4">
-            <div class="card p-6 border-red-500 border">
+        <div x-show="activeTab === 'reboot'" x-cloak>
+            <div class="card p-6 border-2 border-red-500">
                 <h3 class="text-lg font-medium text-red-600 dark:text-red-400 mb-4">Danger Zone</h3>
-                <div x-data="{ armed: false }">
-                    <button type="button" x-show="!armed" @click="armed = true" class="btn btn-danger bg-red-600 text-white font-bold">
-                        Reboot System
-                    </button>
-                    <form x-show="armed" hx-post="/system/manage/action" hx-target="#result" class="flex items-center gap-3 inline-block">
-                        <input type="hidden" name="action" value="reboot">
-                        <button type="submit" class="btn btn-danger bg-red-700 font-bold text-white">
-                            CONFIRM REBOOT NOW
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Rebooting the server will disconnect all users and stop all services.
+                    Ensure no critical operations are in progress.
+                </p>
+                <div x-data="rebootManager">
+                    <template x-if="!armed">
+                        <button type="button" @click="arm()" class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">
+                            Reboot System
                         </button>
-                        <button type="button" @click="armed = false" class="btn btn-ghost">
-                            Cancel
-                        </button>
-                    </form>
+                    </template>
+                    <template x-if="armed">
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm text-red-600 font-medium">Confirm reboot in <span x-text="countdown"></span>s</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <button x-show="countdown <= 0"
+                                        class="px-4 py-2 bg-red-700 text-white font-bold rounded-lg animate-pulse"
+                                        hx-post="/system/manage/action"
+                                        hx-vals='{"action": "reboot"}'
+                                        hx-target="#result">
+                                    CONFIRM REBOOT NOW
+                                </button>
+                                <button type="button" @click="cancel()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terminal Output -->
+    <div class="mt-8">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Command Output</h3>
+            <button class="btn-ghost text-xs" onclick="document.getElementById('result').innerText = 'Results will appear here...'" aria-label="Clear command output">Clear</button>
+        </div>
+        <div class="bg-slate-950 border border-slate-800 rounded-lg shadow-2xl overflow-hidden">
+            <div class="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between">
+                <div class="flex gap-1.5">
+                    <span class="w-3 h-3 bg-red-500 rounded-full"></span>
+                    <span class="w-3 h-3 bg-yellow-500 rounded-full"></span>
+                    <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+                </div>
+                <span class="text-xs text-slate-500 font-mono" x-text="loading ? 'Running...' : 'bash'">bash</span>
+                <div class="w-12"></div>
+            </div>
+            <div class="p-4 h-96 overflow-y-auto font-mono text-sm text-emerald-400" style="scrollbar-color: #334155 #020617; scrollbar-width: thin;">
+                <pre id="result" class="whitespace-pre-wrap" x-show="!loading">Results will appear here...</pre>
+                <div x-show="loading" class="flex items-center gap-2 text-emerald-400">
+                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Running command...</span>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="mt-8">
-    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Command Output</h3>
-    <div class="bg-slate-950 border border-slate-800 rounded-lg shadow-2xl overflow-hidden mt-4">
-        <div class="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between">
-            <div class="flex gap-1.5">
-                <span class="w-3 h-3 bg-red-500 rounded-full"></span>
-                <span class="w-3 h-3 bg-yellow-500 rounded-full"></span>
-                <span class="w-3 h-3 bg-green-500 rounded-full"></span>
-            </div>
-            <span class="text-xs text-slate-500 font-mono">bash (systemctl)</span>
-            <div class="w-12"></div>
-        </div>
-        <div class="p-4 h-96 overflow-y-auto font-mono text-sm text-emerald-400" style="scrollbar-color: #334155 #020617; scrollbar-width: thin;">
-            <pre id="result" class="whitespace-pre-wrap">Results will appear here...</pre>
-        </div>
-    </div>
-</div>
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('rebootManager', () => ({
+            armed: false,
+            countdown: 10,
+            interval: null,
+            arm() {
+                this.armed = true;
+                this.countdown = 10;
+                this.interval = setInterval(() => {
+                    if (this.countdown > 0) {
+                        this.countdown--;
+                    } else {
+                        clearInterval(this.interval);
+                    }
+                }, 1000);
+            },
+            cancel() {
+                this.armed = false;
+                if (this.interval) clearInterval(this.interval);
+            }
+        }));
+    });
 
+    document.addEventListener('htmx:afterRequest', function() {
+        var el = document.getElementById('result');
+        if (el) {
+            el.closest('.overflow-y-auto').scrollTop = 0;
+        }
+    });
+</script>
 {% endblock %}

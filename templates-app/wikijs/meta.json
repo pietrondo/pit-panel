@@ -1,0 +1,10 @@
+{
+    "name": "wikijs",
+    "display_name": "Wiki.js",
+    "version": "latest",
+    "description": "Modern, lightweight wiki with Markdown editor. Wikipedia-style knowledge base con PostgreSQL.",
+    "icon": "📚",
+    "requires_db": true,
+    "default_port": 8083,
+    "admin_path": "/"
+}

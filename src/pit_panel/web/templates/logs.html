@@ -46,7 +46,7 @@
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-white">pit-panel journal</h2>
             </div>
             <div class="flex gap-2">
-                <button onclick="copyLog('journal-box')" class="btn-ghost text-xs">Copy</button>
+                <button onclick="copyLog('journal-box')" class="btn-ghost text-xs" aria-label="Copy journal log">Copy</button>
                 <button hx-get="/logs/journal" hx-target="#journal-box" hx-swap="outerHTML" class="btn-ghost text-xs">Refresh</button>
                 <a href="/debug/raw" class="btn-ghost text-xs">Full Report</a>
             </div>
@@ -66,7 +66,7 @@
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Application log</h2>
             </div>
             <div class="flex gap-2">
-                <button onclick="copyLog('applog-box')" class="btn-ghost text-xs">Copy</button>
+                <button onclick="copyLog('applog-box')" class="btn-ghost text-xs" aria-label="Copy application log">Copy</button>
                 <button hx-get="/logs/applog" hx-target="#applog-box" hx-swap="outerHTML" class="btn-ghost text-xs">Refresh</button>
             </div>
         </div>

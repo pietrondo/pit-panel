@@ -1,0 +1,9 @@
+{
+  "name": "directus",
+  "display_name": "Directus",
+  "description": "An open data platform and headless CMS.",
+  "icon": "🐰",
+  "version": "latest",
+  "default_port": 8055,
+  "requires_db": true
+}

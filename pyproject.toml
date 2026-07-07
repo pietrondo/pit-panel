@@ -23,6 +23,7 @@ dependencies = [
     "qrcode[pil]>=8.0",
     "httpx>=0.28.0",
     "playwright>=1.60.0",
+    "tomli-w>=1.2.0",
 ]
 
 [project.optional-dependencies]
@@ -64,12 +65,25 @@ indent-style = "space"
 
 [tool.mypy]
 strict = true
-python_version = "3.11"
+python_version = "3.12"
+ignore_missing_imports = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+    "fastapi.*", "sqlalchemy.*", "httpx.*", "jinja2.*", "uvicorn.*",
+    "bcrypt", "pyotp", "itsdangerous", "pydantic_settings", "slowapi.*",
+    "qrcode", "yaml",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+
+
+follow_imports = "skip"
 
 [dependency-groups]
 dev = [

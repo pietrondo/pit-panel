@@ -1,9 +1,11 @@
-import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+import asyncio
+import contextlib
+from typing import Any
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
-from pit_panel.core.health import check_post_update
+from pit_panel.core.health import check_post_update, docker_health_monitor_loop
 
 
 @pytest.mark.asyncio
@@ -45,29 +47,54 @@ async def test_check_post_update_failure_then_success():
 
 @pytest.mark.asyncio
 async def test_check_post_update_timeout():
-    # Simple state for the mock
-    call_count = 0
-    base_time = datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC)
-
-    def mock_now(tz=None):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            # First call for deadline calculation
-            return base_time
-        # Subsequent calls for loop condition
-        return base_time + datetime.timedelta(seconds=65)
-
-    with patch("pit_panel.core.health.datetime") as mock_datetime:
-        # We need to also patch timedelta and UTC to return the real ones
-        mock_datetime.timedelta = datetime.timedelta
-        mock_datetime.UTC = datetime.UTC
-
-        # Setup the now mock
-        mock_datetime.datetime.now.side_effect = mock_now
-
-        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = Exception("Connection error")
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             result = await check_post_update()
-
             assert result is False
-            assert mock_get.call_count == 0
+            assert mock_get.call_count == 30
+            assert mock_sleep.call_count == 30
+
+
+@pytest.mark.asyncio
+async def test_docker_health_monitor_loop() -> None:
+    with patch("pit_panel.core.docker_ops.DockerManager") as mock_manager_class:
+        mock_manager = AsyncMock()
+        mock_manager_class.return_value = mock_manager
+
+        mock_manager.ps_all.return_value = [
+            {"ID": "1", "Names": "running-app", "State": "running", "Status": "Up"},
+            {"ID": "2", "Names": "crashed-app", "State": "exited", "Status": "Exited (1)"},
+            {"ID": "4", "Names": "dead-app", "State": "dead", "Status": "Dead"},
+        ]
+
+        async def mock_start(cid: str) -> dict[str, Any]:
+            return {"success": True}
+
+        mock_manager.container_start.side_effect = mock_start
+
+        with patch("pit_panel.core.notifier.notify_system_alarm") as mock_notify:
+            mock_notify.return_value = None
+            task = asyncio.create_task(docker_health_monitor_loop())
+            await asyncio.sleep(0.05)
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+            assert mock_manager.container_start.call_count == 2
+            assert mock_notify.call_count == 2
+            mock_notify.assert_any_call("Container Restarted", ANY)
+
+
+@pytest.mark.asyncio
+async def test_docker_health_monitor_loop_exception() -> None:
+    with patch("pit_panel.core.docker_ops.DockerManager") as mock_manager_class:
+        mock_manager = AsyncMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.ps_all.side_effect = [Exception("boom"), []]
+
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            mock_sleep.side_effect = [None, asyncio.CancelledError()]
+            with contextlib.suppress(Exception):
+                await docker_health_monitor_loop()
+            assert mock_manager.ps_all.call_count == 2
