@@ -289,7 +289,7 @@ async def security_ban_ip(
 
 
 async def run_malware_scan_bg(scan_id: int, target: str, scan_path: str = None) -> None:
-    from datetime import datetime
+    import datetime
 
     from pit_panel.db.session import get_sessionmaker
 
@@ -320,7 +320,7 @@ async def run_malware_scan_bg(scan_id: int, target: str, scan_path: str = None) 
             scan.status = "failed"
             scan.details = {"error": str(e)}
 
-        scan.completed_at = datetime.utcnow()
+        scan.completed_at = datetime.datetime.now(datetime.UTC)
         await db.commit()
 
 
