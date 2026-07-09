@@ -790,18 +790,15 @@ async def security_firewall_rule_add(
 
     if action not in ("allow", "deny"):
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid action</span>',
-            status_code=400,
+            '<span class="text-red-600 text-sm">Invalid action</span>', status_code=400
         )
     if protocol not in ("tcp", "udp", "any"):
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid protocol</span>',
-            status_code=400,
+            '<span class="text-red-600 text-sm">Invalid protocol</span>', status_code=400
         )
     if not re.match(r"^[a-zA-Z0-9]+$", port) and port != "any":
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid port</span>',
-            status_code=400,
+            '<span class="text-red-600 text-sm">Invalid port</span>', status_code=400
         )
     if source:
         import ipaddress
@@ -877,8 +874,7 @@ async def security_fail2ban_config(
 
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
-            "<span class=\"text-red-600 text-sm\">Invalid jail name</span>", status_code=400
-
+            '<span class="text-red-600 text-sm">Invalid jail name</span>', status_code=400
         )
 
     try:
