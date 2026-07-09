@@ -1,7 +1,10 @@
 
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
+<<<<<<< HEAD
 import asyncio
+=======
+>>>>>>> origin/palette/file-manager-save-spinner-2286693599914881443
 import contextlib
 import ipaddress
 from typing import Any
@@ -870,6 +873,7 @@ async def security_fail2ban_config(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
+<<<<<<< HEAD
     import re
 
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
@@ -877,6 +881,8 @@ async def security_fail2ban_config(
             '<span class="text-red-600 text-sm">Invalid jail name</span>', status_code=400
         )
 
+=======
+>>>>>>> origin/palette/file-manager-save-spinner-2286693599914881443
     try:
         ok = await _save_jail_config(jail, bantime=bantime, findtime=findtime, maxretry=maxretry)
         if ok:
