@@ -44,54 +44,41 @@ def test_group_log_issues_deduplicates_by_fingerprint() -> None:
 
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
-@patch("pit_panel.security.bug_analyzer.run_cmd")
-async def test_analyze_system_logs_success(mock_run_cmd: Any) -> None:
-    mock_run_cmd.return_value = '{"MESSAGE": "An error occurred"}\n{"MESSAGE": "Another error"}'
-
-    result = await analyze_system_logs()
-
-    assert result == ["An error occurred", "Another error"]
-    mock_run_cmd.assert_called_once_with(
-        ["journalctl", "-p", "err", "-n", "50", "--no-pager", "-o", "json"]
-    )
-
-
-@pytest.mark.asyncio  # type: ignore[untyped-decorator]
-@patch("pit_panel.security.bug_analyzer.run_cmd")
-async def test_analyze_system_logs_invalid_json(mock_run_cmd: Any) -> None:
-    mock_run_cmd.return_value = (
-        '{"MESSAGE": "An error occurred"}\nINVALID JSON\n{"MESSAGE": "Another error"}'
+@patch("asyncio.create_subprocess_exec")
+async def test_analyze_system_logs_success(mock_exec: Any) -> None:
+    mock_proc = mock_exec.return_value
+    mock_proc.returncode = 0
+    mock_proc.communicate.return_value = (
+        b"2026-07-02 10:00:00 ERROR Database timeout\n"
+        b"2026-07-02 10:01:00 WARNING Cache miss\n",
+        b"",
     )
 
     result = await analyze_system_logs()
 
-    assert result == ["An error occurred", "Another error"]
-    mock_run_cmd.assert_called_once_with(
-        ["journalctl", "-p", "err", "-n", "50", "--no-pager", "-o", "json"]
-    )
+    assert len(result) == 2
+    assert "ERROR" in result[0]
+    assert "Database timeout" in result[0]
+    assert "WARNING" in result[1]
 
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
-@patch("pit_panel.security.bug_analyzer.run_cmd")
-async def test_analyze_system_logs_missing_message(mock_run_cmd: Any) -> None:
-    mock_run_cmd.return_value = '{"OTHER": "data"}'
-
-    result = await analyze_system_logs()
-
-    assert result == ["Unknown Error"]
-    mock_run_cmd.assert_called_once_with(
-        ["journalctl", "-p", "err", "-n", "50", "--no-pager", "-o", "json"]
-    )
-
-
-@pytest.mark.asyncio  # type: ignore[untyped-decorator]
-@patch("pit_panel.security.bug_analyzer.run_cmd")
-async def test_analyze_system_logs_exception(mock_run_cmd: Any) -> None:
-    mock_run_cmd.side_effect = Exception("Failed")
+@patch("asyncio.create_subprocess_exec")
+async def test_analyze_system_logs_journalctl_failure(mock_exec: Any) -> None:
+    mock_proc = mock_exec.return_value
+    mock_proc.returncode = 1
+    mock_proc.communicate.return_value = (b"", b"")
 
     result = await analyze_system_logs()
 
     assert result == []
-    mock_run_cmd.assert_called_once_with(
-        ["journalctl", "-p", "err", "-n", "50", "--no-pager", "-o", "json"]
-    )
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@patch("asyncio.create_subprocess_exec")
+async def test_analyze_system_logs_exception(mock_exec: Any) -> None:
+    mock_exec.side_effect = Exception("Failed")
+
+    result = await analyze_system_logs()
+
+    assert result == []

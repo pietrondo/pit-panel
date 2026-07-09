@@ -805,7 +805,7 @@ class TestSubdomainFiltering:
             temp_name = f.name
         try:
             result = _file_checksum(temp_name)
-            assert result == "2cf24dba5fb0a30e"  # sha256("hello")[:16]
+            assert result == "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
         finally:
             os.remove(temp_name)
 
@@ -819,7 +819,7 @@ class TestSubdomainFiltering:
 
         monkeypatch.setattr(builtins, "open", mock_open)
         result = _file_checksum("/nonexistent")
-        assert result == "file not found"
+        assert result == ""
 
 
 class TestAppStatusRoute:

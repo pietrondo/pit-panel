@@ -325,20 +325,6 @@ async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depend
     settings = get_settings()
     from pit_panel.core.backup import perform_app_backup
 
-@router.post("/apps/{sd_id}/backup/run", response_class=HTMLResponse)
-async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
-    user = await get_user(request, db)
-    if not user:
-        return HTMLResponse("<p class='text-red-500'>Unauthorized</p>", status_code=401)
-
-    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
-    sd = result.scalar_one_or_none()
-    if not sd:
-        return HTMLResponse("<p class='text-red-500'>App not found</p>", status_code=404)
-
-    settings = get_settings()
-    from pit_panel.core.backup import perform_app_backup
-
     backup_result = await perform_app_backup(
         sd=sd,
         db=db,

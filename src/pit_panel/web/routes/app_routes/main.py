@@ -163,17 +163,7 @@ async def _resolve_subdomain(
     subdomain_id: int,
     new_subdomain: str,
 ):
-    user = await get_user(request, db)
-    if not user:
-        if "hx-request" in request.headers:
-            response = HTMLResponse("")
-            response.headers["HX-Redirect"] = "/login"
-            return response
-        return RedirectResponse("/login", status_code=302)
-
     settings = get_settings()
-    mgr = AppManager(settings.apps_dir)
-    docker_mgr = DockerManager(settings.apps_dir)
     sd = None
     error = None
 
