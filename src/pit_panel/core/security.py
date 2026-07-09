@@ -1,6 +1,5 @@
 """Core security services."""
 
-import asyncio
 import contextlib
 import re
 from typing import Any
@@ -31,16 +30,12 @@ def _get_client_ip(request: Request) -> str:
     return "127.0.0.1"
 
 
-def _read_ssh_config(path: str) -> str:
-    with open(path, encoding="utf-8", errors="replace") as f:
-        return f.read()
-
-
 async def _detect_ssh_port() -> int:
     path = "/etc/ssh/sshd_config"
     content = ""
     try:
-        content = await asyncio.to_thread(_read_ssh_config, path)
+        with open(path, encoding="utf-8", errors="replace") as f:
+            content = f.read()
     except PermissionError:
         content = await _run_cmd(["sudo", "-n", "cat", path])
     except Exception:

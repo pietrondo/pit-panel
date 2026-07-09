@@ -1,10 +1,6 @@
-
 """Security overview: IP bans, login attempts, active sessions, firewall, fail2ban."""
 
-<<<<<<< HEAD
 import asyncio
-=======
->>>>>>> origin/palette/file-manager-save-spinner-2286693599914881443
 import contextlib
 import ipaddress
 from typing import Any
@@ -793,15 +789,18 @@ async def security_firewall_rule_add(
 
     if action not in ("allow", "deny"):
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid action</span>', status_code=400
+            '<span class="text-red-600 text-sm">Invalid action</span>',
+            status_code=400,
         )
     if protocol not in ("tcp", "udp", "any"):
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid protocol</span>', status_code=400
+            '<span class="text-red-600 text-sm">Invalid protocol</span>',
+            status_code=400,
         )
     if not re.match(r"^[a-zA-Z0-9]+$", port) and port != "any":
         return HTMLResponse(
-            '<span class="text-red-600 text-sm">Invalid port</span>', status_code=400
+            '<span class="text-red-600 text-sm">Invalid port</span>',
+            status_code=400,
         )
     if source:
         import ipaddress
@@ -816,8 +815,8 @@ async def security_firewall_rule_add(
 
     ok = await _add_ufw_rule(port, protocol, action, source)
     if ok:
-        return HTMLResponse("", headers={"HX-Refresh": "true"})
-    return HTMLResponse("", headers={"HX-Refresh": "true"})
+        return HTMLResponse('<span class="text-green-600 text-sm">Rule added</span>')
+    return HTMLResponse('<span class="text-red-600 text-sm">Failed to add rule</span>')
 
 
 @router.post("/security/firewall/rule/delete", response_class=HTMLResponse)
@@ -836,10 +835,10 @@ async def security_firewall_rule_delete(
     try:
         ok = await _delete_ufw_rule(index, client_ip=client_ip, ssh_port=ssh_port)
         if ok:
-            return HTMLResponse("", headers={"HX-Refresh": "true"})
-        return HTMLResponse("", headers={"HX-Refresh": "true"})
-    except ValueError:
-        return HTMLResponse("", headers={"HX-Refresh": "true"})
+            return HTMLResponse('<span class="text-green-600 text-sm">Rule deleted</span>')
+        return HTMLResponse('<span class="text-red-600 text-sm">Failed to delete rule</span>')
+    except ValueError as e:
+        return HTMLResponse(f'<span class="text-red-600 text-sm">{e}</span>', status_code=400)
 
 
 # Fail2ban config overrides
@@ -873,7 +872,6 @@ async def security_fail2ban_config(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
-<<<<<<< HEAD
     import re
 
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
@@ -881,8 +879,6 @@ async def security_fail2ban_config(
             '<span class="text-red-600 text-sm">Invalid jail name</span>', status_code=400
         )
 
-=======
->>>>>>> origin/palette/file-manager-save-spinner-2286693599914881443
     try:
         ok = await _save_jail_config(jail, bantime=bantime, findtime=findtime, maxretry=maxretry)
         if ok:

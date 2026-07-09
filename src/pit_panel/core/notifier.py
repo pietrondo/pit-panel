@@ -50,9 +50,7 @@ async def notify_app_delete(subdomain: str, stack: str) -> None:
 
 
 async def notify_login_failed(username: str, ip: str) -> None:
-    """Send notification for failed login."""
-    msg = f"⚠️ <b>Failed Login Attempt</b>\nUser: <code>{username}</code>\nIP: <code>{ip}</code>"
-    await send_telegram(msg)
+    await send_telegram(f"<b>⚠️ Failed login</b>\nUser: {username}\nIP: {ip}")
 
 
 async def notify_login_success(username: str, ip: str) -> None:
