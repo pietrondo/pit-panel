@@ -182,7 +182,7 @@ class TestRunHelper:
 class TestSecurityRoutes:
     @pytest.mark.asyncio
     async def test_abuseipdb_check_crlf_mitigation(self, monkeypatch):
-        from pit_panel.web.routes.security import _abuseipdb_check
+        from pit_panel.web.routes.security_abuseipdb import _abuseipdb_check
 
         class MockResponse:
             status = 200
@@ -882,7 +882,7 @@ class TestAppStatusRoute:
 
 class TestAbuseIPDBCRLF:
     async def test_abuseipdb_blacklist_crlf_mitigation(self, monkeypatch):
-        from pit_panel.web.routes.security import _abuseipdb_blacklist
+        from pit_panel.web.routes.security_abuseipdb import _abuseipdb_blacklist
 
         class MockResponse:
             status = 200
