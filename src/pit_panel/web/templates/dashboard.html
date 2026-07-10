@@ -9,7 +9,7 @@
     {% endif %}
 </div>
 
-<div id="stats-grid" hx-get="/stats" hx-trigger="every 10s" hx-swap="outerHTML">
+<div id="stats-grid" hx-get="/stats" hx-trigger="every 10s" hx-swap="innerHTML">
     {% include "_stats.html" %}
 </div>
 
