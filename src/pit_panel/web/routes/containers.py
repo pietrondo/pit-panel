@@ -1,5 +1,6 @@
 """Container management routes with live state and logs."""
 
+import asyncio
 import re
 from typing import Any
 
@@ -21,10 +22,15 @@ router = APIRouter()
 async def _get_containers_data(
     db: AsyncSession, docker_mgr: DockerManager
 ) -> tuple[dict[str, Subdomain], dict[int, list[dict[str, Any]]], list[dict[str, Any]]]:
-    all_containers = await docker_mgr.ps_all()
+    async def _fetch_subdomains():
+        result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
+        return result.scalars().all()
 
-    result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
-    subdomains = {sd.subdomain: sd for sd in result.scalars().all()}
+    all_containers, result_subdomains = await asyncio.gather(
+        docker_mgr.ps_all(), _fetch_subdomains()
+    )
+
+    subdomains = {sd.subdomain: sd for sd in result_subdomains}
 
     containers_data: dict[int, list[dict[str, Any]]] = {}
     orphan_containers: list[dict[str, Any]] = []
