@@ -47,7 +47,12 @@ def auth_headers(monkeypatch):
     return {}
 
 
-def test_system_page(client: TestClient, auth_headers: dict):
+def test_system_page(client: TestClient, auth_headers: dict, monkeypatch):
+    monkeypatch.setattr(
+        "pit_panel.web.routes.system._get_git_info",
+        AsyncMock(return_value=("local-sha", "remote-sha")),
+    )
+
     response = client.get("/system", headers=auth_headers)
     assert response.status_code == 200
     assert b"System" in response.content
