@@ -63,8 +63,19 @@ def test_system_page(client: TestClient, auth_headers: dict, monkeypatch):
 @patch("pit_panel.web.routes.system._sudo")
 @patch("subprocess.Popen")
 def test_system_upgrade(
-    mock_popen, mock_sudo, mock_run, mock_which, client: TestClient, auth_headers: dict
+    mock_popen,
+    mock_sudo,
+    mock_run,
+    mock_which,
+    client: TestClient,
+    auth_headers: dict,
+    monkeypatch,
 ):
+    monkeypatch.setattr(
+        "pit_panel.web.routes.system._get_git_info",
+        AsyncMock(return_value=("local-sha", "remote-sha")),
+    )
+
     class MockResult:
         def __init__(self, returncode=0, stdout="", stderr=""):
             self.returncode = returncode
