@@ -17,20 +17,41 @@ async def test_security_ban_ip(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     mock_ban_ip_address = AsyncMock()
     mock_ban_ip_address.return_value = True
-    monkeypatch.setattr("pit_panel.web.routes.security.ban_ip_address", mock_ban_ip_address)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.ban_ip_address",
+        mock_ban_ip_address,
+    )
 
     mock_render = AsyncMock()
     mock_render.return_value = HTMLResponse("mocked security page")
-    monkeypatch.setattr("pit_panel.web.routes.security._render_security_page", mock_render)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security._render_security_page",
+        mock_render,
+    )
 
     response = client.post(
         "/security/ban-ip", data={"ip": "1.2.3.4", "reason": "test", "duration": "60"}
@@ -50,11 +71,26 @@ async def test_security_ban_ip_invalid(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     response = client.post("/security/ban-ip", data={"ip": "invalid-ip"})
@@ -72,20 +108,41 @@ async def test_security_unban(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     mock_unban_ip_address = AsyncMock()
     mock_unban_ip_address.return_value = True
-    monkeypatch.setattr("pit_panel.web.routes.security.unban_ip_address", mock_unban_ip_address)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.unban_ip_address",
+        mock_unban_ip_address,
+    )
 
     mock_render = AsyncMock()
     mock_render.return_value = HTMLResponse("mocked security page")
-    monkeypatch.setattr("pit_panel.web.routes.security._render_security_page", mock_render)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security._render_security_page",
+        mock_render,
+    )
 
     response = client.post("/security/unban", data={"ip": "1.2.3.4"})
 
@@ -103,11 +160,26 @@ async def test_security_blocklist_page(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     response = client.get("/security/blocklist")
@@ -125,22 +197,45 @@ async def test_security_blocklist_import(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     mock_fetch_blocklist = AsyncMock()
     mock_fetch_blocklist.return_value = ["192.168.1.1"]
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.fetch_blocklist", mock_fetch_blocklist)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.fetch_blocklist",
+        mock_fetch_blocklist,
+    )
 
     mock_ban_ips_bulk = AsyncMock()
     mock_ban_ips_bulk.return_value = 1
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.ban_ips_bulk", mock_ban_ips_bulk)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.ban_ips_bulk",
+        mock_ban_ips_bulk,
+    )
 
-    response = client.post("/security/blocklist/import", data={"source": "firehol_level1"})
+    response = client.post(
+        "/security/blocklist/import", data={"source": "firehol_level1"},
+    )
 
     assert response.status_code == 200
     assert "Imported 1/1 IPs" in response.text
@@ -155,11 +250,26 @@ async def test_fail2ban_enable(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     class MockProcess:
@@ -192,11 +302,26 @@ async def test_fail2ban_enable_unauthorized(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = None
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     response = client.post("/security/fail2ban/enable", data={"jail": "sshd"})
@@ -213,16 +338,34 @@ async def test_abuseipdb_blacklist_no_key(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     mock_settings = MagicMock()
     mock_settings.abuseipdb_api_key = ""
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_settings", lambda: mock_settings)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_settings",
+        lambda: mock_settings,
+    )
 
     response = client.get("/security/abuseipdb-blacklist")
 
@@ -239,23 +382,44 @@ async def test_abuseipdb_blacklist_with_data(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     mock_settings = MagicMock()
     mock_settings.abuseipdb_api_key = "test-key"
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_settings", lambda: mock_settings)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_settings",
+        lambda: mock_settings,
+    )
 
     mock_blacklist = AsyncMock()
     mock_blacklist.return_value = [
         {"ip": "1.2.3.4", "score": 95, "reports": 10},
         {"ip": "5.6.7.8", "score": 50, "reports": 3},
     ]
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb._abuseipdb_blacklist", mock_blacklist)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb._abuseipdb_blacklist",
+        mock_blacklist,
+    )
 
     response = client.get("/security/abuseipdb-blacklist")
 
@@ -274,20 +438,41 @@ async def test_abuseipdb_blacklist_empty(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     mock_settings = MagicMock()
     mock_settings.abuseipdb_api_key = "test-key"
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_settings", lambda: mock_settings)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_settings",
+        lambda: mock_settings,
+    )
 
     mock_blacklist = AsyncMock()
     mock_blacklist.return_value = []
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb._abuseipdb_blacklist", mock_blacklist)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb._abuseipdb_blacklist",
+        mock_blacklist,
+    )
 
     response = client.get("/security/abuseipdb-blacklist")
 
@@ -304,16 +489,34 @@ async def test_abuseipdb_check(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     mock_check = AsyncMock()
     mock_check.return_value = {"ip": "1.2.3.4", "score": 85, "reports": 5}
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb._abuseipdb_check", mock_check)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb._abuseipdb_check",
+        mock_check,
+    )
 
     response = client.post(
         "/security/abuseipdb-check", data={"ip": "1.2.3.4", "api_key": "test-key"}
@@ -333,11 +536,26 @@ async def test_abuseipdb_check_missing_params(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     response = client.post("/security/abuseipdb-check", data={"ip": "", "api_key": ""})
@@ -355,16 +573,34 @@ async def test_abuseipdb_check_error(monkeypatch) -> None:
     mock_get_admin = AsyncMock()
     mock_get_admin.return_value = MagicMock(id=1)
     monkeypatch.setattr("pit_panel.web.routes.security.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", mock_get_admin)
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", mock_get_admin)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        mock_get_admin,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        mock_get_admin,
+    )
     monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", mock_get_admin)
 
     mock_check = AsyncMock()
     mock_check.return_value = {"ip": "1.2.3.4", "error": "API limit exceeded"}
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb._abuseipdb_check", mock_check)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb._abuseipdb_check",
+        mock_check,
+    )
 
     response = client.post(
         "/security/abuseipdb-check", data={"ip": "1.2.3.4", "api_key": "test-key"}
@@ -380,15 +616,39 @@ async def test_security_firewall_enable(monkeypatch) -> None:
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("pit_panel.web.routes.security.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", AsyncMock(return_value=MagicMock(id=1)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
     mock_enable = AsyncMock(return_value=True)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall._enable_ufw", mock_enable)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall._enable_ufw",
+        mock_enable,
+    )
 
     response = client.post("/security/firewall/enable")
     assert response.status_code == 200
@@ -401,15 +661,39 @@ async def test_security_firewall_disable(monkeypatch) -> None:
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("pit_panel.web.routes.security.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", AsyncMock(return_value=MagicMock(id=1)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
     mock_disable = AsyncMock(return_value=True)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall._disable_ufw", mock_disable)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall._disable_ufw",
+        mock_disable,
+    )
 
     response = client.post("/security/firewall/disable")
     assert response.status_code == 200
@@ -422,15 +706,39 @@ async def test_security_firewall_rule_add(monkeypatch) -> None:
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("pit_panel.web.routes.security.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", AsyncMock(return_value=MagicMock(id=1)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
     mock_add = AsyncMock(return_value=True)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall._add_ufw_rule", mock_add)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall._add_ufw_rule",
+        mock_add,
+    )
 
     response = client.post(
         "/security/firewall/rule/add",
@@ -446,16 +754,43 @@ async def test_security_firewall_rule_delete(monkeypatch) -> None:
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("pit_panel.web.routes.security.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", AsyncMock(return_value=MagicMock(id=1)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
     mock_delete = AsyncMock(return_value=True)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall._delete_ufw_rule", mock_delete)
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall._get_client_ip", lambda r: "1.2.3.4")
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall._delete_ufw_rule",
+        mock_delete,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall._get_client_ip",
+        lambda r: "1.2.3.4",
+    )
     monkeypatch.setattr(
         "pit_panel.web.routes.security_firewall._detect_ssh_port",
         AsyncMock(return_value=22),
@@ -472,15 +807,39 @@ async def test_security_fail2ban_config(monkeypatch) -> None:
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("pit_panel.web.routes.security.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", AsyncMock(return_value=MagicMock(id=1)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
     mock_save = AsyncMock(return_value=True)
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban._save_jail_config", mock_save)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban._save_jail_config",
+        mock_save,
+    )
 
     response = client.post(
         "/security/fail2ban/config/sshd",
@@ -496,13 +855,34 @@ async def test_security_clamav_toggle_low_memory(monkeypatch) -> None:
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("pit_panel.web.routes.security.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", AsyncMock(return_value=MagicMock(id=1)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
     monkeypatch.setattr(
         "pit_panel.web.routes.security_malware.get_host_memory_gb",
         AsyncMock(return_value=1.5),
@@ -519,13 +899,34 @@ async def test_security_clamav_toggle_success(monkeypatch) -> None:
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("pit_panel.web.routes.security.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", AsyncMock(return_value=MagicMock(id=1)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
     monkeypatch.setattr(
         "pit_panel.web.routes.security_malware.get_host_memory_gb",
         AsyncMock(return_value=4.0),
@@ -556,15 +957,39 @@ async def test_security_lynis_audit(monkeypatch) -> None:
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("pit_panel.web.routes.security.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", AsyncMock(return_value=MagicMock(id=1)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
     mock_audit = AsyncMock(return_value={"hardening_index": 80})
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.run_lynis_audit", mock_audit)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.run_lynis_audit",
+        mock_audit,
+    )
 
     response = client.post("/security/lynis/audit")
     assert response.status_code == 200
@@ -577,13 +1002,34 @@ async def test_security_lynis_report(monkeypatch) -> None:
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("pit_panel.web.routes.security.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", AsyncMock(return_value=MagicMock(id=1)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
 
     mock_json = '{"hardening_index": 80, "warnings": ["w"], "suggestions": ["s"]}'
     with patch("builtins.open", mock_open(read_data=mock_json)):
@@ -599,15 +1045,39 @@ async def test_security_fail2ban_get_config(monkeypatch) -> None:
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("pit_panel.web.routes.security.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_firewall.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_malware.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_blocklist.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_abuseipdb.get_admin", AsyncMock(return_value=MagicMock(id=1)))
-    monkeypatch.setattr("pit_panel.web.routes.security_lynis.get_admin", AsyncMock(return_value=MagicMock(id=1)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_firewall.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_malware.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_blocklist.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_abuseipdb.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_lynis.get_admin",
+        AsyncMock(return_value=MagicMock(id=1)),
+    )
     mock_get = AsyncMock(return_value={"bantime": 3600, "findtime": 600, "maxretry": 5})
-    monkeypatch.setattr("pit_panel.web.routes.security_fail2ban._get_jail_config", mock_get)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_fail2ban._get_jail_config",
+        mock_get,
+    )
 
     response = client.get("/security/fail2ban/config/sshd")
     assert response.status_code == 200
