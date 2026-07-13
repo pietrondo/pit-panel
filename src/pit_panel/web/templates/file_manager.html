@@ -41,6 +41,7 @@
                 </template>
                 <template x-for="folder in folders" :key="folder.path">
                     <button @click="loadPath(folder.path)"
+                            :aria-label="`Open folder ${folder.name}`"
                             class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition-colors truncate">
                         <span class="text-yellow-500">📁</span>
                         <span x-text="folder.name" class="truncate"></span>
@@ -89,6 +90,7 @@
                             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                                 <td class="px-6 py-3 font-medium text-slate-900 dark:text-white">
                                     <button @click="item.is_dir ? loadPath(item.path) : openFile(item.path)"
+                                            :aria-label="`${item.is_dir ? 'Open folder' : 'Edit file'} ${item.name}`"
                                             class="flex items-center gap-2 hover:underline text-left truncate max-w-xs md:max-w-md">
                                         <span x-text="item.is_dir ? '📁' : '📄'"></span>
                                         <span x-text="item.name" class="truncate"></span>
@@ -99,11 +101,11 @@
                                 <td class="px-6 py-3 text-slate-500" x-text="formatDate(item.mtime)"></td>
                                 <td class="px-6 py-3 text-right space-x-1">
                                     <template x-if="!item.is_dir">
-                                        <button @click="openFile(item.path)" class="btn btn-ghost py-1 px-2.5 text-xs text-indigo-600 dark:text-indigo-400">
+                                        <button @click="openFile(item.path)" :aria-label="`Edit file ${item.name}`" class="btn btn-ghost py-1 px-2.5 text-xs text-indigo-600 dark:text-indigo-400">
                                             Edit
                                         </button>
                                     </template>
-                                    <button @click="deleteResource(item.path)" class="btn btn-ghost py-1 px-2.5 text-xs text-red-600 dark:text-red-400">
+                                    <button @click="deleteResource(item.path)" :aria-label="`Delete ${item.is_dir ? 'folder' : 'file'} ${item.name}`" class="btn btn-ghost py-1 px-2.5 text-xs text-red-600 dark:text-red-400">
                                         Delete
                                     </button>
                                 </td>
