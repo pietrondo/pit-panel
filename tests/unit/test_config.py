@@ -1,9 +1,9 @@
 import tempfile
-import pytest
 from pathlib import Path
-
-
 from typing import Any
+
+import pytest
+
 
 class TestSettings:
     def test_defaults(self) -> None:
@@ -58,7 +58,9 @@ class TestSettings:
         assert s.effective_domain == "example.com"
         assert s.panel_url == "https://admin.example.com"
 
-    def test_effective_domain_and_panel_url_without_base_domain(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_effective_domain_and_panel_url_without_base_domain(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from pit_panel.config import Settings
 
         # Mock _detect_ip to return a fixed IP
