@@ -143,3 +143,27 @@ def test_system_manage_services_no_nginx(client: TestClient, auth_headers: dict)
         assert b"Pit Panel" in response.content
         assert b"Nginx" not in response.content
         assert b"nginx" not in response.content
+
+def test_resolve_cmd_safe_service_validation() -> None:
+    from pit_panel.web.routes.system_manage import _resolve_cmd
+
+    with patch("pit_panel.web.routes.system_manage.SERVICES", [
+        ("valid-service-123", "Valid"),
+        ("also_valid", "Also Valid"),
+        ("-invalid-starts-with-dash", "Invalid 1"),
+        ("invalid;injection", "Invalid 2"),
+        ("invalid space", "Invalid 3"),
+    ]):
+        # Test valid ones
+        assert _resolve_cmd("service_restart_valid-service-123") == ["/usr/bin/systemctl", "restart", "--", "valid-service-123"]
+        assert _resolve_cmd("service_stop_also_valid") == ["/usr/bin/systemctl", "stop", "--", "also_valid"]
+        assert _resolve_cmd("service_start_valid-service-123") == ["/usr/bin/systemctl", "start", "--", "valid-service-123"]
+        assert _resolve_cmd("journal_also_valid") == ["/usr/bin/journalctl", "-u", "also_valid", "-n", "100", "--no-pager"]
+
+        # Test invalid ones that shouldn't be executed due to `is_safe` filtering
+        assert _resolve_cmd("service_restart_-invalid-starts-with-dash") is None
+        assert _resolve_cmd("service_restart_invalid;injection") is None
+        assert _resolve_cmd("service_restart_invalid space") is None
+
+        # Test completely non-existent service
+        assert _resolve_cmd("service_restart_non-existent") is None
