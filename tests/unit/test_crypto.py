@@ -1,5 +1,7 @@
 import hashlib
+
 from pit_panel.security.crypto import hash_token
+
 
 def test_hash_token_known_value() -> None:
     # SHA-256 of "test_token"
