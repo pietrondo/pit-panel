@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
 import pit_panel.core.app_manager as app_manager_module
 from pit_panel.core.app_manager import AppManager
 
