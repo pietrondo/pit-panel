@@ -1,4 +1,0 @@
-## 2025-02-19 - XSS in Inline HTML Responses
-**Vulnerability:** A Cross-Site Scripting (XSS) vulnerability was found in `security_abuseipdb.py` where user-controlled input (`ip` and `error` messages) was directly interpolated into HTMLResponse strings without sanitization.
-**Learning:** Returning HTML fragments directly from backend routes requires explicit sanitization of all dynamic variables, as these strings are not automatically escaped like Jinja2 template variables.
-**Prevention:** Always use `html.escape()` on dynamic variables before interpolating them into Python strings returned as `HTMLResponse` objects to prevent XSS vulnerabilities.

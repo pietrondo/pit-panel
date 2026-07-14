@@ -1,0 +1,11 @@
+cleanup: remove Jules learning artifacts and harden abuseipdb XSS fix
+
+- Removed pr_body.txt, .jules/sentinel.md, and .Jules/palette.md left over
+  from automated Jules PRs.
+- Applied html.escape to AbuseIPDB blacklist entries as well (the check
+  route was already fixed).
+- Fixed broken HTML attribute in the abuseipdb_check response template.
+- Made Caddy permission tests cross-platform by mocking Path.write_text
+  instead of relying on /root paths on Windows.
+
+Co-authored-by: CommandCodeBot <noreply@commandcode.ai>

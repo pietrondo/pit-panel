@@ -88,21 +88,25 @@ async def security_abuseipdb_blacklist(request: Request, db: AsyncSession = Depe
     if not blacklist:
         return HTMLResponse('<div class="text-sm text-gray-500">No blacklist entries found.</div>')
 
-    html = '<div class="space-y-2">'
+    output = '<div class="space-y-2">'
     for entry in blacklist:
-        color_class = "text-red-500" if entry["score"] > 80 else "text-orange-500"
-        html += f"""
+        score = entry["score"]
+        color_class = "text-red-500" if score > 80 else "text-orange-500"
+        safe_ip = html.escape(str(entry["ip"]))
+        safe_score = html.escape(str(score))
+        safe_reports = html.escape(str(entry["reports"]))
+        output += f"""
         <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-            <span class="font-mono text-sm">{entry["ip"]}</span>
+            <span class="font-mono text-sm">{safe_ip}</span>
             <div class="text-xs text-gray-500">
-                Score: <span class="{color_class} font-bold">{entry["score"]}</span> |
-                Reports: {entry["reports"]}
+                Score: <span class="{color_class} font-bold">{safe_score}</span> |
+                Reports: {safe_reports}
             </div>
         </div>
         """
-    html += "</div>"
+    output += "</div>"
 
-    return HTMLResponse(html)
+    return HTMLResponse(output)
 
 
 @router.post("/security/abuseipdb-check", response_class=HTMLResponse)
@@ -132,8 +136,7 @@ async def security_abuseipdb_check(request: Request, db: AsyncSession = Depends(
     safe_ip = html.escape(str(result["ip"]))
 
     return HTMLResponse(f'''
-    <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 "
-         "dark:border-gray-700">
+    <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
         <div class="flex justify-between items-center">
             <span class="font-mono">{safe_ip}</span>
             <span class="{color_class} font-bold">Score: {score}/100</span>

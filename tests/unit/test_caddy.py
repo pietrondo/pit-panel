@@ -97,12 +97,10 @@ def test_save_api_token_existing_var(tmp_path):
     assert env_file.read_text() == "VAR=OLD_TOKEN\n"
 
 
-def test_save_api_token_permission_error():
+@patch("pathlib.Path.write_text", side_effect=PermissionError("denied"))
+def test_save_api_token_permission_error(mock_write):
     mgr = CaddyManager()
-    # Path that shouldn't be writable
-    res = mgr.save_api_token(
-        "VAR", "TOKEN", "/root/some_file_that_doesnt_exist_and_cant_be_written"
-    )
+    res = mgr.save_api_token("VAR", "TOKEN", "/etc/caddy/.env")
     assert res == " (API token not saved — set manually in /etc/caddy/.env)"
 
 
@@ -181,11 +179,11 @@ async def test_generate_and_reload_reload_fails(mock_exec, tmp_path):
 
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
-async def test_generate_and_reload_permission_error():
+@patch("pathlib.Path.write_text", side_effect=PermissionError("denied"))
+async def test_generate_and_reload_permission_error(mock_write):
     mgr = CaddyManager()
-    # Try to write to root
-    res = await mgr.generate_and_reload("content", "/root/Caddyfile")
-    assert "Cannot write Caddyfile — permission denied" in res or "Caddy config error" in res
+    res = await mgr.generate_and_reload("content", "/etc/caddy/Caddyfile")
+    assert "Cannot write Caddyfile — permission denied" in res
 
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
