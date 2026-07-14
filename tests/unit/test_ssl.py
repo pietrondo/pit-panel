@@ -502,3 +502,133 @@ async def test_ssl_renew_exception(
 
     assert resp == "rendered html"
     mock_render.assert_called_once()
+
+
+def test_validate_domain_empty() -> None:
+    from pit_panel.web.routes.ssl import _validate_domain
+
+    assert _validate_domain("")
+
+
+def test_get_acme_config_buypass() -> None:
+    from pit_panel.web.routes.ssl import _get_acme_config
+
+    assert _get_acme_config("buypass", "", "") == "issuer buypass"
+
+
+def test_get_acme_config_google() -> None:
+    from pit_panel.web.routes.ssl import _get_acme_config
+
+    assert _get_acme_config("google", "key", "hmac") == 'issuer google {eab "key" "hmac"}'
+
+
+def test_generate_caddyfile_invalid_domain() -> None:
+    import pytest
+
+    from pit_panel.web.routes.ssl import CaddyfileConfig, _generate_caddyfile
+
+    config = CaddyfileConfig(email="test@example.com", domain="invalid domain", panel_sub="panel")
+    with pytest.raises(ValueError, match="Invalid domain name"):
+        _generate_caddyfile(config)
+
+
+def test_generate_caddyfile_invalid_panel_sub() -> None:
+    import pytest
+
+    from pit_panel.web.routes.ssl import CaddyfileConfig, _generate_caddyfile
+
+    config = CaddyfileConfig(
+        email="test@example.com", domain="example.com", panel_sub="invalid sub"
+    )
+    with pytest.raises(ValueError, match="Invalid panel subdomain"):
+        _generate_caddyfile(config)
+
+
+def test_generate_caddyfile_zerossl_no_dns() -> None:
+    from pit_panel.web.routes.ssl import CaddyfileConfig, _generate_caddyfile
+
+    config = CaddyfileConfig(
+        email="test@example.com",
+        domain="example.com",
+        panel_sub="panel",
+        acme_provider="zerossl",
+        eab_key_id="key",
+        eab_hmac="hmac",
+    )
+    caddyfile = _generate_caddyfile(config)
+    assert 'issuer zerossl {eab "key" "hmac"}' in caddyfile
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+async def test_ssl_generate_invalid_domain(
+    mock_get_settings: mock.MagicMock, mock_get_admin: mock.MagicMock
+) -> None:
+    from fastapi import Request
+
+    from pit_panel.web.routes.ssl import SSLGenerateForm, ssl_generate
+
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_settings.effective_domain = "invalid domain"
+    mock_settings.panel_subdomain = "panel"
+    mock_get_settings.return_value = mock_settings
+
+    db = mock.AsyncMock()
+    form = SSLGenerateForm()
+
+    req = mock.MagicMock(spec=Request)
+    resp = await ssl_generate(req, form, db)
+    assert resp.status_code == 400
+    assert resp.body == b"Invalid base domain."
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+async def test_ssl_generate_invalid_panel_sub(
+    mock_get_settings: mock.MagicMock, mock_get_admin: mock.MagicMock
+) -> None:
+    from fastapi import Request
+
+    from pit_panel.web.routes.ssl import SSLGenerateForm, ssl_generate
+
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_settings.effective_domain = "example.com"
+    mock_settings.panel_subdomain = "invalid sub"
+    mock_get_settings.return_value = mock_settings
+
+    db = mock.AsyncMock()
+    form = SSLGenerateForm()
+
+    req = mock.MagicMock(spec=Request)
+    resp = await ssl_generate(req, form, db)
+    assert resp.status_code == 400
+    assert resp.body == b"Invalid panel subdomain."
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+async def test_ssl_generate_value_error(
+    mock_get_settings: mock.MagicMock, mock_get_admin: mock.MagicMock
+) -> None:
+    from fastapi import Request
+
+    from pit_panel.web.routes.ssl import SSLGenerateForm, ssl_generate
+
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_settings.effective_domain = "example.com"
+    mock_settings.panel_subdomain = "panel"
+    mock_get_settings.return_value = mock_settings
+
+    db = mock.AsyncMock()
+    form = SSLGenerateForm(email="invalid\nemail")
+
+    req = mock.MagicMock(spec=Request)
+    resp = await ssl_generate(req, form, db)
+    assert resp.status_code == 400
+    assert b"Error: Invalid characters in input" in resp.body
