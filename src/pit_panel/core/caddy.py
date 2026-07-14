@@ -149,36 +149,36 @@ class CaddyManager:
                     if not cert:
                         continue
 
-                        not_after = cert.get("notAfter", "")
-                        if not not_after:
-                            continue
+                    not_after = cert.get("notAfter", "")
+                    if not not_after:
+                        continue
 
-                        # Parse not_after using ssl.cert_time_to_seconds
-                        try:
-                            expiry_timestamp = ssl.cert_time_to_seconds(not_after)
-                            expiry_dt = dt.datetime.fromtimestamp(expiry_timestamp, dt.UTC)
-                            days = (expiry_dt - dt.datetime.now(dt.UTC)).days
-                        except Exception:
-                            days = None
+                    # Parse not_after using ssl.cert_time_to_seconds
+                    try:
+                        expiry_timestamp = ssl.cert_time_to_seconds(not_after)
+                        expiry_dt = dt.datetime.fromtimestamp(expiry_timestamp, dt.UTC)
+                        days = (expiry_dt - dt.datetime.now(dt.UTC)).days
+                    except Exception:
+                        days = None
 
-                        # format issuer
-                        issuer_parts = []
-                        for rdns in cert.get("issuer", ()):
-                            for rdn in rdns:
-                                name, val = rdn[0], rdn[1]
-                                issuer_parts.append(f"{name}={val}")
-                        issuer = ", ".join(issuer_parts)
+                    # format issuer
+                    issuer_parts = []
+                    for rdns in cert.get("issuer", ()):
+                        for rdn in rdns:
+                            name, val = rdn[0], rdn[1]
+                            issuer_parts.append(f"{name}={val}")
+                    issuer = ", ".join(issuer_parts)
 
-                        certs.append(
-                            {
-                                "serial": cert.get("serialNumber", "?"),
-                                "domains": domain,
-                                "not_before": cert.get("notBefore", ""),
-                                "not_after": not_after,
-                                "expires_in_days": days,
-                                "issuer": issuer or "Unknown",
-                            }
-                        )
+                    certs.append(
+                        {
+                            "serial": cert.get("serialNumber", "?"),
+                            "domains": domain,
+                            "not_before": cert.get("notBefore", ""),
+                            "not_after": not_after,
+                            "expires_in_days": days,
+                            "issuer": issuer or "Unknown",
+                        }
+                    )
             except Exception as e:
                 logger.warning(f"Failed native SSL cert check for {domain}: {e}")
         return certs

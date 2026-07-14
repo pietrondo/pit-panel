@@ -507,7 +507,9 @@ async def test_ssl_renew_exception(
 def test_validate_domain_empty() -> None:
     from pit_panel.web.routes.ssl import _validate_domain
 
-    assert _validate_domain("")
+    assert _validate_domain("") is True
+    assert _validate_domain("example.com") is True
+    assert _validate_domain("invalid domain") is False
 
 
 def test_get_acme_config_buypass() -> None:
@@ -520,6 +522,18 @@ def test_get_acme_config_google() -> None:
     from pit_panel.web.routes.ssl import _get_acme_config
 
     assert _get_acme_config("google", "key", "hmac") == 'issuer google {eab "key" "hmac"}'
+
+
+def test_get_acme_config_unknown() -> None:
+    from pit_panel.web.routes.ssl import _get_acme_config
+
+    assert _get_acme_config("unknown", "", "") == ""
+
+
+def test_get_acme_config_zerossl() -> None:
+    from pit_panel.web.routes.ssl import _get_acme_config
+
+    assert _get_acme_config("zerossl", "key", "hmac") == 'issuer zerossl {eab "key" "hmac"}'
 
 
 def test_generate_caddyfile_invalid_domain() -> None:
@@ -557,6 +571,20 @@ def test_generate_caddyfile_zerossl_no_dns() -> None:
     )
     caddyfile = _generate_caddyfile(config)
     assert 'issuer zerossl {eab "key" "hmac"}' in caddyfile
+
+
+def test_generate_caddyfile_acme_clause() -> None:
+    from pit_panel.web.routes.ssl import CaddyfileConfig, _generate_caddyfile
+
+    config = CaddyfileConfig(
+        email="test@example.com",
+        domain="example.com",
+        panel_sub="panel",
+        dns_provider="",
+        acme_provider="buypass",
+    )
+    res = _generate_caddyfile(config)
+    assert "issuer buypass" in res
 
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
