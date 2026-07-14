@@ -1,0 +1,4 @@
+💡 **What:** Added dynamic `aria-label` attributes to the file and folder action buttons inside Alpine.js `x-for` loops within the File Manager template.
+🎯 **Why:** To improve accessibility for screen readers. Previously, repetitive buttons (like "Edit", "Delete", or icon-only folder buttons) lacked context when read aloud.
+📸 **Before/After:** Not applicable (purely semantic HTML/accessibility changes).
+♿ **Accessibility:** Screen readers will now announce contextual labels like "Open folder src", "Edit file config.json", and "Delete folder templates".
