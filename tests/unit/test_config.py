@@ -158,6 +158,7 @@ class TestSettings:
 
     def test_save_config_file(self, tmp_path):
         import tomllib
+
         from pit_panel.config import Settings
 
         test_dir = tmp_path / "test"
