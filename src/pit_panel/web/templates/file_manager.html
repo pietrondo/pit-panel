@@ -99,11 +99,11 @@
                                 <td class="px-6 py-3 text-slate-500" x-text="formatDate(item.mtime)"></td>
                                 <td class="px-6 py-3 text-right space-x-1">
                                     <template x-if="!item.is_dir">
-                                        <button @click="openFile(item.path)" class="btn btn-ghost py-1 px-2.5 text-xs text-indigo-600 dark:text-indigo-400">
+                                        <button @click="openFile(item.path)" :aria-label="`Edit ${item.name}`" class="btn btn-ghost py-1 px-2.5 text-xs text-indigo-600 dark:text-indigo-400">
                                             Edit
                                         </button>
                                     </template>
-                                    <button @click="deleteResource(item.path)" class="btn btn-ghost py-1 px-2.5 text-xs text-red-600 dark:text-red-400">
+                                    <button @click="deleteResource(item.path)" :aria-label="`Delete ${item.name}`" class="btn btn-ghost py-1 px-2.5 text-xs text-red-600 dark:text-red-400">
                                         Delete
                                     </button>
                                 </td>
