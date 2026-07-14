@@ -502,3 +502,113 @@ async def test_ssl_renew_exception(
 
     assert resp == "rendered html"
     mock_render.assert_called_once()
+
+def test_generate_caddyfile_invalid_domain() -> None:
+    import pytest
+
+    from pit_panel.web.routes.ssl import CaddyfileConfig, _generate_caddyfile
+    with pytest.raises(ValueError, match="Invalid domain name"):
+        _generate_caddyfile(CaddyfileConfig(email='a', domain='invalid domain', panel_sub='c'))
+
+def test_generate_caddyfile_invalid_panel_sub() -> None:
+    import pytest
+
+    from pit_panel.web.routes.ssl import CaddyfileConfig, _generate_caddyfile
+    with pytest.raises(ValueError, match="Invalid panel subdomain"):
+        _generate_caddyfile(CaddyfileConfig(email='a', domain='domain', panel_sub='invalid sub'))
+
+def test_validate_domain() -> None:
+    from pit_panel.web.routes.ssl import _validate_domain
+    assert _validate_domain("") is True
+    assert _validate_domain("example.com") is True
+    assert _validate_domain("invalid domain") is False
+
+def test_get_acme_config_unknown() -> None:
+    from pit_panel.web.routes.ssl import _get_acme_config
+    assert _get_acme_config("unknown", "", "") == ""
+
+def test_get_acme_config_google() -> None:
+    from pit_panel.web.routes.ssl import _get_acme_config
+    assert _get_acme_config("google", "key", "hmac") == 'issuer google {eab "key" "hmac"}'
+
+def test_generate_caddyfile_acme_clause() -> None:
+    from pit_panel.web.routes.ssl import CaddyfileConfig, _generate_caddyfile
+    config = CaddyfileConfig(
+        email="test@example.com",
+        domain="example.com",
+        panel_sub="panel",
+        dns_provider="",
+        acme_provider="buypass"
+    )
+    res = _generate_caddyfile(config)
+    assert "issuer buypass" in res
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+async def test_ssl_generate_invalid_domain(
+    mock_get_settings: mock.MagicMock,
+    mock_get_admin: mock.MagicMock,
+) -> None:
+    from pit_panel.web.routes.ssl import SSLGenerateForm, ssl_generate
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_settings.effective_domain = "invalid domain"
+    mock_get_settings.return_value = mock_settings
+
+    req = mock.MagicMock()
+    form = SSLGenerateForm(email="test@example.com")
+    db = mock.AsyncMock()
+
+    resp = await ssl_generate(req, form, db)
+    assert resp.status_code == 400
+    assert resp.body == b"Invalid base domain."
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+async def test_ssl_generate_invalid_panel_sub(
+    mock_get_settings: mock.MagicMock,
+    mock_get_admin: mock.MagicMock,
+) -> None:
+    from pit_panel.web.routes.ssl import SSLGenerateForm, ssl_generate
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_settings.effective_domain = "example.com"
+    mock_settings.panel_subdomain = "invalid sub"
+    mock_get_settings.return_value = mock_settings
+
+    req = mock.MagicMock()
+    form = SSLGenerateForm(email="test@example.com")
+    db = mock.AsyncMock()
+
+    resp = await ssl_generate(req, form, db)
+    assert resp.status_code == 400
+    assert resp.body == b"Invalid panel subdomain."
+
+def test_get_acme_config_zerossl() -> None:
+    from pit_panel.web.routes.ssl import _get_acme_config
+    assert _get_acme_config("zerossl", "key", "hmac") == 'issuer zerossl {eab "key" "hmac"}'
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("pit_panel.web.routes.ssl.get_admin")
+@mock.patch("pit_panel.web.routes.ssl.get_settings")
+async def test_ssl_generate_value_error(
+    mock_get_settings: mock.MagicMock,
+    mock_get_admin: mock.MagicMock,
+) -> None:
+    from pit_panel.web.routes.ssl import ssl_generate, SSLGenerateForm
+    mock_get_admin.return_value = mock.MagicMock()
+    mock_settings = mock.MagicMock()
+    mock_settings.effective_domain = "example.com"
+    mock_settings.panel_subdomain = "panel"
+    mock_get_settings.return_value = mock_settings
+
+    req = mock.MagicMock()
+    # pass something that throws ValueError in _generate_caddyfile e.g. invalid character in email
+    form = SSLGenerateForm(email="test@example.com\n")
+    db = mock.AsyncMock()
+
+    resp = await ssl_generate(req, form, db)
+    assert resp.status_code == 400
+    assert resp.body.startswith(b"Error:")
