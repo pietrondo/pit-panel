@@ -127,13 +127,16 @@ async def security_abuseipdb_check(request: Request, db: AsyncSession = Depends(
         "text-green-500" if score < 20 else ("text-orange-500" if score < 80 else "text-red-500")
     )
 
-    return HTMLResponse(f'''
-    <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 "
-         "dark:border-gray-700">
-        <div class="flex justify-between items-center">
-            <span class="font-mono">{result["ip"]}</span>
-            <span class="{color_class} font-bold">Score: {score}/100</span>
+    return HTMLResponse(
+        f'''
+        <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded border \
+             border-gray-200 dark:border-gray-700">
+             "dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <span class="font-mono">{result["ip"]}</span>
+                <span class="{color_class} font-bold">Score: {score}/100</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">Total Reports: {result.get("reports", 0)}</div>
         </div>
-        <div class="text-xs text-gray-500 mt-1">Total Reports: {result.get("reports", 0)}</div>
-    </div>
-    ''')
+        '''
+    )
