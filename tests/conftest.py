@@ -17,9 +17,6 @@ def settings():
     return Settings(secret_key="test-secret-key-32chars-long!!", debug=True)
 
 
-
-
-
 @pytest.fixture
 async def db_session():
     engine = create_async_engine("sqlite+aiosqlite://")
