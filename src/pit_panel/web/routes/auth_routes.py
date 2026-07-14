@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
-from pit_panel.db.models import User
+from pit_panel.db.models import Session as DBSession, User
 from pit_panel.db.session import get_db
 from pit_panel.security.crypto import hash_token, verify_password
 from pit_panel.security.ipban import record_login_attempt
@@ -88,8 +88,6 @@ async def login_post(
     # Fix: update session token_hash to match cookie
     data = unsign_session_token(settings, final_cookie)
     if data:
-        from pit_panel.db.models import Session as DBSession
-
         await db.execute(
             update(DBSession)
             .where(DBSession.id == session_id)
