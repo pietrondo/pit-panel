@@ -69,12 +69,14 @@ async def test_get_certificates_handles_api_error():
         certs = await mgr.get_certificates()
         assert certs == []
 
+
 def test_save_api_token_new_file(tmp_path):
     mgr = CaddyManager()
     env_file = tmp_path / ".env"
     res = mgr.save_api_token("VAR", "TOKEN", str(env_file))
     assert res == " API token saved."
     assert env_file.read_text() == "VAR=TOKEN\n"
+
 
 def test_save_api_token_existing_file(tmp_path):
     mgr = CaddyManager()
@@ -83,6 +85,7 @@ def test_save_api_token_existing_file(tmp_path):
     res = mgr.save_api_token("VAR", "TOKEN", str(env_file))
     assert res == " API token saved."
     assert env_file.read_text() == "OTHER=VAL\nVAR=TOKEN\n"
+
 
 def test_save_api_token_existing_var(tmp_path):
     mgr = CaddyManager()
@@ -93,11 +96,15 @@ def test_save_api_token_existing_var(tmp_path):
     # Wait, it checks `safe_api_var not in content`, so it doesn't write if present
     assert env_file.read_text() == "VAR=OLD_TOKEN\n"
 
+
 def test_save_api_token_permission_error():
     mgr = CaddyManager()
     # Path that shouldn't be writable
-    res = mgr.save_api_token("VAR", "TOKEN", "/root/some_file_that_doesnt_exist_and_cant_be_written")
+    res = mgr.save_api_token(
+        "VAR", "TOKEN", "/root/some_file_that_doesnt_exist_and_cant_be_written"
+    )
     assert res == " (API token not saved — set manually in /etc/caddy/.env)"
+
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("pit_panel.core.caddy.asyncio.create_subprocess_exec")
@@ -122,6 +129,7 @@ async def test_generate_and_reload_success(mock_exec, tmp_path):
     assert res == "Config loaded. Caddy will provision SSL certificates now."
     assert caddyfile_path.read_text() == "test content"
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("pit_panel.core.caddy.asyncio.create_subprocess_exec")
 async def test_generate_and_reload_validate_fails(mock_exec):
@@ -135,17 +143,22 @@ async def test_generate_and_reload_validate_fails(mock_exec):
     res = await mgr.generate_and_reload("bad content")
     assert res == "Caddy validation failed: Syntax error"
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("pit_panel.core.caddy.asyncio.create_subprocess_exec")
 async def test_generate_and_reload_validate_not_found(mock_exec, tmp_path):
     mgr = CaddyManager()
 
     # Simulate FileNotFoundError for caddy validate
-    mock_exec.side_effect = [FileNotFoundError(), AsyncMock(communicate=AsyncMock(return_value=(b"", b"")), returncode=0)]
+    mock_exec.side_effect = [
+        FileNotFoundError(),
+        AsyncMock(communicate=AsyncMock(return_value=(b"", b"")), returncode=0),
+    ]
 
     caddyfile_path = tmp_path / "Caddyfile"
     res = await mgr.generate_and_reload("content", str(caddyfile_path))
     assert res == "Config loaded. Caddy will provision SSL certificates now."
+
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("pit_panel.core.caddy.asyncio.create_subprocess_exec")
@@ -166,6 +179,7 @@ async def test_generate_and_reload_reload_fails(mock_exec, tmp_path):
     res = await mgr.generate_and_reload("content", str(caddyfile_path))
     assert res == "Caddy reload failed: Reload error"
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 async def test_generate_and_reload_permission_error():
     mgr = CaddyManager()
@@ -173,31 +187,26 @@ async def test_generate_and_reload_permission_error():
     res = await mgr.generate_and_reload("content", "/root/Caddyfile")
     assert "Cannot write Caddyfile — permission denied" in res or "Caddy config error" in res
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("pit_panel.core.caddy.httpx.AsyncClient")
 async def test_get_managed_domains_success(mock_client_class):
     from unittest.mock import MagicMock
+
     mgr = CaddyManager()
 
     mock_client = AsyncMock()
     mock_resp = AsyncMock()
     mock_resp.status_code = 200
-    mock_resp.json = MagicMock(return_value={
-        "srv1": {
-            "routes": [
-                {
-                    "match": [
-                        {"host": ["domain1.com", "domain2.com"]}
-                    ]
-                }
-            ]
-        }
-    })
+    mock_resp.json = MagicMock(
+        return_value={"srv1": {"routes": [{"match": [{"host": ["domain1.com", "domain2.com"]}]}]}}
+    )
     mock_client.get.return_value = mock_resp
     mock_client_class.return_value.__aenter__.return_value = mock_client
 
     domains = await mgr._get_managed_domains()
     assert domains == ["domain1.com", "domain2.com"]
+
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("pit_panel.core.caddy.httpx.AsyncClient")
@@ -213,6 +222,7 @@ async def test_get_managed_domains_not_200(mock_client_class):
     domains = await mgr._get_managed_domains()
     assert domains == []
 
+
 def test_check_certs_via_openssl_success():
     mgr = CaddyManager()
     with patch("socket.create_connection"), patch("ssl.create_default_context") as mock_ctx:
@@ -221,7 +231,7 @@ def test_check_certs_via_openssl_success():
             "serialNumber": "123",
             "notBefore": "some time",
             "notAfter": "Feb 23 12:00:00 2025 GMT",
-            "issuer": [(("O", "Let's Encrypt"),)]
+            "issuer": [(("O", "Let's Encrypt"),)],
         }
 
         with patch("ssl.cert_time_to_seconds", return_value=1740312000.0):
@@ -231,16 +241,19 @@ def test_check_certs_via_openssl_success():
             assert res[0]["serial"] == "123"
             assert res[0]["issuer"] == "O=Let's Encrypt"
 
+
 def test_check_certs_via_openssl_exception():
     mgr = CaddyManager()
     with patch("socket.create_connection", side_effect=Exception("socket error")):
         res = mgr._check_certs_via_openssl(["example.com"])
         assert res == []
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("pit_panel.core.caddy.httpx.AsyncClient")
 async def test_renew_certificate_success(mock_client_class):
     from unittest.mock import MagicMock
+
     mgr = CaddyManager()
 
     mock_client = AsyncMock()
@@ -258,6 +271,7 @@ async def test_renew_certificate_success(mock_client_class):
     res = await mgr.renew_certificate("example.com")
     assert res["success"] is True
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("pit_panel.core.caddy.httpx.AsyncClient")
 async def test_renew_certificate_get_fails(mock_client_class):
@@ -273,6 +287,7 @@ async def test_renew_certificate_get_fails(mock_client_class):
     res = await mgr.renew_certificate("example.com")
     assert res["success"] is False
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("pit_panel.core.caddy.httpx.AsyncClient")
 async def test_renew_certificate_exception(mock_client_class):
@@ -285,6 +300,7 @@ async def test_renew_certificate_exception(mock_client_class):
     res = await mgr.renew_certificate("example.com")
     assert res["success"] is False
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("pit_panel.core.caddy.CaddyManager.get_certificates")
 @patch("pit_panel.core.caddy.CaddyManager.renew_certificate")
@@ -293,7 +309,7 @@ async def test_auto_renew_certificates(mock_renew, mock_get_certs):
 
     mock_get_certs.return_value = [
         {"domains": "expiring.com", "expires_in_days": 10},
-        {"domains": "ok.com", "expires_in_days": 30}
+        {"domains": "ok.com", "expires_in_days": 30},
     ]
     mock_renew.return_value = {"success": True}
 
