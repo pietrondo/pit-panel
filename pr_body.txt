@@ -1,0 +1,5 @@
+🚨 Severity: HIGH
+💡 Vulnerability: Cross-Site Scripting (XSS) in `security_abuseipdb.py`. User-controlled inputs (`ip` and `error` messages) from AbuseIPDB API checks were directly interpolated into raw Python strings and returned via FastAPI `HTMLResponse` without any HTML escaping.
+🎯 Impact: If a malicious user provides a crafted payload (or if the upstream API returns malicious content in the error message), scripts could be executed in the context of the admin user's browser, potentially allowing session hijacking or unauthorized administrative actions.
+🔧 Fix: Imported the standard library `html` module and wrapped all dynamic user/external inputs (e.g., `result["error"]` and `result["ip"]`) with `html.escape(str(...))` before interpolating them into the HTML templates returned by the route.
+✅ Verification: Ensure tests pass via `uv run pytest tests/unit/routes/test_security_route.py`.

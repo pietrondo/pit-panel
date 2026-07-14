@@ -1,5 +1,6 @@
 """AbuseIPDB routes — IP reputation check, blacklist browsing."""
 
+import html
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -120,18 +121,21 @@ async def security_abuseipdb_check(request: Request, db: AsyncSession = Depends(
     result = await _abuseipdb_check(ip, api_key)
 
     if "error" in result:
-        return HTMLResponse(f'<div class="text-red-500 text-sm">Error: {result["error"]}</div>')
+        err_msg = html.escape(str(result["error"]))
+        return HTMLResponse(f'<div class="text-red-500 text-sm">Error: {err_msg}</div>')
 
     score = result.get("score", 0)
     color_class = (
         "text-green-500" if score < 20 else ("text-orange-500" if score < 80 else "text-red-500")
     )
 
+    safe_ip = html.escape(str(result["ip"]))
+
     return HTMLResponse(f'''
     <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 "
          "dark:border-gray-700">
         <div class="flex justify-between items-center">
-            <span class="font-mono">{result["ip"]}</span>
+            <span class="font-mono">{safe_ip}</span>
             <span class="{color_class} font-bold">Score: {score}/100</span>
         </div>
         <div class="text-xs text-gray-500 mt-1">Total Reports: {result.get("reports", 0)}</div>
