@@ -145,4 +145,3 @@ async def security_abuseipdb_check(request: Request, db: AsyncSession = Depends(
         <div class="text-xs text-gray-500 mt-1">Total Reports: {result.get("reports", 0)}</div>
     </div>
     ''')
->>>>>>> main

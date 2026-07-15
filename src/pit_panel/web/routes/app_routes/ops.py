@@ -516,8 +516,11 @@ async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(g
     env_content = ""
     if os.path.exists(env_path):
         try:
-            with open(env_path) as f:
-                env_content = f.read()
+            def _read_env() -> str:
+                with open(env_path) as f:
+                    return f.read()
+
+            env_content = await asyncio.to_thread(_read_env)
         except Exception as e:
             logger.error(f"Failed to read .env file at {env_path}: {e}")
             env_content = "# Error reading .env file"
