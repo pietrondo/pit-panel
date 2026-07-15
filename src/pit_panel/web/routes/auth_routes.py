@@ -90,9 +90,7 @@ async def login_post(
     data = unsign_session_token(settings, final_cookie)
     if data:
         await db.execute(
-            update(DBSession)
-            .where(DBSession.id == session_id)
-            .values(token_hash=data["tok"])
+            update(DBSession).where(DBSession.id == session_id).values(token_hash=data["tok"])
         )
 
     user.last_login = datetime.datetime.now(datetime.UTC)
