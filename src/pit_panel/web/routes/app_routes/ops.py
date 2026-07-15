@@ -311,6 +311,7 @@ async def app_backup_get(request: Request, sd_id: int, db: AsyncSession = Depend
         backups_json=_json.dumps(backups),
     )
 
+
 @router.post("/apps/{sd_id}/backup/run", response_class=HTMLResponse)
 async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
@@ -515,8 +516,11 @@ async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(g
     env_content = ""
     if os.path.exists(env_path):
         try:
-            with open(env_path) as f:
-                env_content = f.read()
+            def _read_env() -> str:
+                with open(env_path) as f:
+                    return f.read()
+
+            env_content = await asyncio.to_thread(_read_env)
         except Exception as e:
             logger.error(f"Failed to read .env file at {env_path}: {e}")
             env_content = "# Error reading .env file"
@@ -548,7 +552,7 @@ async def app_env_post(
 
     if any(c in env_content for c in ['"', "'"]):
         return HTMLResponse("Quotes are not allowed to prevent quote evasion.", status_code=400)
-    if any(c in env_content for c in ["$", "`", "\\"]):
+    if any(c in env_content for c in ["$", "`", "\\", ";", "|", "&"]) or "$(" in env_content:
         return HTMLResponse("Shell operators are not allowed.", status_code=400)
 
     error = None
