@@ -26,25 +26,16 @@ async def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProces
 
     Used for systemctl and cp operations that require root.
     """
-    import asyncio
+    from pit_panel.core.sudo_ops import run_cmd
 
-    proc = await asyncio.create_subprocess_exec(
-        "sudo", "-n", *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-    )
-    try:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except TimeoutError:
-        proc.kill()
-        await proc.communicate()
-        return subprocess.CompletedProcess(
-            args=["sudo", "-n", *cmd], returncode=-1, stdout="", stderr="Timeout"
-        )
+    # We use run_cmd which now handles sudo_password correctly
+    res = await run_cmd(["sudo", "-n"] + cmd, timeout=timeout)
 
     return subprocess.CompletedProcess(
         args=["sudo", "-n", *cmd],
-        returncode=proc.returncode or 0,
-        stdout=stdout.decode(errors="replace"),
-        stderr=stderr.decode(errors="replace"),
+        returncode=res.returncode,
+        stdout=res.stdout,
+        stderr=res.stderr,
     )
 
 
@@ -274,10 +265,15 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     current, remote = await _get_git_info()
 
     if ok:
-        subprocess.Popen(
-            ["sudo", "-n", "/usr/bin/systemctl", "restart", "--no-block", "pit-panel.service"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        import asyncio
+
+        from pit_panel.core.sudo_ops import run_cmd
+
+        asyncio.create_task(
+            run_cmd(
+                ["sudo", "-n", "/usr/bin/systemctl", "restart", "--no-block", "pit-panel.service"],
+                timeout=10,
+            )
         )
         result_msg += "\nOK   /usr/bin/systemctl restart --no-block pit-panel.service (queued)"
 
