@@ -32,6 +32,25 @@ async def run_cmd(
     input: str | None = None,
 ) -> CmdResult:
     """Run a command asynchronously with a timeout, optional working directory, and stdin input."""
+    if cmd and cmd[0] == "sudo" and "-n" in cmd:
+        from pit_panel.config import get_settings
+
+        settings = get_settings()
+        if settings.sudo_password:
+            # Replace '-n' with '-S' and '-p', ''
+            new_cmd = []
+            for c in cmd:
+                if c == "-n":
+                    new_cmd.extend(["-S", "-p", ""])
+                else:
+                    new_cmd.append(c)
+            cmd = new_cmd
+
+            password_payload = settings.sudo_password.strip() + "\n"
+            if input is not None:
+                password_payload += input
+            input = password_payload
+
     input_bytes = input.encode() if input is not None else None
 
     try:
