@@ -49,7 +49,8 @@ async def test_analyze_system_logs_success(mock_exec: Any) -> None:
     mock_proc = mock_exec.return_value
     mock_proc.returncode = 0
     mock_proc.communicate.return_value = (
-        b"2026-07-02 10:00:00 ERROR Database timeout\n2026-07-02 10:01:00 WARNING Cache miss\n",
+        b"2026-07-02 10:00:00 ERROR Database timeout\n"
+        b"2026-07-02 10:01:00 WARNING Cache miss\n",
         b"",
     )
 

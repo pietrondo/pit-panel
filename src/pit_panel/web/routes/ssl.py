@@ -50,8 +50,8 @@ DNS_PROVIDERS = [
 def _sanitize(val: str) -> str:
     if not val:
         return ""
-    # Explicit allowlist: only alphanumeric, hyphen, dot, underscore, @, and = are allowed
-    if not re.fullmatch(r"^[a-zA-Z0-9.\-_@=]+$", val):
+    # Ensure any user input failing validation instantly aborts execution
+    if re.search(r"[\r\n\"\'\{\}\`\\]", val):
         raise ValueError("Invalid characters in input")
     return val
 

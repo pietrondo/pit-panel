@@ -91,7 +91,9 @@ async def login_post(
         from pit_panel.db.models import Session as DBSession
 
         await db.execute(
-            update(DBSession).where(DBSession.id == session_id).values(token_hash=data["tok"])
+            update(DBSession)
+            .where(DBSession.id == session_id)
+            .values(token_hash=data["tok"])
         )
 
     user.last_login = datetime.datetime.now(datetime.UTC)

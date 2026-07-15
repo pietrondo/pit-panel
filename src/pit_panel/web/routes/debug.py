@@ -30,7 +30,6 @@ async def _run(cmd: list[str], timeout: int = 10, cwd: str | None = None) -> str
 def _file_checksum(path: str) -> str:
     """Calculate SHA256 checksum of a file."""
     import hashlib
-
     if not os.path.exists(path):
         return ""
     hash_sha256 = hashlib.sha256()
