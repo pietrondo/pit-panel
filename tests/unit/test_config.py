@@ -200,3 +200,15 @@ class TestSettings:
         assert parsed_data["debug"] is True
         assert parsed_data["backup_enabled"] is True
         assert parsed_data["backup_retention_days"] == 14
+
+    def test_save_config_file_creates_parents(self, tmp_path) -> None:
+        from pathlib import Path
+
+        from pit_panel.config import Settings
+
+        nested_dir = tmp_path / "nested" / "dir"
+        s = Settings(data_dir=str(nested_dir), secret_key="test_save_nested")
+        s.save_config_file()
+
+        config_path = nested_dir / "config.toml"
+        assert config_path.exists
