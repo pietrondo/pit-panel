@@ -11,12 +11,10 @@ async def test_run_sudo_empty_command():
     with pytest.raises(ValueError, match="Command cannot be empty"):
         await run_sudo([], "password")
 
-
 @pytest.mark.asyncio
 async def test_run_sudo_not_allowed_command():
     with pytest.raises(ValueError, match="Command 'not_allowed' is not allowed"):
         await run_sudo(["not_allowed"], "password")
-
 
 @pytest.mark.asyncio
 @patch("asyncio.create_subprocess_exec")
@@ -29,18 +27,12 @@ async def test_run_sudo_success(mock_create_subprocess_exec):
 
     assert result == "output_stdout"
     mock_create_subprocess_exec.assert_called_once_with(
-        "sudo",
-        "-S",
-        "-p",
-        "",
-        "systemctl",
-        "status",
+        "sudo", "-S", "-p", "", "systemctl", "status",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     mock_proc.communicate.assert_called_once_with(input=b"password\n")
-
 
 @pytest.mark.asyncio
 @patch("asyncio.create_subprocess_exec")
@@ -53,18 +45,12 @@ async def test_run_sudo_with_stderr(mock_create_subprocess_exec):
 
     assert result == "output_stdoutoutput_stderr"
     mock_create_subprocess_exec.assert_called_once_with(
-        "sudo",
-        "-S",
-        "-p",
-        "",
-        "systemctl",
-        "status",
+        "sudo", "-S", "-p", "", "systemctl", "status",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     mock_proc.communicate.assert_called_once_with(input=b"password\n")
-
 
 @pytest.mark.asyncio
 @patch("asyncio.create_subprocess_exec")
@@ -77,12 +63,7 @@ async def test_run_sudo_empty_output(mock_create_subprocess_exec):
 
     assert result == ""
     mock_create_subprocess_exec.assert_called_once_with(
-        "sudo",
-        "-S",
-        "-p",
-        "",
-        "systemctl",
-        "status",
+        "sudo", "-S", "-p", "", "systemctl", "status",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,

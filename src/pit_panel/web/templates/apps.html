@@ -193,8 +193,8 @@
                 </div>
                 <div class="p-6">
                     <div id="deploy-result"></div>
-                    <form method="POST" action="/apps/deploy" class="space-y-4"
-                          hx-post="/apps/deploy"
+                    <form method="POST" action="/apps/deploy-from-repo" class="space-y-4"
+                          hx-post="/apps/deploy-from-repo"
                           hx-target="#deploy-result"
                           hx-swap="innerHTML"
                           @submit="isSubmitting = true"
