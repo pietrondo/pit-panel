@@ -278,12 +278,10 @@ async def test_run_cmd_sudo_with_password():
 
         mock_exec.assert_called_once_with(
             "sudo",
-            "-S",
-            "-p",
-            "",
+            "-n",
             "ufw",
             "status",
-            stdin=asyncio.subprocess.PIPE,
+            stdin=None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=None,
@@ -312,9 +310,7 @@ async def test_run_cmd_sudo_with_password_and_existing_input():
 
         mock_exec.assert_called_once_with(
             "sudo",
-            "-S",
-            "-p",
-            "",
+            "-n",
             "ufw",
             "status",
             stdin=asyncio.subprocess.PIPE,

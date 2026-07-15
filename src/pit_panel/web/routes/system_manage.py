@@ -1,7 +1,5 @@
 """Routes for system management requiring sudo password."""
 
-import html
-
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -115,7 +113,7 @@ async def system_manage_action(
 
         output = f"Error running sudo as '{getpass.getuser()}': {str(e)}"
 
-    return HTMLResponse(html.escape(str(output)))
+    return HTMLResponse(output)
 
 
 @router.get("/system/manage/services", response_class=HTMLResponse)

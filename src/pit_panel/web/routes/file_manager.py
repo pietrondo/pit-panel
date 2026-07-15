@@ -253,11 +253,8 @@ async def upload_file(
         target_path = resolved_parent / filename
         resolved_target = verify_safe_path(str(target_path))
 
-        def _save_file() -> None:
-            with open(resolved_target, "wb") as f:
-                shutil.copyfileobj(file.file, f)
-
-        await asyncio.to_thread(_save_file)
+        with open(resolved_target, "wb") as f:
+            shutil.copyfileobj(file.file, f)
 
         return {"status": "success", "message": "File uploaded successfully"}
     except PermissionError as e:

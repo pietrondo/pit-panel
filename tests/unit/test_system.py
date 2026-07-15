@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -91,9 +91,11 @@ def test_system_upgrade(
     assert b"OK" in response.content
 
     # Verify that it popped the systemctl restart command with absolute path
-    # We refactored to use `run_cmd` instead of `subprocess.Popen` directly!
-    # Let's verify that run_cmd was called
-    pass
+    mock_popen.assert_called_once_with(
+        ["sudo", "-n", "/usr/bin/systemctl", "restart", "--no-block", "pit-panel.service"],
+        stdout=ANY,
+        stderr=ANY,
+    )
 
 
 @patch("pit_panel.web.routes.system._get_git_info", new_callable=AsyncMock)
