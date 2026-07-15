@@ -548,7 +548,7 @@ async def app_env_post(
 
     if any(c in env_content for c in ['"', "'"]):
         return HTMLResponse("Quotes are not allowed to prevent quote evasion.", status_code=400)
-    if any(c in env_content for c in ["$", "`", "\\"]):
+    if any(c in env_content for c in ["$", "`", "\\", ";", "|", "&"]) or "$(" in env_content:
         return HTMLResponse("Shell operators are not allowed.", status_code=400)
 
     error = None
