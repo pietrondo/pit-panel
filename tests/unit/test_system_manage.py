@@ -84,6 +84,19 @@ def test_system_manage_get_unauthorized(client: TestClient):
     assert response.headers["location"] == "/login"
 
 
+def test_system_manage_action_xss(client: TestClient, auth_headers: dict) -> None:
+    with patch("pit_panel.web.routes.system_manage.run_sudo", new_callable=AsyncMock) as mock_sudo:
+        # Simulate a command that returns unescaped HTML/XSS payload
+        mock_sudo.return_value = "<script>alert('xss')</script>"
+
+        response = client.post("/system/manage/action", data={"action": "df"}, headers=auth_headers)
+
+        assert response.status_code == 200
+        # The payload should be escaped
+        assert b"&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;" in response.content
+        assert b"<script>" not in response.content
+
+
 def test_system_manage_action_df(client: TestClient, auth_headers: dict):
     with patch("pit_panel.web.routes.system_manage.run_sudo", new_callable=AsyncMock) as mock_sudo:
         mock_sudo.return_value = "Filesystem      Size\n/dev/sda1        50G"
