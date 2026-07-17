@@ -229,7 +229,8 @@ async def _render_apps_error(user, settings, db: AsyncSession, error: str, reque
         import html
         safe_error = html.escape(str(error))
         return HTMLResponse(
-            f'''<div class="mb-4 p-4 rounded-lg border text-sm bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">
+            f'''<div class="mb-4 p-4 rounded-lg border text-sm bg-red-50 dark:bg-red-900/20 '''
+            f'''border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">
                 <p class="font-medium">Error</p>
                 <p class="mt-1 font-mono text-xs whitespace-pre-wrap">{safe_error}</p>
             </div>'''
