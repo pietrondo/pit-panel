@@ -32,24 +32,36 @@ async def run_cmd(
     input: str | None = None,
 ) -> CmdResult:
     """Run a command asynchronously with a timeout, optional working directory, and stdin input."""
-    if cmd and cmd[0] == "sudo" and "-n" in cmd:
+    import asyncio
+
+    use_sudo = bool(cmd and cmd[0] == "sudo" and "-n" in cmd)
+    sudo_password = None
+
+    if use_sudo:
         from pit_panel.config import get_settings
-
         settings = get_settings()
-        if settings.sudo_password:
-            # Replace '-n' with '-S' and '-p', ''
-            new_cmd = []
-            for c in cmd:
-                if c == "-n":
-                    new_cmd.extend(["-S", "-p", ""])
-                else:
-                    new_cmd.append(c)
-            cmd = new_cmd
+        sudo_password = settings.sudo_password.strip() if settings.sudo_password else None
 
-            password_payload = settings.sudo_password.strip() + "\n"
-            if input is not None:
-                password_payload += input
-            input = password_payload
+    # Authenticate via sudo -v if a password is provided
+    if use_sudo and sudo_password:
+        auth_proc = await asyncio.create_subprocess_exec(
+            "sudo", "-S", "-p", "", "-v",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            await asyncio.wait_for(
+                auth_proc.communicate((sudo_password + "\n").encode()),
+                timeout=timeout
+            )
+        except TimeoutError:
+            with contextlib.suppress(Exception):
+                auth_proc.kill()
+                await auth_proc.communicate()
+            return CmdResult(stdout="", stderr="sudo authentication timeout", returncode=-1)
+        if auth_proc.returncode != 0:
+            return CmdResult(stdout="", stderr="sudo authentication failed", returncode=-1)
 
     input_bytes = input.encode() if input is not None else None
 
@@ -64,7 +76,7 @@ async def run_cmd(
         stdout_bytes, stderr_bytes = await asyncio.wait_for(
             proc.communicate(input=input_bytes), timeout=timeout
         )
-        return CmdResult(
+        result = CmdResult(
             stdout=stdout_bytes.decode(errors="replace"),
             stderr=stderr_bytes.decode(errors="replace"),
             returncode=proc.returncode or 0,
@@ -73,13 +85,20 @@ async def run_cmd(
         with contextlib.suppress(Exception):
             proc.kill()
             await proc.communicate()
-        return CmdResult(stdout="", stderr="Timeout", returncode=-1)
+        result = CmdResult(stdout="", stderr="Timeout", returncode=-1)
     except Exception as e:
-        return CmdResult(stdout="", stderr=str(e), returncode=-1)
+        result = CmdResult(stdout="", stderr=str(e), returncode=-1)
+
+    if use_sudo and sudo_password:
+        with contextlib.suppress(Exception):
+            reset_proc = await asyncio.create_subprocess_exec("sudo", "-K")
+            await reset_proc.communicate()
+
+    return result
 
 
 async def run_sudo(cmd: list[str], sudo_password: str) -> str:
-    """Run a command using sudo, providing the password via stdin."""
+    """Run a command using sudo securely."""
     if not cmd:
         raise ValueError("Command cannot be empty")
 
@@ -87,8 +106,31 @@ async def run_sudo(cmd: list[str], sudo_password: str) -> str:
     if base_cmd not in ALLOWED_COMMANDS:
         raise ValueError(f"Command '{base_cmd}' is not allowed")
 
-    # Use sudo -S -p '' <cmd>
-    full_cmd = ["sudo", "-S", "-p", ""] + cmd
+    import asyncio
+
+    # Authenticate first
+    auth_proc = await asyncio.create_subprocess_exec(
+        "sudo", "-S", "-p", "", "-v",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        await asyncio.wait_for(
+            auth_proc.communicate((sudo_password.strip() + "\n").encode()),
+            timeout=10
+        )
+    except TimeoutError:
+        with contextlib.suppress(Exception):
+            auth_proc.kill()
+            await auth_proc.communicate()
+        return "incorrect password attempt (timeout)"
+
+    if auth_proc.returncode != 0:
+        return "incorrect password attempt"
+
+    # Use sudo -n <cmd>
+    full_cmd = ["sudo", "-n"] + cmd
 
     proc = await asyncio.create_subprocess_exec(
         *full_cmd,
@@ -97,8 +139,12 @@ async def run_sudo(cmd: list[str], sudo_password: str) -> str:
         stderr=asyncio.subprocess.PIPE,
     )
 
-    password_input = (sudo_password.strip() + "\n").encode()
-    stdout, stderr = await proc.communicate(input=password_input)
+    stdout, stderr = await proc.communicate()
+
+    # Clear cached credentials
+    with contextlib.suppress(Exception):
+        reset_proc = await asyncio.create_subprocess_exec("sudo", "-K")
+        await reset_proc.communicate()
 
     output = ""
     if stdout:
