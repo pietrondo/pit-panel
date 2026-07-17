@@ -87,8 +87,6 @@ class TestSettings:
         assert Settings._detect_ip() == "127.0.0.1"
 
     def test_ensure_paths(self, monkeypatch):
-        from pathlib import Path
-
         from pit_panel.config import Settings
 
         s = Settings(data_dir="/fake/data", apps_dir="/fake/apps")
@@ -155,7 +153,6 @@ class TestSettings:
         s = Settings()
         assert s.panel_url == "https://panel.1-2-3-4.nip.io"
 
-
     def test_save_config_file(self, tmp_path):
         import tomllib
 
@@ -202,8 +199,6 @@ class TestSettings:
         assert parsed_data["backup_retention_days"] == 14
 
     def test_save_config_file_creates_parents(self, tmp_path) -> None:
-        from pathlib import Path
-
         from pit_panel.config import Settings
 
         nested_dir = tmp_path / "nested" / "dir"
