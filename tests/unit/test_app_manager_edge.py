@@ -55,7 +55,7 @@ def test_get_template_info_invalid_json(tmp_path: Path, monkeypatch: pytest.Monk
     templates_dir.mkdir()
     stack_dir = templates_dir / "mystack"
     stack_dir.mkdir()
-    (stack_dir / "meta.json").write_text('invalid json {')
+    (stack_dir / "meta.json").write_text("invalid json {")
 
     monkeypatch.setattr(app_manager_module, "TEMPLATES_DIR", templates_dir)
 

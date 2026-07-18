@@ -422,9 +422,11 @@ async def run_lynis_audit() -> dict[str, Any]:
     cache_path = f"{cache_dir}/lynis_last_report.json"
     try:
         os.makedirs(cache_dir, exist_ok=True)
+
         def _write_lynis():
             with open(cache_path, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2)
+
         await asyncio.to_thread(_write_lynis)
     except Exception:
         try:
