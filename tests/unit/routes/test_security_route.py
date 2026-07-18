@@ -234,7 +234,8 @@ async def test_security_blocklist_import(monkeypatch) -> None:
     )
 
     response = client.post(
-        "/security/blocklist/import", data={"source": "firehol_level1"},
+        "/security/blocklist/import",
+        data={"source": "firehol_level1"},
     )
 
     assert response.status_code == 200
@@ -274,8 +275,10 @@ async def test_fail2ban_enable(monkeypatch) -> None:
 
     class MockProcess:
         returncode = 0
+
         async def communicate(self, *args, **kwargs):
             return b"", b""
+
         def kill(self):
             pass
 
