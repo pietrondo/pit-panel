@@ -154,3 +154,60 @@ class TestSettings:
         monkeypatch.setattr(Settings, "_detect_ip", staticmethod(lambda: "1.2.3.4"))
         s = Settings()
         assert s.panel_url == "https://panel.1-2-3-4.nip.io"
+
+
+    def test_save_config_file(self, tmp_path):
+        import tomllib
+
+        from pit_panel.config import Settings
+
+        test_dir = tmp_path / "test"
+        s = Settings(
+            data_dir=str(test_dir),
+            base_domain="example.com",
+            panel_subdomain="admin",
+            host="1.2.3.4",
+            abuseipdb_api_key="abusekey",
+            sudo_password="sudopass",
+            telegram_bot_token="bottoken",
+            telegram_chat_id="chatid",
+            caddy_admin_url="http://caddy",
+            secret_key="secret",
+            database_url="sqlite:///db",
+            debug=True,
+            backup_enabled=True,
+            backup_retention_days=14,
+        )
+
+        s.save_config_file()
+
+        config_file = test_dir / "config.toml"
+        assert config_file.exists()
+
+        with open(config_file, "rb") as f:
+            parsed_data = tomllib.load(f)
+
+        assert parsed_data["base_domain"] == "example.com"
+        assert parsed_data["panel_subdomain"] == "admin"
+        assert parsed_data["host"] == "1.2.3.4"
+        assert parsed_data["abuseipdb_api_key"] == "abusekey"
+        assert parsed_data["sudo_password"] == "sudopass"
+        assert parsed_data["telegram_bot_token"] == "bottoken"
+        assert parsed_data["telegram_chat_id"] == "chatid"
+        assert parsed_data["caddy_admin_url"] == "http://caddy"
+        assert parsed_data["secret_key"] == "secret"
+        assert parsed_data["database_url"] == "sqlite:///db"
+        assert parsed_data["debug"] is True
+        assert parsed_data["backup_enabled"] is True
+        assert parsed_data["backup_retention_days"] == 14
+
+    def test_save_config_file_creates_parents(self, tmp_path) -> None:
+
+        from pit_panel.config import Settings
+
+        nested_dir = tmp_path / "nested" / "dir"
+        s = Settings(data_dir=str(nested_dir), secret_key="test_save_nested")
+        s.save_config_file()
+
+        config_path = nested_dir / "config.toml"
+        assert config_path.exists
