@@ -21,7 +21,12 @@ from pit_panel.web.routes.ssl import (
 def test_sanitize_removes_dangerous_characters() -> None:
     import pytest
 
-    for bad in ['test"test', "test\ntest", "test\rtest", "test{test}", 'a\nb\rc"d{e}f', "test test", "test\ttest", "test`test", "test\'test", "test;test", "test|test", "test&test"]:
+    bad_inputs = [
+        'test"test', "test\ntest", "test\rtest", "test{test}",
+        'a\nb\rc"d{e}f', "test test", "test\ttest", "test`test",
+        "test\'test", "test;test", "test|test", "test&test",
+    ]
+    for bad in bad_inputs:
         with pytest.raises(ValueError, match="Invalid characters in input"):
             _sanitize(bad)
     assert _sanitize("") == ""

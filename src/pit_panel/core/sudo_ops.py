@@ -1,6 +1,5 @@
 """Sudo operations for system management."""
 
-import asyncio
 import contextlib
 from dataclasses import dataclass
 from pathlib import Path
