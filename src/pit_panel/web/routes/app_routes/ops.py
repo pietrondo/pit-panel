@@ -516,6 +516,7 @@ async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(g
     env_content = ""
     if os.path.exists(env_path):
         try:
+
             def _read_env() -> str:
                 with open(env_path) as f:
                     return f.read()

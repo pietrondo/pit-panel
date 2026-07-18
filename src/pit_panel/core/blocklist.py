@@ -58,6 +58,9 @@ CACHE_TTL = 3600  # 1 hour
 
 
 async def fetch_blocklist(url: str) -> list[str]:
+    allowed_urls = {info["url"] for info in BLOCKLIST_SOURCES.values()}
+    if url not in allowed_urls:
+        return []
     now = time.time()
     if url in _BLOCKLIST_CACHE:
         cached_ips, timestamp = _BLOCKLIST_CACHE[url]
@@ -81,7 +84,7 @@ async def fetch_blocklist(url: str) -> list[str]:
         return []
 
 
-async def daily_blocklist_import():
+async def daily_blocklist_import() -> None:
     while True:
         await asyncio.sleep(86400)
         settings = get_settings()
