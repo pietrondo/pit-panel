@@ -333,5 +333,15 @@ def test_env_post_authenticated(client, monkeypatch, tmp_path):
         resp = client.post("/apps/1/env", data={"env_content": "NEW_KEY=hello\n"})
         assert resp.status_code == 200
         assert ".env file" in resp.text.lower() or "success" in resp.text.lower()
+
+        bad_inputs = [
+            'NEW_KEY=hello;', 'NEW_KEY=hello|world', 'NEW_KEY=hello&world',
+            'NEW_KEY=$(hello)', 'NEW_KEY=`hello`', 'NEW_KEY=hello\\',
+            'NEW_KEY="hello"', "NEW_KEY='hello'"
+        ]
+        for bad_input in bad_inputs:
+            bad_resp = client.post("/apps/1/env", data={"env_content": bad_input})
+            assert bad_resp.status_code == 400
+            assert "not allowed" in bad_resp.text.lower()
     finally:
         client.app.dependency_overrides.clear()
