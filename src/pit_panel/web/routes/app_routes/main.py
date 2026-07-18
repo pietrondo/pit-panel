@@ -227,15 +227,13 @@ async def _resolve_subdomain(
 async def _render_apps_error(user, settings, db: AsyncSession, error: str, request: Request = None):
     if request and "hx-request" in request.headers:
         import html
-
         safe_error = html.escape(str(error))
         return HTMLResponse(
-            f'<div class="mb-4 p-4 rounded-lg border text-sm bg-red-50 '
-            f"dark:bg-red-900/20 border-red-200 dark:border-red-800 "
-            f'text-red-700 dark:text-red-300">'
-            f'<p class="font-medium">Error</p>'
-            f'<p class="mt-1 font-mono text-xs whitespace-pre-wrap">{safe_error}</p>'
-            f"</div>"
+            f'''<div class="mb-4 p-4 rounded-lg border text-sm bg-red-50 dark:bg-red-900/20 '''
+            f'''border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">
+                <p class="font-medium">Error</p>
+                <p class="mt-1 font-mono text-xs whitespace-pre-wrap">{safe_error}</p>
+            </div>'''
         )
     result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
     subdomains = result.scalars().all()
@@ -252,7 +250,6 @@ async def _render_apps_error(user, settings, db: AsyncSession, error: str, reque
         error=error,
         detected=None,
     )
-
 
 async def _auto_setup_wordpress(settings, sd, docker_mgr):
     fqdn = f"{sd.subdomain}.{settings.base_domain}"
@@ -325,10 +322,6 @@ async def app_deploy(
 ):
     user = await get_user(request, db)
     if not user:
-        if "hx-request" in request.headers:
-            response = HTMLResponse("")
-            response.headers["HX-Redirect"] = "/login"
-            return response
         return RedirectResponse("/login", status_code=302)
 
     settings = get_settings()

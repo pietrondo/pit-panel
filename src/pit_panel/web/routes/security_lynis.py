@@ -1,6 +1,8 @@
 """Lynis system audit routes."""
 
+import asyncio
 import json
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -13,12 +15,12 @@ from pit_panel.web.deps import get_admin
 router = APIRouter()
 
 
-@router.post("/security/lynis/audit", response_class=HTMLResponse)
+@router.post("/security/lynis/audit", response_class=HTMLResponse) # type: ignore[untyped-decorator]
 async def security_lynis_audit(
     request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-):
+) -> HTMLResponse:
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
@@ -27,16 +29,20 @@ async def security_lynis_audit(
     return HTMLResponse('<span class="text-green-600">System audit started in background</span>')
 
 
-@router.get("/security/lynis/report")
-async def security_lynis_report(request: Request, db: AsyncSession = Depends(get_db)):
+@router.get("/security/lynis/report") # type: ignore[untyped-decorator]
+async def security_lynis_report(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
     cache_path = "/var/lib/pit-panel/lynis_last_report.json"
-    try:
+
+    def _read_cache() -> dict[str, str]:
         with open(cache_path, encoding="utf-8") as f:
-            data = json.load(f)
+            return dict(json.load(f))
+
+    try:
+        data = await asyncio.to_thread(_read_cache)
         return data
     except Exception as e:
         return {"status": "error", "error": f"No audit report found: {e}"}
