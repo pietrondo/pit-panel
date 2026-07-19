@@ -181,6 +181,52 @@ class TestRunHelper:
 
 class TestSecurityRoutes:
     @pytest.mark.asyncio
+    async def test_abuseipdb_check_parameter_injection(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:  # type: ignore[untyped-decorator]
+        from pit_panel.web.routes.security_abuseipdb import _abuseipdb_check
+
+        class MockResponse:
+            status = 200
+
+            def read(self):
+                return b'{"data": {"abuseConfidenceScore": 0, "totalReports": 0}}'
+
+        class MockConnection:
+            def __init__(self, *a, **kw):
+                pass
+
+            def request(self, method, url, *a, **kw):
+                self.url = url
+                self.headers = kw.get("headers", {})
+
+            def getresponse(self):
+                return MockResponse()
+
+        monkeypatch.setattr("http.client.HTTPSConnection", MockConnection)
+
+        # Keep a reference to the latest created connection
+        created_connection = None
+        original_init = MockConnection.__init__
+
+        def capturing_init(self, *a, **kw):
+            nonlocal created_connection
+            original_init(self, *a, **kw)
+            created_connection = self
+
+        MockConnection.__init__ = capturing_init
+
+        malicious_ip = "127.0.0.1&maxAgeInDays=100"
+        malicious_key = "fake_key"
+        result = await _abuseipdb_check(malicious_ip, malicious_key)
+
+        assert "ipAddress=127.0.0.1%26maxAgeInDays%3D100" in created_connection.url
+        assert "&maxAgeInDays=90" in created_connection.url
+
+        assert result["ip"] == "127.0.0.1&maxAgeInDays=100"
+        assert result["score"] == 0
+
+    @pytest.mark.asyncio
     async def test_abuseipdb_check_crlf_mitigation(self, monkeypatch):
         from pit_panel.web.routes.security_abuseipdb import _abuseipdb_check
 
@@ -220,7 +266,7 @@ class TestSecurityRoutes:
 
         assert "\r" not in created_connection.url
         assert "\n" not in created_connection.url
-        assert "127.0.0.1Injected-Header: true" in created_connection.url
+        assert "127.0.0.1Injected-Header%3A%20true" in created_connection.url
 
         assert "\r" not in created_connection.headers.get("Key", "")
         assert "\n" not in created_connection.headers.get("Key", "")

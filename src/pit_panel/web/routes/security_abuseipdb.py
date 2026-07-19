@@ -17,13 +17,15 @@ router = APIRouter()
 async def _abuseipdb_check(ip: str, api_key: str) -> dict[str, Any]:
     import http.client
     import json
+    import urllib.parse
 
     try:
         ip = ip.replace("\r", "").replace("\n", "")
         api_key = api_key.replace("\r", "").replace("\n", "")
         conn = http.client.HTTPSConnection("api.abuseipdb.com", timeout=10)
         headers = {"Key": api_key, "Accept": "application/json"}
-        conn.request("GET", f"/api/v2/check?ipAddress={ip}&maxAgeInDays=90", headers=headers)
+        safe_ip = urllib.parse.quote(ip)
+        conn.request("GET", f"/api/v2/check?ipAddress={safe_ip}&maxAgeInDays=90", headers=headers)
         resp = conn.getresponse()
         if resp.status == 200:
             data = json.loads(resp.read().decode())
