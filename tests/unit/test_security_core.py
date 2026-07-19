@@ -554,10 +554,18 @@ suggestion[]=Add firewall rules
 async def test_run_lynis_audit_success():
     from pit_panel.core.security import run_lynis_audit
 
+
+    # We need a custom mock for aiofiles.open
+    class AsyncMockFile:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def read(self): return "hardening_index=80\n"
+
     with (
         patch("shutil.which", return_value="/usr/bin/lynis"),
         patch("pit_panel.core.security._run_cmd", new_callable=AsyncMock) as mock_run,
-        patch("builtins.open", mock_open(read_data="hardening_index=80\n")),
+        patch("aiofiles.open", return_value=AsyncMockFile()),
+        patch("builtins.open", mock_open()), # keep builtins.open mocked for json cache write
         patch("os.makedirs"),
     ):
         mock_run.return_value = "success"
@@ -574,10 +582,17 @@ async def test_run_lynis_audit_missing_install_success():
     from pit_panel.core.security import run_lynis_audit
 
     # First shutil.which returns None, second returns path
+
+    class AsyncMockFile:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def read(self): return "hardening_index=80\n"
+
     with (
         patch("shutil.which", side_effect=[None, "/usr/bin/lynis"]),
         patch("pit_panel.core.security._run_cmd", new_callable=AsyncMock) as mock_run,
-        patch("builtins.open", mock_open(read_data="hardening_index=80\n")),
+        patch("aiofiles.open", return_value=AsyncMockFile()),
+        patch("builtins.open", mock_open()),
         patch("os.makedirs"),
     ):
         mock_run.side_effect = [

@@ -406,17 +406,18 @@ async def run_lynis_audit() -> dict[str, Any]:
 
     await _run_cmd(["sudo", "-n", "lynis", "audit", "system", "--quick"], timeout=180)
 
+    import aiofiles
     dat_path = "/var/log/lynis-report.dat"
     dat_content = ""
     try:
-        with open(dat_path, encoding="utf-8", errors="replace") as f:
-            dat_content = f.read()
+        async with aiofiles.open(dat_path, encoding="utf-8", errors="replace") as f:
+            dat_content = await f.read()
     except PermissionError:
         dat_content = await _run_cmd(["sudo", "-n", "cat", dat_path])
     except Exception as e:
         return {"status": "failed", "error": f"Failed to read Lynis report file: {e}"}
 
-    report = _parse_lynis_report(dat_content)
+    report = await asyncio.to_thread(_parse_lynis_report, dat_content)
 
     cache_dir = "/var/lib/pit-panel"
     cache_path = f"{cache_dir}/lynis_last_report.json"
