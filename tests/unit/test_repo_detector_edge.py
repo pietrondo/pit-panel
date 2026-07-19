@@ -18,9 +18,9 @@ def mock_proc():
 async def test_clone_repo_timeout():
     with (
         patch("asyncio.create_subprocess_exec", side_effect=TimeoutError("Timed out")),
-        pytest.raises(ValueError, match="Git clone timed out for repository: http://test_url"),
+        pytest.raises(ValueError, match="Git clone timed out for repository: http://test.url/"),
     ):
-        await clone_repo("http://test_url")
+        await clone_repo("http://test.url/")
 
 
 @pytest.mark.asyncio
@@ -31,7 +31,7 @@ async def test_clone_repo_oserror():
             ValueError, match="Git executable not found or inaccessible: No git executable"
         ),
     ):
-        await clone_repo("http://test_url")
+        await clone_repo("http://test.url/")
 
 
 @pytest.mark.asyncio
@@ -41,7 +41,7 @@ async def test_clone_repo_nonzero_exit(mock_proc):
         patch("asyncio.create_subprocess_exec", return_value=mock_proc),
         pytest.raises(ValueError, match="Git clone failed: stderr_mock"),
     ):
-        await clone_repo("http://test_url")
+        await clone_repo("http://test.url/")
 
 
 def test_cleanup_exception():

@@ -155,7 +155,6 @@ class TestSettings:
         s = Settings()
         assert s.panel_url == "https://panel.1-2-3-4.nip.io"
 
-
     def test_save_config_file(self, tmp_path):
         import tomllib
 

@@ -335,9 +335,14 @@ def test_env_post_authenticated(client, monkeypatch, tmp_path):
         assert ".env file" in resp.text.lower() or "success" in resp.text.lower()
 
         bad_inputs = [
-            'NEW_KEY=hello;', 'NEW_KEY=hello|world', 'NEW_KEY=hello&world',
-            'NEW_KEY=$(hello)', 'NEW_KEY=`hello`', 'NEW_KEY=hello\\',
-            'NEW_KEY="hello"', "NEW_KEY='hello'"
+            "NEW_KEY=hello;",
+            "NEW_KEY=hello|world",
+            "NEW_KEY=hello&world",
+            "NEW_KEY=$(hello)",
+            "NEW_KEY=`hello`",
+            "NEW_KEY=hello\\",
+            'NEW_KEY="hello"',
+            "NEW_KEY='hello'",
         ]
         for bad_input in bad_inputs:
             bad_resp = client.post("/apps/1/env", data={"env_content": bad_input})

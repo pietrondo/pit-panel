@@ -167,6 +167,9 @@ async def _ensure_wp_cli(docker_mgr, subdomain: str) -> None:
 
 
 async def _fix_wp_site_url(docker_mgr, subdomain: str, fqdn: str) -> None:
+    import shlex
+
+    fqdn_q = shlex.quote(f"https://{fqdn}")
     try:
         await docker_mgr.exec_command(
             subdomain,
@@ -175,9 +178,9 @@ async def _fix_wp_site_url(docker_mgr, subdomain: str, fqdn: str) -> None:
                 "sh",
                 "-c",
                 f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-                f" option update siteurl 'https://{fqdn}'"
+                f" option update siteurl {fqdn_q}"
                 f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-                f" option update home 'https://{fqdn}'",
+                f" option update home {fqdn_q}",
             ],
         )
     except Exception as e:

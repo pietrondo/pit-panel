@@ -43,7 +43,7 @@ async def test_fetch_blocklist_success(monkeypatch: pytest.MonkeyPatch) -> None:
         def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
             pass
 
-        async def __aenter__(self) -> 'MockClient':
+        async def __aenter__(self) -> "MockClient":
             return self
 
         async def __aexit__(
@@ -87,7 +87,7 @@ async def test_fetch_blocklist_cache_expired(monkeypatch: pytest.MonkeyPatch) ->
         def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
             pass
 
-        async def __aenter__(self) -> 'MockClient':
+        async def __aenter__(self) -> "MockClient":
             return self
 
         async def __aexit__(
@@ -113,7 +113,7 @@ async def test_fetch_blocklist_http_error(monkeypatch: pytest.MonkeyPatch) -> No
         def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
             pass
 
-        async def __aenter__(self) -> 'MockClient':
+        async def __aenter__(self) -> "MockClient":
             return self
 
         async def __aexit__(
@@ -136,7 +136,7 @@ async def test_fetch_blocklist_exception(monkeypatch: pytest.MonkeyPatch) -> Non
         def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
             pass
 
-        async def __aenter__(self) -> 'MockClient':
+        async def __aenter__(self) -> "MockClient":
             return self
 
         async def __aexit__(
@@ -251,6 +251,7 @@ async def test_daily_blocklist_import_exception(monkeypatch: pytest.MonkeyPatch)
 
     assert sleep_calls == 2
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 async def test_fetch_blocklist_unauthorized_url(monkeypatch: pytest.MonkeyPatch) -> None:
     class MockResponse:
@@ -261,7 +262,7 @@ async def test_fetch_blocklist_unauthorized_url(monkeypatch: pytest.MonkeyPatch)
         def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
             pass
 
-        async def __aenter__(self) -> 'MockClient':
+        async def __aenter__(self) -> "MockClient":
             return self
 
         async def __aexit__(
