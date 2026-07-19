@@ -202,7 +202,6 @@ class TestSettings:
         assert parsed_data["backup_retention_days"] == 14
 
     def test_save_config_file_creates_parents(self, tmp_path) -> None:
-
         from pit_panel.config import Settings
 
         nested_dir = tmp_path / "nested" / "dir"
