@@ -210,4 +210,4 @@ class TestSettings:
         s.save_config_file()
 
         config_path = nested_dir / "config.toml"
-        assert config_path.exists
+        assert config_path.exists()
