@@ -98,16 +98,21 @@ def test_generate_caddyfile_no_dns_no_acme_clause() -> None:
     assert "panel.example.com {" in caddyfile
 
 
-@mock.patch("subprocess.run")
-def test_check_caddy_running(mock_run: mock.MagicMock) -> None:
-    mock_run.return_value.returncode = 0
-    assert _check_caddy_running() is True
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+@mock.patch("asyncio.create_subprocess_exec")
+async def test_check_caddy_running(mock_run: mock.MagicMock) -> None:
+    proc_mock = mock.AsyncMock()
+    proc_mock.returncode = 0
+    mock_run.return_value = proc_mock
+    assert await _check_caddy_running() is True
 
-    mock_run.return_value.returncode = 1
-    assert _check_caddy_running() is False
+    proc_mock = mock.AsyncMock()
+    proc_mock.returncode = 1
+    mock_run.return_value = proc_mock
+    assert await _check_caddy_running() is False
 
     mock_run.side_effect = Exception("error")
-    assert _check_caddy_running() is False
+    assert await _check_caddy_running() is False
 
 
 @mock.patch("socket.socket")
