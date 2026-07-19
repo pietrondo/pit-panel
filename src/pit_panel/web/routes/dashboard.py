@@ -20,6 +20,10 @@ from pit_panel.web.render import render
 
 router = APIRouter()
 
+_IS_LINUX = platform.system() == "Linux"
+_HOSTNAME = platform.node() or "unknown"
+_CPU_CORES = os.cpu_count() or 1
+
 
 def _disk_usage() -> str:
     try:
@@ -33,32 +37,30 @@ def _disk_usage() -> str:
 
 
 def _server_hostname() -> str:
-    try:
-        return platform.node() or "unknown"
-    except Exception:
-        return "unknown"
+    return _HOSTNAME
 
 
 def _cpu_usage() -> dict[str, Any]:
     try:
         with open("/proc/loadavg") as f:
             load = float(f.read().split()[0])
-            cores = os.cpu_count() or 1
-            pct = min(round((load / cores) * 100), 100)
-            return {"load_1m": load, "cores": cores, "pct": pct}
+            pct = min(round((load / _CPU_CORES) * 100), 100)
+            return {"load_1m": load, "cores": _CPU_CORES, "pct": pct}
     except Exception:
-        return {"load_1m": 0, "cores": os.cpu_count() or 1, "pct": 0}
+        return {"load_1m": 0, "cores": _CPU_CORES, "pct": 0}
 
 
 def _ram_usage() -> dict[str, Any]:
     try:
-        if platform.system() == "Linux":
+        if _IS_LINUX:
             with open("/proc/meminfo") as f:
                 mem = {}
                 for line in f:
-                    parts = line.split()
-                    if parts[0] in ("MemTotal:", "MemAvailable:", "MemFree:"):
+                    if line.startswith(("MemTotal:", "MemAvailable:", "MemFree:")):
+                        parts = line.split()
                         mem[parts[0].rstrip(":")] = int(parts[1]) // 1024
+                        if len(mem) >= 3:
+                            break
             total = mem.get("MemTotal", 0)
             available = mem.get("MemAvailable", mem.get("MemFree", 0))
             used = total - available
