@@ -22,9 +22,9 @@ def test_sanitize_removes_dangerous_characters() -> None:
     import pytest
 
     bad_inputs = [
-        'test"test', "test\ntest", "test\rtest", "test{test}",
-        'a\nb\rc"d{e}f', "test test", "test\ttest", "test`test",
-        "test\'test", "test;test", "test|test", "test&test",
+        'test"test', "test\ntest", "test\rtest", "test{test}", 'a\nb\rc"d{e}f',
+        "test test", "test\ttest", "test`test", "test\'test", "test;test",
+        "test|test", "test&test"
     ]
     for bad in bad_inputs:
         with pytest.raises(ValueError, match="Invalid characters in input"):

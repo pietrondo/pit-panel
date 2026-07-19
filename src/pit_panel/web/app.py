@@ -24,10 +24,10 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from pit_panel.core.health import docker_health_monitor_loop
 
     tasks = [
-        asyncio.create_task(daily_blocklist_import()),  # type: ignore[no-untyped-call]
-        asyncio.create_task(ssl_auto_renew_loop()),  # type: ignore[no-untyped-call]
-        asyncio.create_task(docker_health_monitor_loop()),  # type: ignore[no-untyped-call]
-        asyncio.create_task(scheduled_backup_loop()),  # type: ignore[no-untyped-call]
+        asyncio.create_task(daily_blocklist_import()),
+        asyncio.create_task(ssl_auto_renew_loop()),
+        asyncio.create_task(docker_health_monitor_loop()),
+        asyncio.create_task(scheduled_backup_loop()),
     ]
     yield
     for t in tasks:
