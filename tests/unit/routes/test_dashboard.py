@@ -23,44 +23,47 @@ def test_disk_usage_exception(monkeypatch: Any) -> None:
 
 
 def test_server_hostname(monkeypatch: Any) -> None:
-    monkeypatch.setattr("platform.node", lambda: "test-node")
+    import pit_panel.web.routes.dashboard as d
+    monkeypatch.setattr(d, "_HOSTNAME", "test-node")
     assert _server_hostname() == "test-node"
 
 
 def test_server_hostname_fallback(monkeypatch: Any) -> None:
-    monkeypatch.setattr("platform.node", lambda: "")
+    import pit_panel.web.routes.dashboard as d
+    monkeypatch.setattr(d, "_HOSTNAME", "unknown")
     assert _server_hostname() == "unknown"
 
 
 def test_server_hostname_exception(monkeypatch: Any) -> None:
-    def raise_exc() -> None:
-        raise Exception("Error")
-
-    monkeypatch.setattr("platform.node", raise_exc)
+    import pit_panel.web.routes.dashboard as d
+    monkeypatch.setattr(d, "_HOSTNAME", "unknown")
     assert _server_hostname() == "unknown"
 
 
 def test_cpu_usage(monkeypatch: Any) -> None:
+    import pit_panel.web.routes.dashboard as d
     m = mock_open(read_data="1.50 2.00 3.00 1/100 1234\n")
     monkeypatch.setattr("builtins.open", m)
-    monkeypatch.setattr("os.cpu_count", lambda: 4)
+    monkeypatch.setattr(d, "_CPU_CORES", 4)
     result = _cpu_usage()
     assert result == {"load_1m": 1.5, "cores": 4, "pct": 38}
 
 
 def test_cpu_usage_cap_100(monkeypatch: Any) -> None:
+    import pit_panel.web.routes.dashboard as d
     m = mock_open(read_data="5.00 2.00 3.00 1/100 1234\n")
     monkeypatch.setattr("builtins.open", m)
-    monkeypatch.setattr("os.cpu_count", lambda: 4)
+    monkeypatch.setattr(d, "_CPU_CORES", 4)
     result = _cpu_usage()
     assert result == {"load_1m": 5.0, "cores": 4, "pct": 100}
 
 
 def test_cpu_usage_exception(monkeypatch: Any) -> None:
+    import pit_panel.web.routes.dashboard as d
     def raise_exc(*args: object, **kwargs: object) -> None:
         raise OSError("File not found")
 
     monkeypatch.setattr("builtins.open", raise_exc)
-    monkeypatch.setattr("os.cpu_count", lambda: 4)
+    monkeypatch.setattr(d, "_CPU_CORES", 4)
     result = _cpu_usage()
     assert result == {"load_1m": 0, "cores": 4, "pct": 0}
