@@ -5,7 +5,7 @@ import io
 import qrcode
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
@@ -89,6 +89,7 @@ async def login_post(
     # Fix: update session token_hash to match cookie
     data = unsign_session_token(settings, final_cookie)
     if data:
+        from sqlalchemy import update
         await db.execute(
             update(DBSession).where(DBSession.id == session_id).values(token_hash=data["tok"])
         )
