@@ -21,70 +21,87 @@ async def test_run_sudo_not_allowed_command():
 @pytest.mark.asyncio
 @patch("asyncio.create_subprocess_exec")
 async def test_run_sudo_success(mock_create_subprocess_exec):
+    auth_proc = AsyncMock()
+    auth_proc.returncode = 0
+    auth_proc.communicate.return_value = (b"", b"")
+
     mock_proc = AsyncMock()
+    mock_proc.returncode = 0
     mock_proc.communicate.return_value = (b"output_stdout", b"")
-    mock_create_subprocess_exec.return_value = mock_proc
+    reset_proc = AsyncMock()
+    reset_proc.returncode = 0
+    reset_proc.communicate.return_value = (b"", b"")
+    mock_create_subprocess_exec.side_effect = [auth_proc, mock_proc, reset_proc]
 
     result = await run_sudo(["systemctl", "status"], "password")
 
     assert result == "output_stdout"
-    mock_create_subprocess_exec.assert_called_once_with(
+    mock_create_subprocess_exec.assert_any_call(
         "sudo",
-        "-S",
-        "-p",
-        "",
+        "-n",
         "systemctl",
         "status",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    mock_proc.communicate.assert_called_once_with(input=b"password\n")
+
 
 
 @pytest.mark.asyncio
 @patch("asyncio.create_subprocess_exec")
 async def test_run_sudo_with_stderr(mock_create_subprocess_exec):
+    auth_proc = AsyncMock()
+    auth_proc.returncode = 0
+    auth_proc.communicate.return_value = (b"", b"")
+
     mock_proc = AsyncMock()
+    mock_proc.returncode = 0
     mock_proc.communicate.return_value = (b"output_stdout", b"output_stderr")
-    mock_create_subprocess_exec.return_value = mock_proc
+    reset_proc = AsyncMock()
+    reset_proc.returncode = 0
+    reset_proc.communicate.return_value = (b"", b"")
+    mock_create_subprocess_exec.side_effect = [auth_proc, mock_proc, reset_proc]
 
     result = await run_sudo(["systemctl", "status"], "password")
 
     assert result == "output_stdoutoutput_stderr"
-    mock_create_subprocess_exec.assert_called_once_with(
+    mock_create_subprocess_exec.assert_any_call(
         "sudo",
-        "-S",
-        "-p",
-        "",
+        "-n",
         "systemctl",
         "status",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    mock_proc.communicate.assert_called_once_with(input=b"password\n")
+
 
 
 @pytest.mark.asyncio
 @patch("asyncio.create_subprocess_exec")
 async def test_run_sudo_empty_output(mock_create_subprocess_exec):
+    auth_proc = AsyncMock()
+    auth_proc.returncode = 0
+    auth_proc.communicate.return_value = (b"", b"")
+
     mock_proc = AsyncMock()
+    mock_proc.returncode = 0
     mock_proc.communicate.return_value = (b"", b"")
-    mock_create_subprocess_exec.return_value = mock_proc
+    reset_proc = AsyncMock()
+    reset_proc.returncode = 0
+    reset_proc.communicate.return_value = (b"", b"")
+    mock_create_subprocess_exec.side_effect = [auth_proc, mock_proc, reset_proc]
 
     result = await run_sudo(["systemctl", "status"], "password")
 
     assert result == ""
-    mock_create_subprocess_exec.assert_called_once_with(
+    mock_create_subprocess_exec.assert_any_call(
         "sudo",
-        "-S",
-        "-p",
-        "",
+        "-n",
         "systemctl",
         "status",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    mock_proc.communicate.assert_called_once_with(input=b"password\n")

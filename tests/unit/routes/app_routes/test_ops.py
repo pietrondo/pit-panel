@@ -337,7 +337,7 @@ def test_env_post_authenticated(client, monkeypatch, tmp_path):
         bad_inputs = [
             'NEW_KEY=hello;', 'NEW_KEY=hello|world', 'NEW_KEY=hello&world',
             'NEW_KEY=$(hello)', 'NEW_KEY=`hello`', 'NEW_KEY=hello\\',
-            'NEW_KEY="hello"', "NEW_KEY='hello'"
+'NEW_KEY="hello"', "NEW_KEY='hello'"
         ]
         for bad_input in bad_inputs:
             bad_resp = client.post("/apps/1/env", data={"env_content": bad_input})

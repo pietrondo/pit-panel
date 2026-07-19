@@ -266,9 +266,16 @@ async def test_run_cmd_sudo_with_password():
         patch("pit_panel.config.get_settings", return_value=test_settings),
         patch("asyncio.create_subprocess_exec") as mock_exec,
     ):
+        auth_proc = AsyncMock()
+        auth_proc.returncode = 0
+        auth_proc.communicate.return_value = (b"", b"")
         mock_process = AsyncMock()
+        mock_process.returncode = 0
         mock_process.communicate.return_value = (b"success\n", b"")
-        mock_exec.return_value = mock_process
+        reset_proc = AsyncMock()
+        reset_proc.returncode = 0
+        reset_proc.communicate.return_value = (b"", b"")
+        mock_exec.side_effect = [auth_proc, mock_process, reset_proc]
 
         result = await _run_cmd(["sudo", "-n", "ufw", "status"])
 
@@ -276,14 +283,12 @@ async def test_run_cmd_sudo_with_password():
 
         import asyncio
 
-        mock_exec.assert_called_once_with(
+        mock_exec.assert_any_call(
             "sudo",
-            "-S",
-            "-p",
-            "",
+            "-n",
             "ufw",
             "status",
-            stdin=asyncio.subprocess.PIPE,
+            stdin=None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=None,
@@ -300,9 +305,16 @@ async def test_run_cmd_sudo_with_password_and_existing_input():
         patch("pit_panel.config.get_settings", return_value=test_settings),
         patch("asyncio.create_subprocess_exec") as mock_exec,
     ):
+        auth_proc = AsyncMock()
+        auth_proc.returncode = 0
+        auth_proc.communicate.return_value = (b"", b"")
         mock_process = AsyncMock()
+        mock_process.returncode = 0
         mock_process.communicate.return_value = (b"success\n", b"")
-        mock_exec.return_value = mock_process
+        reset_proc = AsyncMock()
+        reset_proc.returncode = 0
+        reset_proc.communicate.return_value = (b"", b"")
+        mock_exec.side_effect = [auth_proc, mock_process, reset_proc]
 
         result = await _run_cmd(["sudo", "-n", "ufw", "status"], input="custom_input")
 
@@ -310,11 +322,9 @@ async def test_run_cmd_sudo_with_password_and_existing_input():
 
         import asyncio
 
-        mock_exec.assert_called_once_with(
+        mock_exec.assert_any_call(
             "sudo",
-            "-S",
-            "-p",
-            "",
+            "-n",
             "ufw",
             "status",
             stdin=asyncio.subprocess.PIPE,

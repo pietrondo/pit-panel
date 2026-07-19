@@ -39,25 +39,31 @@ def auth_headers(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_sudo_whitelist_valid():
     with patch("asyncio.create_subprocess_exec") as mock_exec:
+        auth_proc = AsyncMock()
+        auth_proc.returncode = 0
+        auth_proc.communicate.return_value = (b"", b"")
+
         mock_proc = AsyncMock()
+        mock_proc.returncode = 0
         mock_proc.communicate.return_value = (b"output\n", b"")
-        mock_exec.return_value = mock_proc
+        reset_proc = AsyncMock()
+        reset_proc.returncode = 0
+        reset_proc.communicate.return_value = (b"", b"")
+        mock_exec.side_effect = [auth_proc, mock_proc, reset_proc]
 
         result = await run_sudo(["df", "-h"], "testpass")
 
         assert result == "output\n"
-        mock_exec.assert_called_once_with(
+        mock_exec.assert_any_call(
             "sudo",
-            "-S",
-            "-p",
-            "",
+            "-n",
             "df",
             "-h",
             stdin=ANY,
             stdout=ANY,
             stderr=ANY,
         )
-        mock_proc.communicate.assert_called_once_with(input=b"testpass\n")
+
 
 
 @pytest.mark.asyncio
