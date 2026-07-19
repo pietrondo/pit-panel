@@ -3,7 +3,6 @@
 import contextlib
 import logging
 import re
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -195,13 +194,21 @@ def _generate_caddyfile(config: CaddyfileConfig) -> str:
 """
 
 
-def _check_caddy_running() -> bool:
+async def _check_caddy_running() -> bool:
+    import asyncio
     with contextlib.suppress(Exception):
-        result = subprocess.run(
-            ["systemctl", "is-active", "--quiet", "caddy"],
-            timeout=5,
+        proc = await asyncio.create_subprocess_exec(
+            "systemctl", "is-active", "--quiet", "caddy",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
         )
-        return result.returncode == 0
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=5.0)
+            return proc.returncode == 0
+        except TimeoutError:
+            with contextlib.suppress(OSError):
+                proc.kill()
+            return False
     return False
 
 
@@ -229,7 +236,7 @@ async def ssl_setup(request: Request, db: AsyncSession = Depends(get_db)):
     caddy = CaddyManager(settings.caddy_admin_url)
     certs = await caddy.get_certificates()
 
-    caddy_running = _check_caddy_running()
+    caddy_running = await _check_caddy_running()
     port80_free = _check_port80()
 
     existing = ""
@@ -313,7 +320,7 @@ async def ssl_generate(
         subdomains=subdomains,
         certs=certs,
         renew_result=None,
-        caddy_running=_check_caddy_running(),
+        caddy_running=await _check_caddy_running(),
         port80_free=_check_port80(),
         acme_providers=ACME_PROVIDERS,
         providers=DNS_PROVIDERS,
@@ -375,7 +382,7 @@ async def ssl_renew(
         subdomains=subdomains,
         certs=certs,
         renew_result=result,
-        caddy_running=_check_caddy_running(),
+        caddy_running=await _check_caddy_running(),
         port80_free=_check_port80(),
         acme_providers=ACME_PROVIDERS,
         providers=DNS_PROVIDERS,
@@ -435,7 +442,7 @@ async def ssl_renew_all(request: Request, db: AsyncSession = Depends(get_db)):
         subdomains=subdomains,
         certs=certs,
         renew_result={"success": ok > 0, "ok": ok, "fail": fail},
-        caddy_running=_check_caddy_running(),
+        caddy_running=await _check_caddy_running(),
         port80_free=_check_port80(),
         acme_providers=ACME_PROVIDERS,
         providers=DNS_PROVIDERS,
