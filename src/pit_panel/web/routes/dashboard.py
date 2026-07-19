@@ -18,6 +18,12 @@ from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
 from pit_panel.web.render import render
 
+# ⚡ Bolt: Cache static system properties at module level to avoid redundant syscalls
+# on high-frequency HTMX polling
+_STATIC_OS = platform.system()
+_STATIC_CPU_CORES = os.cpu_count() or 1
+_STATIC_HOSTNAME = platform.node() or "unknown"
+
 router = APIRouter()
 
 
@@ -33,32 +39,32 @@ def _disk_usage() -> str:
 
 
 def _server_hostname() -> str:
-    try:
-        return platform.node() or "unknown"
-    except Exception:
-        return "unknown"
+    return _STATIC_HOSTNAME
 
 
 def _cpu_usage() -> dict[str, Any]:
     try:
         with open("/proc/loadavg") as f:
             load = float(f.read().split()[0])
-            cores = os.cpu_count() or 1
+            cores = _STATIC_CPU_CORES
             pct = min(round((load / cores) * 100), 100)
             return {"load_1m": load, "cores": cores, "pct": pct}
     except Exception:
-        return {"load_1m": 0, "cores": os.cpu_count() or 1, "pct": 0}
+        return {"load_1m": 0, "cores": _STATIC_CPU_CORES, "pct": 0}
 
 
 def _ram_usage() -> dict[str, Any]:
     try:
-        if platform.system() == "Linux":
+        if _STATIC_OS == "Linux":
             with open("/proc/meminfo") as f:
                 mem = {}
                 for line in f:
                     parts = line.split()
                     if parts[0] in ("MemTotal:", "MemAvailable:", "MemFree:"):
                         mem[parts[0].rstrip(":")] = int(parts[1]) // 1024
+                    # ⚡ Bolt: Early exit once we have the necessary fields
+                    if "MemTotal" in mem and "MemAvailable" in mem:
+                        break
             total = mem.get("MemTotal", 0)
             available = mem.get("MemAvailable", mem.get("MemFree", 0))
             used = total - available
