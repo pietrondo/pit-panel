@@ -75,12 +75,16 @@ async def settings_update(
     result = await db.execute(select(SystemSettings).where(SystemSettings.key.in_(keys)))
     existing_rows = {row.key: row for row in result.scalars().all()}
 
+    new_settings = []
     for key, val in updates:
         if key in existing_rows:
             existing_rows[key].value = {"v": val}
             existing_rows[key].updated_by = user.id
         else:
-            db.add(SystemSettings(key=key, value={"v": val}, updated_by=user.id))
+            new_settings.append(SystemSettings(key=key, value={"v": val}, updated_by=user.id))
+
+    if new_settings:
+        db.add_all(new_settings)
     await db.commit()
 
     # Update in-memory settings and persist to config file
