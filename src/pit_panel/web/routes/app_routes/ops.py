@@ -559,9 +559,8 @@ async def app_env_post(
     error = None
     success = None
     try:
-        with open(env_path, "w") as f:
-            safe_content = env_content.replace("\r", "")
-            f.write(safe_content)
+        safe_content = env_content.replace("\r", "")
+        await asyncio.to_thread(Path(env_path).write_text, safe_content)
         success = (
             "Environment variables updated successfully. "
             "You may need to restart the app for changes to take effect."
