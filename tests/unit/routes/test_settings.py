@@ -257,9 +257,9 @@ async def test_settings_update_new_settings(monkeypatch):
         db=mock_db,
     )
 
-    # Assert db.add was called for all 7 settings
-    assert mock_db.add.call_count == 7
-    added_objects = [call.args[0] for call in mock_db.add.call_args_list]
+    # Assert db.add_all was called for all 7 settings
+    mock_db.add_all.assert_called_once()
+    added_objects = mock_db.add_all.call_args[0][0]
 
     # Check added SystemSettings objects
     keys = [obj.key for obj in added_objects]
