@@ -8,6 +8,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import aiofiles
+
 if platform.system() != "Windows":
     import fcntl
     import pty
@@ -253,11 +255,9 @@ async def upload_file(
         target_path = resolved_parent / filename
         resolved_target = verify_safe_path(str(target_path))
 
-        def _save_file() -> None:
-            with open(resolved_target, "wb") as f:
-                shutil.copyfileobj(file.file, f)
-
-        await asyncio.to_thread(_save_file)
+        async with aiofiles.open(resolved_target, "wb") as f:
+            while chunk := await file.read(1024 * 1024):
+                await f.write(chunk)
 
         return {"status": "success", "message": "File uploaded successfully"}
     except PermissionError as e:
