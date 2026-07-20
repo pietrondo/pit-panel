@@ -183,9 +183,14 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
                    placeholder="or custom name">
         </div>
         <div class="flex items-center gap-3">
-            <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400 text-sm">
+            <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400 text-sm"
+                    hx-indicator="#deploy-indicator">
                 🚀 Deploy
             </button>
+            <span id="deploy-indicator" class="htmx-indicator">
+                <span class="inline-block w-4 h-4 border-2 border-indigo-500
+                             border-t-transparent rounded-full animate-spin"></span>
+            </span>
             <span class="text-xs text-gray-500">{pct_label}</span>
         </div>
     </form>
@@ -569,8 +574,10 @@ async def app_deploy_from_repo(
     try:
         result = await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
         compose_ok = result.get("success", False)
-    except Exception:
+        compose_error = (result.get("stderr", "") + result.get("stdout", ""))[:300]
+    except Exception as e:
         compose_ok = False
+        compose_error = str(e)[:300]
 
     if settings.base_domain:
         try:
@@ -610,11 +617,33 @@ async def app_deploy_from_repo(
     )
     await db.commit()
 
-    if "hx-request" in request.headers:
-        response = HTMLResponse("")
-        response.headers["HX-Redirect"] = f"/apps/{sd.id}"
-        return response
-    return RedirectResponse(f"/apps/{sd.id}", status_code=302)
+    if not compose_ok:
+        err_esc = compose_error.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        return HTMLResponse(
+            '<div class="mt-3 p-4 rounded-lg border border-red-200 dark:border-red-800'
+            ' bg-red-50 dark:bg-red-900/20">'
+            '<p class="text-sm text-red-700 dark:text-red-400 font-medium">'
+            "Docker compose failed</p>"
+            f'<pre class="text-xs mt-2 text-red-500 max-h-32 overflow-auto">{err_esc}</pre>'
+            "</div>"
+        )
+
+    from pit_panel.core.notifier import notify_app_deploy
+
+    base_domain = sd.base_domain or settings.base_domain
+    await notify_app_deploy(sd.subdomain, stack_type, f"{sd.subdomain}.{base_domain}")
+
+    fqdn = f"{sd.subdomain}.{sd.base_domain or settings.base_domain}"
+    return HTMLResponse(
+        '<div class="mt-3 p-4 rounded-lg border border-green-200 dark:border-green-800'
+        ' bg-green-50 dark:bg-green-900/20">'
+        '<p class="text-sm text-green-700 dark:text-green-400 font-medium">'
+        f"Deployed to {fqdn}</p>"
+        f'<a href="/apps/{sd.id}"'
+        ' class="text-xs text-indigo-600 hover:underline mt-1 inline-block">'
+        "Open app details &rarr;</a>"
+        "</div>"
+    )
 
 
 @router.get("/apps/{sd_id}", response_class=HTMLResponse)
