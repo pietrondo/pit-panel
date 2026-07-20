@@ -72,7 +72,12 @@ def detect_stack(repo_path: Path) -> DetectedStack:
         has_next = bool({"next.config.js", "next.config.mjs", "next.config.ts"} & files)
         if has_next:
             return DetectedStack("nextjs", "Next.js", 95, ["package.json", "next.config.*"])
-        return DetectedStack("nodejs", "Node.js", 85, ["package.json"])
+        has_vite = bool({"vite.config.ts", "vite.config.js", "vite.config.mjs"} & files)
+        confidence = 95 if has_vite else 85
+        indicators = ["package.json"]
+        if has_vite:
+            indicators.append("vite.config.*")
+        return DetectedStack("nodejs", "Node.js", confidence, indicators)
 
     has_req = bool({"requirements.txt", "Pipfile", "pyproject.toml", "setup.py"} & files)
     if has_req:
