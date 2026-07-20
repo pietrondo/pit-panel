@@ -8,7 +8,6 @@ services:
     volumes:
       - ./app:/app
     command: >
-      sh -c "if [ -f package.json ]; then npm run build && npm start; else echo 'Create package.json in app/' && exit 1; fi"
+      sh -c "if [ -f package.json ]; then npm install && npm run build && npm start; else echo 'Create package.json in app/' && exit 1; fi"
     environment:
-      NODE_ENV: production
       PORT: 3000
