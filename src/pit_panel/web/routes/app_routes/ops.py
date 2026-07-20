@@ -57,16 +57,36 @@ async def app_update(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     if sd:
         settings = get_settings()
         docker_mgr = DockerManager(settings.apps_dir)
-        r = await docker_mgr.run_compose_command(sd.subdomain, ["pull"])
-        if r.get("success"):
-            await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
+        app_dir = Path(settings.apps_dir) / sd.subdomain / "app"
+
+        is_repo = (app_dir / ".git").is_dir()
+        if is_repo:
+            pull = await asyncio.create_subprocess_exec(
+                "git", "-C", str(app_dir), "pull",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, pull_stderr = await asyncio.wait_for(pull.communicate(), timeout=120)
+            pull_ok = pull.returncode == 0
+            r = {"success": pull_ok, "stderr": pull_stderr.decode(errors="replace")}
+            if pull_ok:
+                await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
+        else:
+            r = await docker_mgr.run_compose_command(sd.subdomain, ["pull"])
+            if r.get("success"):
+                await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
+
         db.add(
             AuditLog(
                 user_id=user.id,
                 action="app_update",
                 target_type="subdomain",
                 target_id=sd.id,
-                details={"subdomain": sd.subdomain, "pull_ok": r.get("success")},
+                details={
+                    "subdomain": sd.subdomain,
+                    "source": "git" if is_repo else "docker",
+                    "pull_ok": r.get("success"),
+                },
                 ip=request.client.host if request.client else None,
                 user_agent=request.headers.get("user-agent"),
             )
