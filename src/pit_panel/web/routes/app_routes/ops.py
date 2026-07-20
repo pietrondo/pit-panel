@@ -814,6 +814,7 @@ async def app_terminal_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = D
             "-T",
             service,
             "sh",
+            "-i",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
