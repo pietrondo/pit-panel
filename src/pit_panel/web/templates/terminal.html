@@ -33,11 +33,13 @@
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(proto + '//' + location.host + '/apps/{{ sd.id }}/terminal/ws');
 
-    ws.onopen = () => term.focus();
+    ws.onopen = () => { term.focus(); term.write('Connected\r\n'); };
     ws.onmessage = (e) => term.write(e.data);
     ws.onclose = () => term.write('\r\n\x1b[31mConnection closed\x1b[0m');
 
     term.onData((data) => { if (ws.readyState === WebSocket.OPEN) ws.send(data); });
+
+    document.getElementById('terminal-container').addEventListener('click', () => term.focus());
 
     window.addEventListener('resize', () => fit.fit());
     window.addEventListener('beforeunload', () => ws.close());
