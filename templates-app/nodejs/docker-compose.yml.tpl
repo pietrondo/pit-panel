@@ -5,6 +5,6 @@ services:
     working_dir: /app
     ports:
       - '${PORT}:3000'
-    command: sh -c "npm install && CFG=''; [ -f vite.config.pit.mjs ] && CFG='--config vite.config.pit.mjs'; npm start $CFG || npm run dev -- --host 0.0.0.0 $CFG"
+    command: sh -c "npm install && npm start || { if [ -f vite.config.pit.mjs ]; then npx vite --host 0.0.0.0 --port 3000 --config vite.config.pit.mjs; else npx vite --host 0.0.0.0 --port 3000; fi; }"
     volumes:
       - ./app:/app

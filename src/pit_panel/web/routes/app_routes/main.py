@@ -547,15 +547,7 @@ async def app_deploy_from_repo(
         src_dir = Path(settings.apps_dir) / sd.subdomain / _source_stacks[stack_type]
         try:
             if src_dir.exists():
-                try:
-                    shutil.rmtree(src_dir)
-                except PermissionError:
-                    cleanup = await asyncio.create_subprocess_exec(
-                        "sudo", "-n", "rm", "-rf", str(src_dir),
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE,
-                    )
-                    await cleanup.communicate()
+                shutil.rmtree(src_dir)
             proc = await asyncio.create_subprocess_exec(
                 "git",
                 "clone",
