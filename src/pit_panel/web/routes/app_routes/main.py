@@ -33,15 +33,13 @@ def _patch_vite_allowed_hosts(src_dir: Path) -> None:
     for name in ("vite.config.ts", "vite.config.js", "vite.config.mjs"):
         cfg = src_dir / name
         if cfg.exists():
-            content = cfg.read_text()
-            if "allowedHosts" not in content:
-                cfg.write_text(
-                    content.replace(
-                        "defineConfig({",
-                        "defineConfig({ server: { allowedHosts: true },",
-                        1,
-                    )
-                )
+            wrapper = src_dir / "vite.config.pit.mjs"
+            wrapper.write_text(
+                "import { mergeConfig } from 'vite'\n"
+                f"import userConfig from './{name}'\n"
+                "export default mergeConfig(userConfig,"
+                " { server: { allowedHosts: true } })\n"
+            )
             return
 
 
@@ -134,15 +132,28 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
         if confidence_pct >= 50
         else "badge-red"
     )
-    auto = confidence_pct >= 90
-    pct_label = "Confidenza alta -> deploy automatico" if auto else "Confidenza bassa"
+    pct_label = "Deploy automatico" if confidence_pct >= 90 else "Deploy manuale"
 
     indicators_html = " ".join(
         f'<code class="text-xs bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{i}</code>'
         for i in detected.indicators
     )
 
-    div_cls = "p-4 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20"  # noqa: E501
+    result = await db.execute(
+        select(Subdomain).where(Subdomain.app_type.is_(None)).order_by(Subdomain.created_at.asc())
+    )
+    available_sds = result.scalars().all()
+    name_from_repo = repo_url.rstrip("/").split("/")[-1]
+    name_from_repo = re.sub(r"[^a-z0-9-]", "", name_from_repo.lower().replace("_", "-"))[:40]
+
+    sd_options = ""
+    for sd in available_sds:
+        sd_options += f'<option value="{sd.id}">{sd.subdomain}.{sd.base_domain}</option>'
+
+    div_cls = (
+        "p-4 rounded-lg border border-green-200 dark:border-green-800"
+        " bg-green-50 dark:bg-green-900/20"
+    )
     return HTMLResponse(f'''
 <div class="{div_cls}">
     <div class="flex items-center justify-between mb-3">
@@ -156,18 +167,28 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
         <span class="text-xs text-gray-500">{detected.stack_type}</span>
     </div>
     <div class="flex flex-wrap gap-1 mb-3">{indicators_html}</div>
-    <div class="flex items-center gap-3">
-        <form method="POST" action="/apps/deploy-from-repo" class="inline">
-            <input type="hidden" name="repo_url" value="{repo_url}">
-            <input type="hidden" name="stack_type" value="{detected.stack_type}">
-            <input type="hidden" name="port" value="{port}">
-            <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400 text-sm"
-                    {"hx-disable" if auto else ""}>
-                {"🚀 Deploy Automatico" if auto else "Deploy Manuale"}
+    <form method="POST" action="/apps/deploy-from-repo" class="space-y-3"
+          hx-post="/apps/deploy-from-repo"
+          hx-target="#repo-result"
+          hx-swap="innerHTML">
+        <input type="hidden" name="repo_url" value="{repo_url}">
+        <input type="hidden" name="stack_type" value="{detected.stack_type}">
+        <input type="hidden" name="port" value="{port}">
+        <div class="flex gap-2">
+            <select name="subdomain_id" class="input text-sm">
+                <option value="-1">New: {name_from_repo}.{settings.base_domain}</option>
+                {sd_options}
+            </select>
+            <input type="text" name="new_subdomain" class="input text-sm w-32"
+                   placeholder="or custom name">
+        </div>
+        <div class="flex items-center gap-3">
+            <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400 text-sm">
+                🚀 Deploy
             </button>
-        </form>
-        <p class="text-xs text-gray-500">{pct_label}</p>
-    </div>
+            <span class="text-xs text-gray-500">{pct_label}</span>
+        </div>
+    </form>
 </div>
 ''')
 
@@ -438,6 +459,8 @@ async def app_deploy_from_repo(
     repo_url: str = Form(...),
     stack_type: str = Form(...),
     port: int = Form(8000),
+    subdomain_id: int = Form(-1),
+    new_subdomain: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_user(request, db)
@@ -452,30 +475,53 @@ async def app_deploy_from_repo(
     if not settings.base_domain:
         return HTMLResponse('<p class="text-red-500">Base domain not configured</p>')
 
-    name = repo_url.rstrip("/").split("/")[-1]
-    name = re.sub(r"[^a-z0-9-]", "", name.lower().replace("_", "-"))[:40]
-    if not name:
-        name = "app"
+    sd: Subdomain | None = None
 
-    existing = await db.execute(
-        select(Subdomain).where(
-            Subdomain.subdomain == name,
-            Subdomain.base_domain == settings.base_domain,
+    # Try resolving by existing subdomain ID first
+    if subdomain_id > 0:
+        result = await db.execute(
+            select(Subdomain).where(Subdomain.id == subdomain_id)
         )
-    )
-    sd = existing.scalar_one_or_none()
-    if sd:
-        name = f"{name}-{os.urandom(2).hex()}"
-        sd = None
+        sd = result.scalar_one_or_none()
+        if sd and sd.app_type:
+            return HTMLResponse(
+                f'<p class="text-red-500">{sd.subdomain} already has an app deployed</p>'
+            )
 
+    # If a custom name was provided, resolve/create it
+    if not sd and new_subdomain.strip():
+        sd, error = await _resolve_subdomain(
+            db, user.id, settings, False, -1, new_subdomain.strip()
+        )
+        if error:
+            return HTMLResponse(f'<p class="text-red-500">{error}</p>')
+
+    # Fallback: auto-generate from repo name
     if not sd:
-        sd = Subdomain(
-            subdomain=name,
-            base_domain=settings.base_domain,
-            owner_user_id=user.id,
+        name = repo_url.rstrip("/").split("/")[-1]
+        name = re.sub(r"[^a-z0-9-]", "", name.lower().replace("_", "-"))[:40]
+        if not name:
+            name = "app"
+
+        existing = await db.execute(
+            select(Subdomain).where(
+                Subdomain.subdomain == name,
+                Subdomain.base_domain == settings.base_domain,
+            )
         )
-        db.add(sd)
-        await db.flush()
+        sd = existing.scalar_one_or_none()
+        if sd:
+            name = f"{name}-{os.urandom(2).hex()}"
+            sd = None
+
+        if not sd:
+            sd = Subdomain(
+                subdomain=name,
+                base_domain=settings.base_domain,
+                owner_user_id=user.id,
+            )
+            db.add(sd)
+            await db.flush()
 
     mgr = AppManager(settings.apps_dir)
     docker_mgr = DockerManager(settings.apps_dir)
