@@ -29,6 +29,22 @@ from .router import router
 logger = logging.getLogger(__name__)
 
 
+def _patch_vite_allowed_hosts(src_dir: Path) -> None:
+    for name in ("vite.config.ts", "vite.config.js", "vite.config.mjs"):
+        cfg = src_dir / name
+        if cfg.exists():
+            content = cfg.read_text()
+            if "allowedHosts" not in content:
+                cfg.write_text(
+                    content.replace(
+                        "defineConfig({",
+                        "defineConfig({ server: { allowedHosts: true },",
+                        1,
+                    )
+                )
+            return
+
+
 def _get_db_password(settings, subdomain: str) -> str | None:
     env_path = os.path.join(settings.apps_dir, subdomain, ".env")
     try:
@@ -499,6 +515,8 @@ async def app_deploy_from_repo(
                     repo_url,
                     stderr.decode(errors="replace")[:300],
                 )
+            else:
+                _patch_vite_allowed_hosts(src_dir)
         except Exception as e:
             logger.error("Git clone error for %s: %s", repo_url, e)
 
