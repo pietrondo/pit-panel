@@ -6,6 +6,7 @@ import datetime
 import logging
 import os
 import re
+import shutil
 from pathlib import Path
 
 from fastapi import Depends, Form, Request
@@ -467,6 +468,39 @@ async def app_deploy_from_repo(
         mgr.deploy_template(sd.subdomain, stack_type, variables={"PORT": str(port)})
     except ValueError as e:
         return HTMLResponse(f'<p class="text-red-500">{e}</p>')
+
+    _source_stacks = {
+        "nodejs": "app",
+        "nextjs": "app",
+        "python-flask": "app",
+        "python-fastapi": "app",
+        "static-nginx": "html",
+    }
+    if stack_type in _source_stacks:
+        src_dir = Path(settings.apps_dir) / sd.subdomain / _source_stacks[stack_type]
+        if src_dir.exists():
+            shutil.rmtree(src_dir)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "git",
+                "clone",
+                "--depth",
+                "1",
+                "--",
+                repo_url,
+                str(src_dir),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
+            if proc.returncode != 0:
+                logger.error(
+                    "Git clone failed for %s: %s",
+                    repo_url,
+                    stderr.decode(errors="replace")[:300],
+                )
+        except Exception as e:
+            logger.error("Git clone error for %s: %s", repo_url, e)
 
     try:
         result = await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
