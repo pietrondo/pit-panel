@@ -1,10 +1,11 @@
 import tempfile
 from pathlib import Path
 
+from pit_panel.config import Settings
+
 
 class TestSettings:
     def test_defaults(self):
-        from pit_panel.config import Settings
 
         s = Settings(secret_key="test")
         assert s.host == "127.0.0.1"
@@ -13,7 +14,6 @@ class TestSettings:
         assert s.session_duration_hours == 24
 
     def test_database_url_default(self):
-        from pit_panel.config import Settings
 
         s = Settings(data_dir="/tmp/test", database_url="")
         url = s.get_database_url()
@@ -21,7 +21,6 @@ class TestSettings:
         assert "/tmp/test/pit-panel.db" in url
 
     def test_database_url_custom(self):
-        from pit_panel.config import Settings
 
         s = Settings(database_url="sqlite+aiosqlite:///custom.db")
         assert s.get_database_url() == "sqlite+aiosqlite:///custom.db"
@@ -32,7 +31,6 @@ class TestSettings:
             path = f.name
 
         try:
-            from pit_panel.config import Settings
 
             s = Settings.from_config_file(path)
             assert s.host == "0.0.0.0"
@@ -49,14 +47,12 @@ class TestSettings:
         assert s1 is s2
 
     def test_effective_domain_and_panel_url_with_base_domain(self):
-        from pit_panel.config import Settings
 
         s = Settings(base_domain="example.com", panel_subdomain="admin")
         assert s.effective_domain == "example.com"
         assert s.panel_url == "https://admin.example.com"
 
     def test_effective_domain_and_panel_url_without_base_domain(self, monkeypatch):
-        from pit_panel.config import Settings
 
         # Mock _detect_ip to return a fixed IP
         monkeypatch.setattr(Settings, "_detect_ip", staticmethod(lambda: "192.168.1.100"))
@@ -66,7 +62,6 @@ class TestSettings:
         assert s.panel_url == "https://panel.192-168-1-100.nip.io"
 
     def test_detect_ip_success(self, monkeypatch):
-        from pit_panel.config import Settings
 
         class MockResponse:
             text = "203.0.113.50\n"
@@ -78,7 +73,6 @@ class TestSettings:
         assert Settings._detect_ip() == "203.0.113.50"
 
     def test_detect_ip_exception(self, monkeypatch):
-        from pit_panel.config import Settings
 
         def mock_get(*args, **kwargs):
             raise Exception("Connection failed")
@@ -89,7 +83,6 @@ class TestSettings:
     def test_ensure_paths(self, monkeypatch):
         from pathlib import Path
 
-        from pit_panel.config import Settings
 
         s = Settings(data_dir="/fake/data", apps_dir="/fake/apps")
 
@@ -109,7 +102,6 @@ class TestSettings:
         assert len(called_paths) == 2
 
     def test_effective_domain_explicit(self):
-        from pit_panel.config import Settings
 
         s1 = Settings(base_domain="mydomain.com")
         assert s1.effective_domain == "mydomain.com"
@@ -127,7 +119,6 @@ class TestSettings:
         assert s is not None
 
     def test_panel_url_edge_cases(self, monkeypatch):
-        from pit_panel.config import Settings
 
         # Happy path: explicit domain and subdomain
         s = Settings(base_domain="example.com", panel_subdomain="admin")
@@ -143,13 +134,11 @@ class TestSettings:
         assert s.panel_url == "https://panel.10-0-0-1.nip.io"
 
     def test_panel_url_explicit_base_domain(self):
-        from pit_panel.config import Settings
 
         s = Settings(base_domain="test.com", panel_subdomain="mypanel")
         assert s.panel_url == "https://mypanel.test.com"
 
     def test_panel_url_default(self, monkeypatch):
-        from pit_panel.config import Settings
 
         monkeypatch.setattr(Settings, "_detect_ip", staticmethod(lambda: "1.2.3.4"))
         s = Settings()
@@ -159,7 +148,6 @@ class TestSettings:
     def test_save_config_file(self, tmp_path):
         import tomllib
 
-        from pit_panel.config import Settings
 
         test_dir = tmp_path / "test"
         s = Settings(
@@ -202,11 +190,10 @@ class TestSettings:
         assert parsed_data["backup_retention_days"] == 14
 
     def test_save_config_file_creates_parents(self, tmp_path) -> None:
-from pit_panel.config import Settings
 
         nested_dir = tmp_path / "nested" / "dir"
         s = Settings(data_dir=str(nested_dir), secret_key="test_save_nested")
         s.save_config_file()
 
         config_path = nested_dir / "config.toml"
-        assert config_path.exists
+        assert config_path.exists()
