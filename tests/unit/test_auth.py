@@ -35,19 +35,22 @@ class TestSessionAuth:
 
         # Verify failure with a different secret key
         settings.secret_key = "different_secret_key"
-        different_serializer = get_serializer(settings)
+        import pit_panel.web.auth
+        pit_panel.web.auth._serializer_cache = None
+        different_serializer = pit_panel.web.auth.get_serializer(settings)
 
         with pytest.raises(BadSignature):
             different_serializer.loads(signed_data)
 
-    def test_get_serializer_returns_new_instance(self, settings):
-        from pit_panel.web.auth import get_serializer
+    def test_get_serializer_returns_cached_instance(self, settings):
+        import pit_panel.web.auth
+        pit_panel.web.auth._serializer_cache = None
 
-        serializer1 = get_serializer(settings)
-        serializer2 = get_serializer(settings)
+        serializer1 = pit_panel.web.auth.get_serializer(settings)
+        serializer2 = pit_panel.web.auth.get_serializer(settings)
 
-        # Ensure it returns independent instances
-        assert serializer1 is not serializer2
+        # Ensure it returns cached instance
+        assert serializer1 is serializer2
 
         # Verify it uses the correct salt and secret
         assert serializer1.salt in (b"pitpanel-session", "pitpanel-session")
@@ -56,6 +59,8 @@ class TestSessionAuth:
     def test_get_serializer_empty_secret(self, settings):
         from itsdangerous import URLSafeTimedSerializer
 
+        import pit_panel.web.auth
+        pit_panel.web.auth._serializer_cache = None
         from pit_panel.web.auth import get_serializer
 
         settings.secret_key = ""

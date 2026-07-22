@@ -11,6 +11,8 @@ from pit_panel.security.crypto import hash_token
 
 SESSION_COOKIE = "pitpanel_session"
 
+_serializer_cache: URLSafeTimedSerializer | None = None
+
 
 def get_serializer(settings: Settings) -> URLSafeTimedSerializer:
     """
@@ -19,10 +21,13 @@ def get_serializer(settings: Settings) -> URLSafeTimedSerializer:
     This serializer is used for securely signing and unsigning session tokens
     to prevent tampering and verify expiration.
     """
-    return URLSafeTimedSerializer(
-        settings.secret_key,
-        salt="pitpanel-session",
-    )
+    global _serializer_cache
+    if _serializer_cache is None:
+        _serializer_cache = URLSafeTimedSerializer(
+            settings.secret_key,
+            salt="pitpanel-session",
+        )
+    return _serializer_cache
 
 
 def create_session_token(
