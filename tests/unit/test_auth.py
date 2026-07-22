@@ -5,6 +5,8 @@ import pytest
 
 class TestSessionAuth:
     def test_get_serializer(self, settings):
+        import pit_panel.web.auth
+        pit_panel.web.auth._serializer_cache = None
         from itsdangerous import BadSignature, URLSafeTimedSerializer
 
         from pit_panel.web.auth import get_serializer
