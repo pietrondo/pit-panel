@@ -28,6 +28,7 @@ def client():
     mock_result.scalar_one_or_none.return_value = None
     mock_result.scalars.return_value.all.return_value = []
     db.execute.return_value = mock_result
+    db.add_all = MagicMock()
 
     app.dependency_overrides[get_db] = lambda: db
 
