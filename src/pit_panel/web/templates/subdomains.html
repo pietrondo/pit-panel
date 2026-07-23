@@ -116,10 +116,10 @@
                     <td class="px-6 py-3 text-right space-x-1">
                         <template x-if="!editing">
                             <span class="space-x-1">
-                                <button class="btn-ghost text-xs" @click="editing = true">Edit</button>
+                                <button class="btn-ghost text-xs" @click="editing = true" aria-label="Edit {{ sd.subdomain }} subdomain">Edit</button>
                                 <form method="POST" action="/subdomains/{{ sd.id }}/delete" class="inline"
                                       onsubmit="return confirm('Delete {{ sd.subdomain }}?')">
-                                    <button type="submit" class="btn-ghost text-red-600 hover:text-red-700 text-xs">Delete</button>
+                                    <button type="submit" class="btn-ghost text-red-600 hover:text-red-700 text-xs" aria-label="Delete {{ sd.subdomain }} subdomain">Delete</button>
                                 </form>
                             </span>
                         </template>

@@ -43,7 +43,7 @@
                     </td>
                     <td class="px-5 py-2.5 text-sm text-surface-500 dark:text-surface-400">{{ sd.created_at.strftime('%Y-%m-%d') if sd.created_at else '-' }}</td>
                     <td class="px-5 py-2.5 text-right">
-                        <a href="/apps/{{ sd.id }}" class="btn-ghost text-xs">Manage</a>
+                        <a href="/apps/{{ sd.id }}" class="btn-ghost text-xs" aria-label="Manage {{ sd.subdomain }} app">Manage</a>
                     </td>
                 </tr>
                 {% else %}
