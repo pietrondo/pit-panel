@@ -11,6 +11,9 @@ NOISE_PATTERNS = [
     re.compile(r"(?i)\bWARN\b.*GlobalExceptionHandler.*No resource at"),
     re.compile(r"(?i)No static resource .* for request"),
     re.compile(r"(?i)\b(?:GET|POST|HEAD)\s+/(?:favicon\.ico|robots\.txt)\b.*\b404\b"),
+    re.compile(r"uvicorn\.error\s*-\s*(?:INFO|WARNING|DEBUG)\s*-"),
+    re.compile(r"(?i)Cannot serve directory.*No matching DirectoryIndex"),
+    re.compile(r"(?i)\bwp-config\.php\b.*\b404\b"),
 ]
 
 TRIAGE_RULES = [
@@ -152,7 +155,7 @@ async def analyze_container_logs() -> list[dict[str, Any]]:
                 "docker",
                 "logs",
                 "--tail",
-                "500",
+"200",
                 cid,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
