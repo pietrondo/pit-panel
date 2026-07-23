@@ -14,16 +14,17 @@
         </div>
         <div class="flex items-center gap-2 flex-wrap">
             <button @click="if(parentPath) { loadPath(parentPath); }" :disabled="!parentPath"
-                    class="btn btn-ghost" :class="{'opacity-50 cursor-not-allowed': !parentPath}">
+                    class="btn btn-ghost" :class="{'opacity-50 cursor-not-allowed': !parentPath}"
+                    aria-label="Go up one directory">
                 <span>← Up</span>
             </button>
-            <button @click="createOpen = true" class="btn btn-primary">
+            <button @click="createOpen = true" class="btn btn-primary" aria-label="Create new file or folder">
                 <span>+ Create</span>
             </button>
-            <button @click="uploadOpen = true" class="btn btn-ghost border-slate-300 dark:border-slate-700">
+            <button @click="uploadOpen = true" class="btn btn-ghost border-slate-300 dark:border-slate-700" aria-label="Upload a file">
                 <span>↑ Upload</span>
             </button>
-            <button @click="loadPath(currentPath)" class="btn btn-ghost flex items-center gap-1.5">
+            <button @click="loadPath(currentPath)" class="btn btn-ghost flex items-center gap-1.5" aria-label="Refresh file list">
                 <span class="inline-block" :class="{'animate-spin': loading}">↻</span>
                 <span>Refresh</span>
             </button>
