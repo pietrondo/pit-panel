@@ -17,21 +17,23 @@ def mock_proc():
 @pytest.mark.asyncio
 async def test_containers_count(mock_proc: AsyncMock) -> None:
     mgr = DockerManager()
-    mock_proc.communicate.return_value = (b"running\nexited\nrunning\n", b"")
-    with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
+    mock_containers = [
+        {"State": "running", "ID": "abc"},
+        {"State": "exited", "ID": "def"},
+        {"State": "running", "ID": "ghi"},
+    ]
+    DockerManager._containers_cache = None
+    with patch.object(mgr, "ps_all", return_value=mock_containers):
         total, running = await mgr.containers_count()
         assert total == 3
         assert running == 2
-        mock_exec.assert_called_once()
-        assert "docker" in mock_exec.call_args[0]
-        assert "ps" in mock_exec.call_args[0]
-        assert "{{.State}}" in mock_exec.call_args[0]
 
 
 @pytest.mark.asyncio
 async def test_containers_count_oserror(mock_proc: AsyncMock) -> None:
     mgr = DockerManager()
-    with patch("asyncio.create_subprocess_exec", side_effect=OSError("Exec failed")):
+    DockerManager._containers_cache = None
+    with patch.object(mgr, "ps_all", return_value=[]):
         total, running = await mgr.containers_count()
         assert total == 0
         assert running == 0

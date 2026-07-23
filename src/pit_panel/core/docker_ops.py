@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import json
+import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -122,6 +123,22 @@ class DockerManager:
         except OSError as e:
             return f"Failed to retrieve logs: {e}"
 
+    _containers_cache: tuple[float, tuple[int, int]] | None = None
+    _cache_apps_dir: str = ""
+
+    async def containers_count(self) -> tuple[int, int]:
+        now = time.monotonic()
+        if DockerManager._containers_cache is not None:
+            cached_at, value = DockerManager._containers_cache
+            if now - cached_at < 5 and DockerManager._cache_apps_dir == str(self.apps_dir):
+                return value
+        containers = await self.ps_all()
+        total = len(containers)
+        running = sum(1 for c in containers if c.get("State") == "running")
+        DockerManager._containers_cache = (now, (total, running))
+        DockerManager._cache_apps_dir = str(self.apps_dir)
+        return total, running
+
     async def ps_all(self) -> list[dict[str, Any]]:
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -143,24 +160,29 @@ class DockerManager:
         except OSError:
             return []
 
-    async def containers_count(self) -> tuple[int, int]:
+    async def stats_all(self) -> dict[str, dict[str, Any]]:
         try:
             proc = await asyncio.create_subprocess_exec(
                 "docker",
-                "ps",
-                "-a",
+                "stats",
+                "--no-stream",
                 "--format",
-                "{{.State}}",
+                "json",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await proc.communicate()
-            lines = stdout.decode().strip().split("\n")
-            if not lines or not lines[0]:
-                return 0, 0
-            return len(lines), sum(1 for line in lines if line == "running")
+            result: dict[str, dict[str, Any]] = {}
+            for line in stdout.decode().strip().split("\n"):
+                if line.strip():
+                    with contextlib.suppress(json.JSONDecodeError):
+                        entry = json.loads(line)
+                        name = entry.get("Name", "")
+                        if name:
+                            result[name] = entry
+            return result
         except OSError:
-            return 0, 0
+            return {}
 
     async def container_stop(self, container_id: str) -> dict[str, Any]:
         try:

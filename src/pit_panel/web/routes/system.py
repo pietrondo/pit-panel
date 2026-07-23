@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -14,11 +15,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pit_panel.db.models import UpdateHistory
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
+from typing import Any
+
 from pit_panel.web.render import render
 
 router = APIRouter()
 
 INSTALL_DIR = "/opt/pit-panel"
+
+_git_info_cache: dict[str, Any] = {}
 
 
 async def _sudo(cmd: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
@@ -89,6 +94,11 @@ def _resolve_uv_bin() -> str:
 
 
 async def _get_git_info() -> tuple[str, str]:
+    now = time.monotonic()
+    cached = _git_info_cache.get("data")
+    if cached and now - _git_info_cache.get("time", 0) < 30:
+        return cached["current"], cached["remote"]
+
     import asyncio
 
     import httpx
@@ -146,6 +156,8 @@ async def _get_git_info() -> tuple[str, str]:
         except Exception:
             pass
 
+    _git_info_cache["time"] = now
+    _git_info_cache["data"] = {"current": current, "remote": remote}
     return current, remote
 
 
