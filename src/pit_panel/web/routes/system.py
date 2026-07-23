@@ -200,8 +200,8 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
     if ok:
         python_bin = sys.executable
         steps = [
-            (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60, True),
-            (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30, True),
+            (["git", "-C", INSTALL_DIR, "fetch", "origin", "--prune"], 60, False),
+            (["git", "-C", INSTALL_DIR, "reset", "--hard", "origin/main"], 30, False),
             ([uv_bin, "--directory", INSTALL_DIR, "sync"], 180, False),
             ([python_bin, "-m", "compileall", "-q", f"{INSTALL_DIR}/src"], 30, False),
             (
@@ -230,7 +230,7 @@ async def system_upgrade(request: Request, db: AsyncSession = Depends(get_db)):
         if not ok:
             log_lines.append(f"[ROLLBACK] Restoring codebase to SHA {original_sha[:7]}...")
             rollback_steps = [
-                (["git", "-C", INSTALL_DIR, "reset", "--hard", original_sha], 30, True),
+                (["git", "-C", INSTALL_DIR, "reset", "--hard", original_sha], 30, False),
                 ([uv_bin, "--directory", INSTALL_DIR, "sync"], 180, False),
                 (["/usr/bin/systemctl", "daemon-reload"], 10, True),
             ]
