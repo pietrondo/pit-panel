@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import time
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -15,8 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pit_panel.db.models import UpdateHistory
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
-from typing import Any
-
 from pit_panel.web.render import render
 
 router = APIRouter()

@@ -155,7 +155,7 @@ async def analyze_container_logs() -> list[dict[str, Any]]:
                 "docker",
                 "logs",
                 "--tail",
-"200",
+                "200",
                 cid,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,

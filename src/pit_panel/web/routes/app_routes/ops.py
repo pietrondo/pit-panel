@@ -62,7 +62,10 @@ async def app_update(request: Request, sd_id: int, db: AsyncSession = Depends(ge
         is_repo = (app_dir / ".git").is_dir()
         if is_repo:
             pull = await asyncio.create_subprocess_exec(
-                "git", "-C", str(app_dir), "pull",
+                "git",
+                "-C",
+                str(app_dir),
+                "pull",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

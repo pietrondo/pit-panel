@@ -65,7 +65,6 @@ async def test_run_sudo_whitelist_valid():
         )
 
 
-
 @pytest.mark.asyncio
 async def test_run_sudo_whitelist_invalid():
     with pytest.raises(ValueError, match="Command 'ls' is not allowed"):
