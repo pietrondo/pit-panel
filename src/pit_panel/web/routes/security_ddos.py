@@ -294,3 +294,41 @@ async def security_ddos_top_connections(request: Request, db: AsyncSession = Dep
         )
 
     return HTMLResponse(f'<div class="space-y-1.5">{rows}</div>')
+
+
+@router.post("/security/protect-all", response_class=HTMLResponse)
+async def security_protect_all(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    from pit_panel.core.security import _detect_ssh_port, _enable_ufw, _get_client_ip
+
+    results: list[str] = []
+
+    client_ip = _get_client_ip(request)
+    ssh_port = await _detect_ssh_port()
+    fw_ok = await _enable_ufw(client_ip, ssh_port)
+    results.append("✅ Firewall UFW attivato" if fw_ok else "⚠️ Firewall: errore")
+
+    for jail in ("sshd", "sshd-ddos"):
+        r = await run_cmd(["sudo", "-n", "fail2ban-client", "start", jail], timeout=10)
+        if r.returncode == 0:
+            results.append(f"✅ Fail2ban: {jail} attivo")
+        else:
+            results.append(f"⚠️ Fail2ban: {jail} non disponibile")
+
+    if await _ensure_sudoers():
+        errors = await _enable_shield()
+        if errors:
+            results.append("✅ Anti-DDoS Shield attivato (con avvisi)")
+        else:
+            results.append("✅ Anti-DDoS Shield attivato")
+    else:
+        results.append("⚠️ Anti-DDoS: iptables non nei sudoers")
+
+    html = "".join(f'<p class="text-xs">{r}</p>' for r in results)
+    return HTMLResponse(
+        f'<div class="space-y-1 p-3 bg-green-50 dark:bg-green-900/10 '
+        f'border border-green-200 dark:border-green-800 rounded-lg">{html}</div>'
+    )
