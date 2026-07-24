@@ -111,6 +111,11 @@ pit-panel ALL=(root) NOPASSWD: /bin/cp /opt/pit-panel/packaging/*.service /etc/s
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/usermod -a -G systemd-journal pit-panel
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/usermod -a -G docker pit-panel
 pit-panel ALL=(root) NOPASSWD: /usr/bin/journalctl -u pit-panel.service *
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/iptables *
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/ss *
+pit-panel ALL=(root) NOPASSWD: /usr/bin/ss *
+pit-panel ALL=(root) NOPASSWD: /usr/bin/fail2ban-client start *
+pit-panel ALL=(root) NOPASSWD: /usr/bin/tee -a /etc/sudoers.d/pit-panel
 # System management commands requiring password authentication
 pit-panel ALL=(root) PASSWD: /usr/bin/systemctl restart caddy
 pit-panel ALL=(root) PASSWD: /usr/bin/systemctl restart pit-panel
