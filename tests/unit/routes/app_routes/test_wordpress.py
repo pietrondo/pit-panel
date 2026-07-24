@@ -1,11 +1,13 @@
 """Tests for app_routes/wordpress.py — WP proxy, auto-login, cache/plugin/core."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
 
 from pit_panel.config import Settings, init_settings
 from pit_panel.web.app import create_app
+
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
