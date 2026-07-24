@@ -32,6 +32,7 @@ from pit_panel.web.render import render
 
 from .security_abuseipdb import router as abuseipdb_router
 from .security_blocklist import router as blocklist_router
+from .security_ddos import router as ddos_router
 from .security_fail2ban import router as fail2ban_router
 from .security_firewall import router as firewall_router
 from .security_lynis import router as lynis_router
@@ -44,6 +45,7 @@ router.include_router(fail2ban_router)
 router.include_router(blocklist_router)
 router.include_router(abuseipdb_router)
 router.include_router(lynis_router)
+router.include_router(ddos_router)
 
 
 async def _rollback_after_db_panel_error(db: AsyncSession) -> None:
