@@ -40,6 +40,8 @@ echo "Updating systemd units..."
 cp packaging/pit-panel.service /etc/systemd/system/
 cp packaging/pit-panel-updater.service /etc/systemd/system/
 cp packaging/pit-panel-updater.timer /etc/systemd/system/
+chmod 755 /opt/pit-panel/scripts/self_update.py 2>/dev/null || true
+chown pit-panel:pit-panel /opt/pit-panel/scripts/self_update.py 2>/dev/null || true
 systemctl daemon-reload
 
 uv sync

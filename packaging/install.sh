@@ -116,6 +116,10 @@ pit-panel ALL=(root) NOPASSWD: /usr/sbin/ss *
 pit-panel ALL=(root) NOPASSWD: /usr/bin/ss *
 pit-panel ALL=(root) NOPASSWD: /usr/bin/fail2ban-client start *
 pit-panel ALL=(root) NOPASSWD: /usr/bin/tee -a /etc/sudoers.d/pit-panel
+pit-panel ALL=(root) NOPASSWD: /usr/bin/tee /etc/fail2ban/jail.local
+pit-panel ALL=(root) NOPASSWD: /usr/bin/tee /etc/fail2ban/jail.d/*.local
+pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw reload
+pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl is-active *
 # System management commands requiring password authentication
 pit-panel ALL=(root) PASSWD: /usr/bin/systemctl restart caddy
 pit-panel ALL=(root) PASSWD: /usr/bin/systemctl restart pit-panel
@@ -125,7 +129,6 @@ pit-panel ALL=(root) PASSWD: /usr/bin/apt-get dist-upgrade -y
 pit-panel ALL=(root) PASSWD: /usr/bin/apt list --upgradable
 pit-panel ALL=(root) PASSWD: /usr/bin/docker ps
 pit-panel ALL=(root) PASSWD: /usr/bin/uptime
-pit-panel ALL=(root) PASSWD: /usr/bin/systemctl is-active *
 pit-panel ALL=(root) PASSWD: /usr/bin/systemctl restart *
 pit-panel ALL=(root) PASSWD: /usr/bin/systemctl stop *
 pit-panel ALL=(root) PASSWD: /usr/bin/systemctl start *
@@ -182,6 +185,8 @@ fi
 cp packaging/pit-panel.service /etc/systemd/system/
 cp packaging/pit-panel-updater.service /etc/systemd/system/
 cp packaging/pit-panel-updater.timer /etc/systemd/system/
+chmod 755 /opt/pit-panel/scripts/self_update.py 2>/dev/null || true
+chown pit-panel:pit-panel /opt/pit-panel/scripts/self_update.py 2>/dev/null || true
 systemctl daemon-reload
 
 # Create admin user
