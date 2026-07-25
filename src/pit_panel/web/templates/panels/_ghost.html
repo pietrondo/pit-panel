@@ -43,7 +43,7 @@
                     <span x-show="show">{{ db_password or '—' }}</span>
                 </span>
             </div>
-            <button @click="show = !show" class="text-xs text-purple-600 hover:text-purple-700"
+            <button @click="show = !show" aria-label="Toggle password visibility" class="text-xs text-purple-600 hover:text-purple-700"
                     x-text="show ? 'Hide' : 'Show password'"></button>
         </div>
     </div>

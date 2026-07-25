@@ -68,7 +68,7 @@
         <form method="POST" action="/ssl/generate" class="space-y-4" id="ssl-form">
             <div>
                 <label class="label">Email (for Let's Encrypt notifications)</label>
-                <input type="email" name="email" value="admin@{{ settings.effective_domain }}" required class="input">
+                <input aria-label="Email" type="email" name="email" value="admin@{{ settings.effective_domain }}" required class="input">
             </div>
 
             <div>
@@ -87,11 +87,11 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="label">EAB Key ID (for ZeroSSL/Google)</label>
-                        <input type="text" name="eab_key_id" placeholder="Only needed for ZeroSSL/Google" class="input font-mono text-xs">
+                        <input aria-label="Eab Key Id" type="text" name="eab_key_id" placeholder="Only needed for ZeroSSL/Google" class="input font-mono text-xs">
                     </div>
                     <div>
                         <label class="label">EAB HMAC Key</label>
-                        <input type="password" name="eab_hmac" placeholder="Only needed for ZeroSSL/Google" class="input font-mono text-xs">
+                        <input aria-label="Eab Hmac" type="password" name="eab_hmac" placeholder="Only needed for ZeroSSL/Google" class="input font-mono text-xs">
                     </div>
                 </div>
             </div>
@@ -115,9 +115,9 @@
 
             <div id="api-section" style="display:none">
                 <label class="label">API Token Variable Name</label>
-                <input type="text" name="api_var" value="CF_API_TOKEN" class="input font-mono">
+                <input aria-label="Api Var" type="text" name="api_var" value="CF_API_TOKEN" class="input font-mono">
                 <label class="label mt-3">API Token Value</label>
-                <input type="password" name="api_token" placeholder="Paste your DNS API token" class="input font-mono">
+                <input aria-label="Api Token" type="password" name="api_token" placeholder="Paste your DNS API token" class="input font-mono">
             </div>
 
             <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400">Generate & Write Caddyfile</button>
