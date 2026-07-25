@@ -6,7 +6,19 @@ import pytest
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from pit_panel.web.routes.debug_api import _run, _verify_token
+from pit_panel.web.routes.debug_api import (
+    _CONTAINER_RE,
+    _audit,
+    _run,
+    _verify_token,
+)
+
+
+@pytest.fixture
+def tmp_audit(monkeypatch, tmp_path):
+    log = tmp_path / "debug-audit.log"
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._AUDIT_LOG_PATH", str(log))
+    return log
 
 
 @pytest.mark.asyncio
@@ -53,6 +65,20 @@ async def test_verify_token_success(monkeypatch, tmp_path):
 
     token = _verify_token("expected_token")
     assert token == "expected_token"
+
+
+@pytest.mark.asyncio
+async def test_verify_token_empty_file(monkeypatch, tmp_path):
+    """Empty file must still 503, not silently accept."""
+    token_file = tmp_path / "token"
+    token_file.write_text("\n")
+    mock_settings = MagicMock()
+    mock_settings.debug_token_path = str(token_file)
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings)
+
+    with pytest.raises(HTTPException) as exc:
+        _verify_token("any")
+    assert exc.value.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -196,5 +222,206 @@ async def test_debug_system(monkeypatch, tmp_path):
     assert body["disk_free_gb"] == "cmd_out"
     assert body["uptime"] == "cmd_out"
     assert body["memory"] == "cmd_out"
+    assert "timestamp" in body
+    assert isinstance(body["timestamp"], int)
 
     assert mock_run.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_debug_errors(monkeypatch):
+    mock_run = AsyncMock(return_value="errs")
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)
+
+    from pit_panel.web.routes.debug_api import debug_errors
+
+    mock_req = MagicMock(spec=Request)
+    res = await debug_errors(mock_req, lines=50, token="tok")
+
+    assert isinstance(res, PlainTextResponse)
+    assert res.body == b"errs"
+    args = mock_run.call_args[0][0]
+    assert args[0] == "journalctl"
+    assert "-p" in args
+    assert "err" in args
+
+
+@pytest.mark.asyncio
+async def test_debug_errors_clamps_lines(monkeypatch):
+    mock_run = AsyncMock(return_value="x")
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)
+
+    from pit_panel.web.routes.debug_api import debug_errors
+
+    mock_req = MagicMock(spec=Request)
+    await debug_errors(mock_req, lines=9999999, token="tok")
+    args = mock_run.call_args[0][0]
+    assert str(2000) in args
+
+
+@pytest.mark.asyncio
+async def test_debug_caddy_logs(monkeypatch):
+    mock_run = AsyncMock(return_value="caddy log")
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)
+
+    from pit_panel.web.routes.debug_api import debug_caddy_logs
+
+    mock_req = MagicMock(spec=Request)
+    res = await debug_caddy_logs(mock_req, lines=100, token="tok")
+
+    assert isinstance(res, PlainTextResponse)
+    args = mock_run.call_args[0][0]
+    assert args[0] == "journalctl"
+    assert "caddy" in args
+    assert str(100) in args
+
+
+@pytest.mark.asyncio
+async def test_debug_docker_ps(monkeypatch):
+    sample = (
+        '{"Names":"web","State":"running","Status":"Up"}\n'
+        '{"Names":"db","State":"exited","Status":"Exited (1) 5 minutes ago"}\n'
+    )
+    mock_run = AsyncMock(return_value=sample)
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)
+
+    from pit_panel.web.routes.debug_api import debug_docker_ps
+
+    mock_req = MagicMock(spec=Request)
+    res = await debug_docker_ps(mock_req, token="tok")
+
+    assert isinstance(res, JSONResponse)
+    body = json.loads(res.body)
+    assert len(body["containers"]) == 2
+    assert body["containers"][0]["Names"] == "web"
+    assert body["raw"] == sample
+
+
+@pytest.mark.asyncio
+async def test_debug_docker_logs_validates_container_name():
+    from pit_panel.web.routes.debug_api import debug_docker_logs
+
+    mock_req = MagicMock(spec=Request)
+    with pytest.raises(HTTPException) as exc:
+        await debug_docker_logs(mock_req, container="bad;name|rm -rf", lines=10, token="tok")
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["web", "nginx-prod_1", "container.dev-1", "a", "A1.b-c"],
+)
+def test_container_name_accepts_valid(name):
+    assert _CONTAINER_RE.match(name)
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["", "-bad", "a;rm", "a b", "a/b", "a$b", "a|b", "a" * 65],
+)
+def test_container_name_rejects_invalid(name):
+    assert not _CONTAINER_RE.match(name)
+
+
+@pytest.mark.asyncio
+async def test_debug_docker_logs_calls_command(monkeypatch):
+    mock_run = AsyncMock(return_value="container logs")
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)
+
+    from pit_panel.web.routes.debug_api import debug_docker_logs
+
+    mock_req = MagicMock(spec=Request)
+    res = await debug_docker_logs(mock_req, container="nginx", lines=50, token="tok")
+
+    assert isinstance(res, PlainTextResponse)
+    args = mock_run.call_args[0][0]
+    assert args == ["docker", "logs", "--tail", "50", "nginx"]
+
+
+@pytest.mark.asyncio
+async def test_debug_upstreams_returns_payload(monkeypatch):
+    import httpx
+
+    class _Resp:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"upstreams": [{"address": "127.0.0.1:8080", "healthy": True}]}
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url):
+            return _Resp()
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda timeout: _Client())
+
+    mock_settings = MagicMock()
+    mock_settings.caddy_admin_url = "http://127.0.0.1:2019/"
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: mock_settings)
+
+    from pit_panel.web.routes.debug_api import debug_upstreams
+
+    mock_req = MagicMock(spec=Request)
+    res = await debug_upstreams(mock_req, token="tok")
+
+    assert isinstance(res, JSONResponse)
+    assert json.loads(res.body) == {
+        "upstreams": [{"address": "127.0.0.1:8080", "healthy": True}]
+    }
+
+
+@pytest.mark.asyncio
+async def test_audit_writes_line_without_token(tmp_audit):
+    req = MagicMock(spec=Request)
+    req.client.host = "1.2.3.4"
+    req.method = "GET"
+    req.url.path = "/api/debug/system"
+
+    _audit(req, req.url.path, 200)
+
+    content = tmp_audit.read_text()
+    assert "ip=1.2.3.4" in content
+    assert "/api/debug/system" in content
+    assert "status=200" in content
+    assert "tok" not in content
+    assert "X-Debug-Token" not in content
+
+
+@pytest.mark.asyncio
+async def test_debug_audit_reads_back(tmp_audit):
+    tmp_audit.parent.mkdir(parents=True, exist_ok=True)
+    tmp_audit.write_text("2026-07-25T13:00:00Z ip=5.6.7.8 path=/api/debug/system status=200\n")
+
+    mock_req = MagicMock(spec=Request)
+    monkeypatch_audit_path = tmp_audit
+    import pit_panel.web.routes.debug_api as mod
+
+    orig_path = mod._AUDIT_LOG_PATH
+    mod._AUDIT_LOG_PATH = str(monkeypatch_audit_path)
+    try:
+        res = await mod.debug_audit(mock_req, lines=10, token="tok")
+    finally:
+        mod._AUDIT_LOG_PATH = orig_path
+
+    assert isinstance(res, PlainTextResponse)
+    assert b"ip=5.6.7.8" in res.body
+
+
+@pytest.mark.asyncio
+async def test_debug_audit_missing_file(monkeypatch, tmp_path):
+    log = tmp_path / "nope.log"
+    monkeypatch.setattr(
+        "pit_panel.web.routes.debug_api._AUDIT_LOG_PATH", str(log)
+    )
+
+    from pit_panel.web.routes.debug_api import debug_audit
+
+    mock_req = MagicMock(spec=Request)
+    res = await debug_audit(mock_req, lines=10, token="tok")
+    assert b"(no audit entries yet)" in res.body
