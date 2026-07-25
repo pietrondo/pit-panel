@@ -1,5 +1,6 @@
 import asyncio
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -394,6 +395,75 @@ async def test_audit_writes_line_without_token(tmp_audit):
 
 
 @pytest.mark.asyncio
+async def test_audit_falls_back_to_tmp_when_primary_unwritable(monkeypatch, tmp_path):
+    """If /var/log/pit-panel is read-only (e.g. EACCES), audit must fall back
+    to a writable location (e.g. /tmp) instead of silently losing the entry."""
+    import os as _os
+
+    primary = tmp_path / "primary" / "debug-audit.log"
+    fallback = tmp_path / "fallback" / "debug-audit.log"
+
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._AUDIT_LOG_PATH", str(primary))
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._AUDIT_FALLBACK_PATH", str(fallback))
+
+    real_open = _os.open
+    real_mkdir = _os.mkdir
+
+    def fake_open(path, *args, **kwargs):
+        if str(path) == str(primary):
+            raise PermissionError("read-only filesystem")
+        return real_open(path, *args, **kwargs)
+
+    def fake_mkdir(path, *args, **kwargs):
+        if str(path) == str(primary.parent):
+            raise PermissionError("read-only filesystem")
+        return real_mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr("os.open", fake_open)
+    monkeypatch.setattr("os.mkdir", fake_mkdir)
+
+    req = MagicMock(spec=Request)
+    req.client.host = "9.9.9.9"
+    req.method = "GET"
+    req.url.path = "/api/debug/system"
+
+    _audit(req, req.url.path, 200)
+
+    assert fallback.exists(), f"fallback file not created at {fallback}"
+    content = fallback.read_text()
+    assert "ip=9.9.9.9" in content
+    assert "/api/debug/system" in content
+
+
+@pytest.mark.asyncio
+async def test_audit_swallows_total_failure_without_raising(monkeypatch, tmp_path, caplog):
+    """If both primary and fallback fail, _audit must NOT raise. It logs a
+    warning and returns. The request handler must continue normally."""
+
+    primary = tmp_path / "primary" / "debug-audit.log"
+    fallback = tmp_path / "fallback" / "debug-audit.log"
+
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._AUDIT_LOG_PATH", str(primary))
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._AUDIT_FALLBACK_PATH", str(fallback))
+
+    def always_fail(*args, **kwargs):
+        raise OSError("disk on fire")
+
+    monkeypatch.setattr("os.open", always_fail)
+    monkeypatch.setattr("os.mkdir", always_fail)
+
+    req = MagicMock(spec=Request)
+    req.client.host = "1.1.1.1"
+    req.method = "GET"
+    req.url.path = "/api/debug/system"
+
+    with caplog.at_level("WARNING"):
+        _audit(req, req.url.path, 200)  # must not raise
+
+    assert any("debug_audit_log_failed" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
 async def test_debug_audit_reads_back(tmp_audit):
     tmp_audit.parent.mkdir(parents=True, exist_ok=True)
     tmp_audit.write_text("2026-07-25T13:00:00Z ip=5.6.7.8 path=/api/debug/system status=200\n")
@@ -425,3 +495,122 @@ async def test_debug_audit_missing_file(monkeypatch, tmp_path):
     mock_req = MagicMock(spec=Request)
     res = await debug_audit(mock_req, lines=10, token="tok")
     assert b"(no audit entries yet)" in res.body
+
+
+@pytest.mark.asyncio
+async def test_debug_docker_stats_all(monkeypatch):
+    sample = (
+        '{"Name":"wiki-wikijs-1","CPUPerc":"12.34%","MemUsage":"450MiB / 1.9GiB",'
+        '"MemPerc":"23.15%","NetIO":"1.2MB / 800kB","BlockIO":"5MB / 2MB","PIDs":"18"}\n'
+        '{"Name":"blog-wordpress-1","CPUPerc":"0.50%","MemUsage":"120MiB / 1.9GiB",'
+        '"MemPerc":"6.20%","NetIO":"100kB / 50kB","BlockIO":"1MB / 0B","PIDs":"9"}\n'
+    )
+    mock_run = AsyncMock(return_value=sample)
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)
+
+    from pit_panel.web.routes.debug_api import debug_docker_stats
+
+    mock_req = MagicMock(spec=Request)
+    res = await debug_docker_stats(mock_req, token="tok")
+
+    assert isinstance(res, JSONResponse)
+    body = json.loads(res.body)
+    assert len(body["stats"]) == 2
+    assert body["stats"][0]["name"] == "wiki-wikijs-1"
+    assert body["stats"][0]["cpu"] == "12.34%"
+    assert body["stats"][0]["mem"] == "450MiB / 1.9GiB"
+    assert body["stats"][1]["name"] == "blog-wordpress-1"
+    args = mock_run.call_args[0][0]
+    assert args == ["docker", "stats", "--no-stream", "--format", "{{json .}}"]
+
+
+@pytest.mark.asyncio
+async def test_debug_docker_stats_single_container(monkeypatch):
+    sample = (
+        '{"Name":"wiki-wikijs-1","CPUPerc":"12.34%","MemUsage":"450MiB / 1.9GiB",'
+        '"MemPerc":"23.15%","NetIO":"1.2MB / 800kB","BlockIO":"5MB / 2MB","PIDs":"18"}\n'
+    )
+    mock_run = AsyncMock(return_value=sample)
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._run", mock_run)
+
+    from pit_panel.web.routes.debug_api import debug_docker_stats
+
+    mock_req = MagicMock(spec=Request)
+    res = await debug_docker_stats(mock_req, container="wiki-wikijs-1", token="tok")
+
+    assert isinstance(res, JSONResponse)
+    body = json.loads(res.body)
+    assert body["stats"][0]["name"] == "wiki-wikijs-1"
+    args = mock_run.call_args[0][0]
+    assert "wiki-wikijs-1" in args
+    assert "--no-trunc" in args
+
+
+@pytest.mark.asyncio
+async def test_debug_docker_stats_validates_container_name():
+    from pit_panel.web.routes.debug_api import debug_docker_stats
+
+    mock_req = MagicMock(spec=Request)
+    with pytest.raises(HTTPException) as exc:
+        await debug_docker_stats(mock_req, container="bad;name|rm -rf", token="tok")
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_debug_doctor_aggregates_health(monkeypatch):
+    """One GET that returns: system, upstreams, last-errors, audit-count."""
+    monkeypatch.setattr(
+        "pit_panel.web.routes.debug_api._AUDIT_LOG_PATH",
+        "/tmp/doctor-test.log",
+    )
+    Path("/tmp/doctor-test.log").write_text(
+        "2026-07-25T10:00:00Z ip=1.1.1.1 method=GET path=/api/debug/system status=200\n"
+        "2026-07-25T10:00:01Z ip=1.1.1.1 method=GET path=/api/debug/errors status=200\n"
+    )
+
+    async def fake_run(cmd, timeout=10, cwd=None):
+        if cmd[:2] == ["df", "-h"]:
+            return "        20G"
+        if cmd[:1] == ["uptime"]:
+            return "up 1 day"
+        if cmd[:1] == ["free"]:
+            return "total 1.9Gi used 1.4Gi"
+        if cmd[:2] == ["journalctl", "-p"]:
+            return "Jul 25 10:00:00 host sshd[1]: error"
+        return ""
+
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._run", fake_run)
+
+    class _Resp:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"upstreams": [{"address": "127.0.0.1:8080", "healthy": True}]}
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url):
+            return _Resp()
+
+    import httpx as _httpx
+    monkeypatch.setattr(_httpx, "AsyncClient", lambda timeout: _Client())
+
+    from pit_panel.web.routes.debug_api import debug_doctor
+
+    mock_req = MagicMock(spec=Request)
+    res = await debug_doctor(mock_req, token="tok")
+
+    assert isinstance(res, JSONResponse)
+    body = json.loads(res.body)
+    assert "system" in body
+    assert "upstreams" in body
+    assert "last_errors" in body
+    assert body["audit_count"] == 2
+    assert body["upstreams"]["upstreams"][0]["healthy"] is True
+    assert "Jul 25" in body["last_errors"]
