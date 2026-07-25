@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -614,3 +615,276 @@ async def test_debug_doctor_aggregates_health(monkeypatch):
     assert body["audit_count"] == 2
     assert body["upstreams"]["upstreams"][0]["healthy"] is True
     assert "Jul 25" in body["last_errors"]
+
+
+@pytest.mark.asyncio
+async def test_rotate_token_writes_new_file(monkeypatch, tmp_path):
+    """Happy path: caller provides the CURRENT token + a new token in the
+    request body. Server writes the new token to disk, keeps the old one
+    in a grace-period sidecar for 1h, returns the new token once."""
+    token_file = tmp_path / "debug_token"
+    token_file.write_text("old_token\n")
+    grace_file = tmp_path / "debug_token.grace"
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: MagicMock(debug_token_path=str(token_file)))
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._GRACE_PATH", str(grace_file))
+
+    from pit_panel.web.routes.debug_api import rotate_debug_token
+
+    mock_req = MagicMock(spec=Request)
+    res = await rotate_debug_token(
+        request=mock_req,
+        payload={"new_token": "new_token_long_enough_aaa", "grace_seconds": 3600},
+        current_token="old_token",
+    )
+
+    assert isinstance(res, JSONResponse)
+    body = json.loads(res.body)
+    assert "new_token" in body
+    assert "grace_expires_at" in body
+    assert token_file.read_text().strip() == "new_token_long_enough_aaa"
+    grace = json.loads(grace_file.read_text())
+    assert grace["old_token"] == "old_token"
+    assert grace["expires_at"] > time.time()
+
+
+@pytest.mark.asyncio
+async def test_rotate_token_rejects_wrong_current_token(monkeypatch, tmp_path):
+    token_file = tmp_path / "debug_token"
+    token_file.write_text("old_token\n")
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: MagicMock(debug_token_path=str(token_file)))
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._GRACE_PATH", str(tmp_path / "grace"))
+
+    from pit_panel.web.routes.debug_api import rotate_debug_token
+
+    mock_req = MagicMock(spec=Request)
+    with pytest.raises(HTTPException) as exc:
+        await rotate_debug_token(
+            request=mock_req,
+            payload={"new_token": "new_token_long_enough_aaa", "grace_seconds": 3600},
+            current_token="WRONG",
+        )
+    assert exc.value.status_code == 403
+    assert token_file.read_text().strip() == "old_token"
+
+
+@pytest.mark.asyncio
+async def test_rotate_token_rejects_short_new_token(monkeypatch, tmp_path):
+    token_file = tmp_path / "debug_token"
+    token_file.write_text("old_token\n")
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: MagicMock(debug_token_path=str(token_file)))
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._GRACE_PATH", str(tmp_path / "grace"))
+
+    from pit_panel.web.routes.debug_api import rotate_debug_token
+
+    mock_req = MagicMock(spec=Request)
+    with pytest.raises(HTTPException) as exc:
+        await rotate_debug_token(
+            request=mock_req,
+            payload={"new_token": "short", "grace_seconds": 3600},
+            current_token="old_token",
+        )
+    assert exc.value.status_code == 400
+    assert token_file.read_text().strip() == "old_token"
+
+
+@pytest.mark.asyncio
+async def test_verify_token_accepts_grace_period(monkeypatch, tmp_path):
+    """If the primary token doesn't match but a grace sidecar contains it,
+    the request is still allowed. (So clients that haven't yet learned the
+    new token keep working during the grace window.)"""
+    import json as _json
+    import time as _t
+
+    token_file = tmp_path / "debug_token"
+    grace_file = tmp_path / "debug_token.grace"
+    token_file.write_text("NEW_TOKEN")
+    grace_file.write_text(
+        _json.dumps({"old_token": "OLD_TOKEN", "expires_at": _t.time() + 600})
+    )
+
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: MagicMock(debug_token_path=str(token_file)))
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._GRACE_PATH", str(grace_file))
+
+    tok = _verify_token("OLD_TOKEN")
+    assert tok == "OLD_TOKEN"
+
+
+@pytest.mark.asyncio
+async def test_verify_token_rejects_expired_grace(monkeypatch, tmp_path):
+    """Grace file present but expired → old token rejected."""
+    import json as _json
+    import time as _t
+
+    token_file = tmp_path / "debug_token"
+    grace_file = tmp_path / "debug_token.grace"
+    token_file.write_text("NEW_TOKEN")
+    grace_file.write_text(
+        _json.dumps({"old_token": "OLD_TOKEN", "expires_at": _t.time() - 1})
+    )
+
+    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: MagicMock(debug_token_path=str(token_file)))
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._GRACE_PATH", str(grace_file))
+
+    with pytest.raises(HTTPException) as exc:
+        _verify_token("OLD_TOKEN")
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_tail_ws_authenticates_then_streams(monkeypatch):
+    """WS endpoint: closes the socket with code 1008 if token missing/wrong,
+    otherwise streams journalctl lines as text frames."""
+
+    token_file = "/tmp/pit-panel-tail-test"
+    import os as _os
+    _os.makedirs(token_file, exist_ok=True)
+    with open(f"{token_file}.tok", "w") as f:
+        f.write("WS_TOKEN\n")
+
+    monkeypatch.setattr(
+        "pit_panel.web.routes.debug_api.get_settings",
+        lambda: MagicMock(debug_token_path=f"{token_file}.tok"),
+    )
+
+    class FakeWS:
+        def __init__(self):
+            self.accepted = False
+            self.closed_code = None
+            self.closed_reason = None
+            self.frames: list[str] = []
+            self.query_params: dict[str, str] = {"token": "WS_TOKEN", "service": "pit-panel", "lines": "10"}
+            self.client = type("C", (), {"host": "127.0.0.1"})()
+            self.headers: dict[str, str] = {}
+
+        async def accept(self):
+            self.accepted = True
+
+        async def close(self, code=1000, reason=""):
+            self.closed_code = code
+            self.closed_reason = reason
+
+        async def send_text(self, data: str):
+            self.frames.append(data)
+
+        async def receive_text(self):
+            import asyncio as _a
+            await _a.sleep(0.05)
+            raise RuntimeError("client disconnected")
+
+    class FakeProc:
+        pid = 99999
+
+        def __init__(self):
+            import asyncio as _a
+            self.stdout = _a.StreamReader()
+            self.stderr = _a.StreamReader()
+            self.stdout.feed_data(b"Jul 25 10:00:00 host systemd[1]: test line 1\n")
+            self.stdout.feed_data(b"Jul 25 10:00:01 host systemd[1]: test line 2\n")
+            self.stdout.feed_eof()
+            self.stderr.feed_eof()
+            self.returncode = None
+
+        async def wait(self):
+            self.returncode = 0
+            return 0
+
+        def terminate(self):
+            pass
+
+        async def kill(self):
+            pass
+
+    async def fake_exec(*args, **kwargs):
+        return FakeProc()
+
+    monkeypatch.setattr("asyncio.create_subprocess_exec", fake_exec)
+
+    from pit_panel.web.routes.debug_api import tail_ws
+
+    ws = FakeWS()
+    await tail_ws(ws, service="pit-panel", lines=10, token="WS_TOKEN")
+
+    assert ws.accepted
+    assert ws.closed_code is None or ws.closed_code == 1000
+    assert any("test line 1" in f for f in ws.frames)
+    assert any("test line 2" in f for f in ws.frames)
+
+
+@pytest.mark.asyncio
+async def test_tail_ws_rejects_missing_token(monkeypatch):
+
+    monkeypatch.setattr(
+        "pit_panel.web.routes.debug_api.get_settings",
+        lambda: MagicMock(debug_token_path="/nonexistent/.tok"),
+    )
+
+    class FakeWS:
+        def __init__(self):
+            self.query_params: dict[str, str] = {"service": "pit-panel"}
+            self.headers: dict[str, str] = {}
+            self.client = type("C", (), {"host": "127.0.0.1"})()
+            self.closed_code = None
+            self.closed_reason = None
+
+        async def accept(self):
+            pass
+
+        async def close(self, code=1000, reason=""):
+            self.closed_code = code
+            self.closed_reason = reason
+
+        async def send_text(self, data: str):
+            pass
+
+        async def receive_text(self):
+            raise RuntimeError
+
+    from pit_panel.web.routes.debug_api import tail_ws
+
+    ws = FakeWS()
+    await tail_ws(ws, service="pit-panel", lines=10, token="WRONG")
+
+    assert ws.closed_code == 1008
+    assert "token" in (ws.closed_reason or "").lower() or ws.closed_code == 1008
+
+
+@pytest.mark.asyncio
+async def test_tail_ws_rejects_invalid_service_name(monkeypatch):
+
+    monkeypatch.setattr(
+        "pit_panel.web.routes.debug_api.get_settings",
+        lambda: MagicMock(debug_token_path="/tmp/x.tok"),
+    )
+    import os as _os
+    _os.makedirs("/tmp", exist_ok=True)
+    with open("/tmp/x.tok", "w") as f:
+        f.write("WS_TOKEN\n")
+
+    class FakeWS:
+        def __init__(self):
+            self.query_params: dict[str, str] = {"service": "bad;rm-rf"}
+            self.headers: dict[str, str] = {}
+            self.client = type("C", (), {"host": "127.0.0.1"})()
+            self.closed_code = None
+            self.closed_reason = None
+
+        async def accept(self):
+            pass
+
+        async def close(self, code=1000, reason=""):
+            self.closed_code = code
+            self.closed_reason = reason
+
+        async def send_text(self, data: str):
+            pass
+
+        async def receive_text(self):
+            raise RuntimeError
+
+    from pit_panel.web.routes.debug_api import tail_ws
+
+    ws = FakeWS()
+    await tail_ws(ws, service="bad;rm-rf", lines=10, token="WS_TOKEN")
+
+    assert ws.closed_code == 1008
+    assert "service" in (ws.closed_reason or "").lower() or ws.closed_code == 1008

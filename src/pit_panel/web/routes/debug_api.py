@@ -6,16 +6,26 @@ attempt is appended to an audit log that NEVER contains the token value.
 
 import asyncio
 import contextlib
+import json
 import logging
 import os
 import platform
 import re
+import secrets
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from pit_panel.config import get_settings
@@ -28,6 +38,10 @@ router = APIRouter()
 
 _AUDIT_LOG_PATH = "/var/log/pit-panel/debug-audit.log"
 _AUDIT_FALLBACK_PATH = "/tmp/pit-panel-debug-audit.log"
+_GRACE_PATH = "/etc/pit-panel/debug_token.grace"
+_MIN_TOKEN_LEN = 16
+_DEFAULT_GRACE_SECONDS = 3600
+_MAX_GRACE_SECONDS = 86400
 
 _CONTAINER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 
@@ -43,9 +57,24 @@ def _verify_token(x_debug_token: str | None = Header(None)) -> str:
     expected = token_path.read_text().strip()
     if not expected:
         raise HTTPException(status_code=503, detail="Debug token not configured on this server")
-    if not secrets.compare_digest(x_debug_token.encode("utf-8"), expected.encode("utf-8")):
-        raise HTTPException(status_code=403, detail="Invalid debug token")
-    return x_debug_token
+    if secrets.compare_digest(x_debug_token.encode("utf-8"), expected.encode("utf-8")):
+        return x_debug_token
+
+    # Primary didn't match. Fall through to grace-period check.
+    grace_path = Path(_GRACE_PATH)
+    if grace_path.exists():
+        try:
+            grace = json.loads(grace_path.read_text())
+            old = (grace.get("old_token") or "").strip()
+            expires_at = float(grace.get("expires_at") or 0)
+            if old and expires_at > time.time() and secrets.compare_digest(
+                x_debug_token.encode("utf-8"), old.encode("utf-8")
+            ):
+                return x_debug_token
+        except (json.JSONDecodeError, OSError, ValueError):
+            pass
+
+    raise HTTPException(status_code=403, detail="Invalid debug token")
 
 
 def _audit(request: Request, path: str, status: int) -> None:
@@ -387,3 +416,186 @@ async def debug_doctor(
             "timestamp": int(time.time()),
         }
     )
+
+
+@router.post("/api/debug/rotate-token")  # type: ignore[untyped-decorator]
+@limiter.limit("3/minute")
+async def rotate_debug_token(
+    request: Request,
+    payload: dict[str, Any],
+    current_token: str = Depends(_verify_token),
+) -> JSONResponse:
+    """Rotate the debug token with a configurable grace period.
+
+    Body: {"new_token": "...", "grace_seconds": 3600}
+
+    The CURRENT token (this request's `X-Debug-Token`) MUST match the
+    file on disk — this is the auth check, not a parameter. Caller is
+    asking the server to trust a NEW value; the OLD value is preserved
+    on disk in a sidecar so that any client that hasn't yet picked up
+    the new token can still authenticate during the grace window.
+
+    After `grace_seconds` the sidecar expires and the old token stops
+    working. Default 1h, max 24h. New token must be >= 16 chars.
+    """
+    new_token = (payload.get("new_token") or "").strip()
+    if len(new_token) < _MIN_TOKEN_LEN:
+        raise HTTPException(
+            status_code=400,
+            detail=f"new_token must be at least {_MIN_TOKEN_LEN} characters",
+        )
+    if secrets.compare_digest(new_token.encode("utf-8"), current_token.encode("utf-8")):
+        raise HTTPException(
+            status_code=400,
+            detail="new_token must differ from current token",
+        )
+
+    grace = int(payload.get("grace_seconds") or _DEFAULT_GRACE_SECONDS)
+    grace = max(0, min(grace, _MAX_GRACE_SECONDS))
+    expires_at = int(time.time()) + grace
+
+    token_path = Path(get_settings().debug_token_path)
+    grace_path = Path(_GRACE_PATH)
+
+    current_on_disk = token_path.read_text().strip() if token_path.exists() else ""
+    if not current_on_disk:
+        raise HTTPException(status_code=503, detail="Debug token not configured on this server")
+    if not secrets.compare_digest(current_token.encode("utf-8"), current_on_disk.encode("utf-8")):
+        raise HTTPException(status_code=403, detail="Invalid debug token (mid-rotation?)")
+
+    grace_path.parent.mkdir(parents=True, exist_ok=True)
+    grace_payload = json.dumps({"old_token": current_on_disk, "expires_at": expires_at})
+    grace_fd = os.open(
+        str(grace_path),
+        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+        0o600,
+    )
+    try:
+        os.write(grace_fd, grace_payload.encode("utf-8"))
+    finally:
+        os.close(grace_fd)
+    os.chmod(grace_path, 0o600)
+
+    token_fd = os.open(
+        str(token_path),
+        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+        0o600,
+    )
+    try:
+        os.write(token_fd, (new_token + "\n").encode("utf-8"))
+    finally:
+        os.close(token_fd)
+    os.chmod(token_path, 0o600)
+
+    _audit(request, request.url.path, 200)
+    return JSONResponse(
+        {
+            "new_token": new_token,
+            "grace_expires_at": expires_at,
+            "grace_seconds": grace,
+        }
+    )
+
+
+@router.websocket("/api/debug/tail")  # type: ignore[untyped-decorator]
+async def tail_ws(
+    websocket: WebSocket,
+    service: str,
+    lines: int = 50,
+    token: str = "",
+) -> None:
+    """Live tail a systemd unit (or container, by name).
+
+    Query params:
+        token    the X-Debug-Token (browsers can't set custom WS headers)
+        service  systemd unit name or container name; validated against
+                 the same ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$ whitelist as the
+                 REST endpoints to prevent argv injection
+        lines    initial backfill (default 50, max 5000)
+
+    On connect: closes 1008 (policy violation) if token missing/invalid
+    or service name malformed; otherwise opens the subprocess and streams
+    its stdout as text frames until the client disconnects.
+    """
+    if not _CONTAINER_RE.match(service):
+        await websocket.close(code=1008, reason="invalid service name")
+        return
+
+    token_path = Path(get_settings().debug_token_path)
+    expected = ""
+    if token_path.exists():
+        expected = token_path.read_text().strip()
+    if not expected or not token or not secrets.compare_digest(
+        token.encode("utf-8"), expected.encode("utf-8")
+    ):
+        await websocket.close(code=1008, reason="invalid or missing token")
+        return
+
+    lines = max(1, min(int(lines), 5000))
+
+    await websocket.accept()
+
+    # Two readers: journalctl (systemd unit) vs docker logs (container).
+    # Heuristic: if service name matches a docker container, use docker logs.
+    # Otherwise systemd journal.
+    is_container = False
+    try:
+        proc_check = await asyncio.create_subprocess_exec(
+            "docker", "inspect", "--type=container", service,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await proc_check.wait()
+        is_container = proc_check.returncode == 0
+    except Exception:
+        pass
+
+    if is_container:
+        cmd = ["docker", "logs", "-f", "--tail", str(lines), service]
+    else:
+        cmd = ["journalctl", "-u", service, "-n", str(lines), "-f", "--no-pager"]
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except Exception as e:
+        await websocket.send_text(f"[pit-debug] failed to spawn tail: {e}\n")
+        await websocket.close(code=1011)
+        return
+
+    async def _pump(stream):
+        if stream is None:
+            return
+        while True:
+            chunk = await stream.readline()
+            if not chunk:
+                return
+            try:
+                await websocket.send_text(chunk.decode("utf-8", errors="replace"))
+            except Exception:
+                return
+
+    pump_out = asyncio.create_task(_pump(proc.stdout))
+    pump_err = asyncio.create_task(_pump(proc.stderr))
+
+    try:
+        while True:
+            try:
+                await websocket.receive_text()
+            except (WebSocketDisconnect, RuntimeError, Exception):
+                break
+    finally:
+        pump_out.cancel()
+        pump_err.cancel()
+        with contextlib.suppress(Exception):
+            proc.terminate()
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=2)
+        except (TimeoutError, Exception):
+            with contextlib.suppress(Exception):
+                proc.kill()
+        with contextlib.suppress(Exception):
+            await websocket.close()
