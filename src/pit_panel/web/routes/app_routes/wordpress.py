@@ -167,7 +167,10 @@ async def _ensure_wp_cli(docker_mgr, subdomain: str) -> None:
 
 
 async def _fix_wp_site_url(docker_mgr, subdomain: str, fqdn: str) -> None:
+    import shlex
+
     try:
+        fqdn_q = shlex.quote(f"https://{fqdn}")
         await docker_mgr.exec_command(
             subdomain,
             "wordpress",
@@ -175,9 +178,9 @@ async def _fix_wp_site_url(docker_mgr, subdomain: str, fqdn: str) -> None:
                 "sh",
                 "-c",
                 f"php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-                f" option update siteurl 'https://{fqdn}'"
+                f" option update siteurl {fqdn_q}"
                 f" && php -d memory_limit=256M /tmp/wp-cli.phar --allow-root"
-                f" option update home 'https://{fqdn}'",
+                f" option update home {fqdn_q}",
             ],
         )
     except Exception as e:
@@ -313,9 +316,15 @@ async def app_wp_fix_url(request: Request, sd_id: int, db: AsyncSession = Depend
     if not sd or sd.app_type != "wordpress":
         return HTMLResponse("Not a WordPress app", status_code=400)
 
+    import re
+
     settings = get_settings()
     base_domain = sd.base_domain or settings.base_domain
     fqdn = f"{sd.subdomain}.{base_domain}"
+
+    if not re.fullmatch(r"^[a-zA-Z0-9.-]+$", fqdn):
+        return HTMLResponse("Invalid domain name", status_code=400)
+
     docker_mgr = DockerManager(settings.apps_dir)
 
     success = False
