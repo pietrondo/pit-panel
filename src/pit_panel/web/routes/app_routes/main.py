@@ -480,6 +480,14 @@ async def app_deploy_from_repo(
     if not settings.base_domain:
         return HTMLResponse('<p class="text-red-500">Base domain not configured</p>')
 
+    # Validate repo_url to prevent command injection via git clone
+    if not repo_url or repo_url.startswith("-") or "ext::" in repo_url:
+        return HTMLResponse('<p class="text-red-500">Invalid repository URL</p>', status_code=400)
+
+    valid_url = repo_url.startswith(("http://", "https://", "git@"))
+    if not valid_url:
+        return HTMLResponse('<p class="text-red-500">Invalid repository URL scheme</p>', status_code=400)
+
     sd: Subdomain | None = None
 
     # Try resolving by existing subdomain ID first
