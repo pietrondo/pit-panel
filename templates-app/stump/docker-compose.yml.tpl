@@ -10,9 +10,5 @@ services:
       STUMP_CONFIG_DIR: /config
       TZ: Europe/Rome
     volumes:
-      - stump_config:/config
-      - stump_data:/data
-
-volumes:
-  stump_config:
-  stump_data:
+      - ./config:/config
+      - ./data:/data
