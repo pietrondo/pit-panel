@@ -600,6 +600,41 @@ async def debug_mkdir(
     return JSONResponse({"status": "ok", "path": str(resolved)})
 
 
+_COMPOSE_ACTIONS = {"up", "down", "restart", "pull", "logs"}
+
+
+@router.post("/api/debug/compose")  # type: ignore[untyped-decorator]
+@limiter.limit("10/minute")
+async def debug_compose(
+    request: Request,
+    payload: dict[str, Any],
+    token: str = Depends(_verify_token),
+) -> JSONResponse:
+    app = (payload.get("app") or "").strip()
+    action = (payload.get("action") or "restart").strip()
+    if not app or not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", app):
+        raise HTTPException(status_code=400, detail="Invalid app name")
+    if action not in _COMPOSE_ACTIONS:
+        raise HTTPException(status_code=400, detail=f"action must be one of {_COMPOSE_ACTIONS}")
+
+    app_dir = Path("/opt/pit-panel/apps") / app
+    compose_file = app_dir / "docker-compose.yml"
+    if not compose_file.exists():
+        raise HTTPException(status_code=404, detail=f"No compose file for app '{app}'")
+
+    cmd = ["docker", "compose", "-f", str(compose_file)]
+    if action == "up":
+        cmd += ["up", "-d"]
+    elif action == "logs":
+        cmd += ["logs", "--tail", "50"]
+    else:
+        cmd.append(action)
+
+    out = await _run(cmd, timeout=30, cwd=str(app_dir))
+    _audit(request, request.url.path, 200)
+    return JSONResponse({"status": "ok", "app": app, "action": action, "output": out})
+
+
 @router.websocket("/api/debug/tail")  # type: ignore[untyped-decorator]
 async def tail_ws(
     websocket: WebSocket,
