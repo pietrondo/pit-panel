@@ -47,7 +47,6 @@ async def test_run_sudo_success(mock_create_subprocess_exec):
     )
 
 
-
 @pytest.mark.asyncio
 @patch("asyncio.create_subprocess_exec")
 async def test_run_sudo_with_stderr(mock_create_subprocess_exec):
@@ -75,7 +74,6 @@ async def test_run_sudo_with_stderr(mock_create_subprocess_exec):
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-
 
 
 @pytest.mark.asyncio

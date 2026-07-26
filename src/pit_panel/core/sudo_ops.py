@@ -38,20 +38,24 @@ async def run_cmd(
 
     if use_sudo:
         from pit_panel.config import get_settings
+
         settings = get_settings()
         sudo_password = settings.sudo_password.strip() if settings.sudo_password else None
 
     if use_sudo and sudo_password:
         auth_proc = await asyncio.create_subprocess_exec(
-            "sudo", "-S", "-p", "", "-v",
+            "sudo",
+            "-S",
+            "-p",
+            "",
+            "-v",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         try:
             await asyncio.wait_for(
-                auth_proc.communicate((sudo_password + "\n").encode()),
-                timeout=timeout
+                auth_proc.communicate((sudo_password + "\n").encode()), timeout=timeout
             )
         except TimeoutError:
             with contextlib.suppress(Exception):
@@ -109,15 +113,18 @@ async def run_sudo(cmd: list[str], sudo_password: str) -> str:
 
     # Authenticate first
     auth_proc = await asyncio.create_subprocess_exec(
-        "sudo", "-S", "-p", "", "-v",
+        "sudo",
+        "-S",
+        "-p",
+        "",
+        "-v",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     try:
         await asyncio.wait_for(
-            auth_proc.communicate((sudo_password.strip() + "\n").encode()),
-            timeout=10
+            auth_proc.communicate((sudo_password.strip() + "\n").encode()), timeout=10
         )
     except TimeoutError:
         with contextlib.suppress(Exception):

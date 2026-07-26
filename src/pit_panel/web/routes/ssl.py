@@ -196,9 +196,13 @@ def _generate_caddyfile(config: CaddyfileConfig) -> str:
 
 async def _check_caddy_running() -> bool:
     import asyncio
+
     with contextlib.suppress(Exception):
         proc = await asyncio.create_subprocess_exec(
-            "systemctl", "is-active", "--quiet", "caddy",
+            "systemctl",
+            "is-active",
+            "--quiet",
+            "caddy",
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
         )

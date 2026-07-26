@@ -31,7 +31,6 @@ class TestSettings:
             path = f.name
 
         try:
-
             s = Settings.from_config_file(path)
             assert s.host == "0.0.0.0"
             assert s.port == 9999
@@ -82,7 +81,6 @@ class TestSettings:
 
     def test_ensure_paths(self, monkeypatch):
         from pathlib import Path
-
 
         s = Settings(data_dir="/fake/data", apps_dir="/fake/apps")
 
@@ -146,7 +144,6 @@ class TestSettings:
 
     def test_save_config_file(self, tmp_path):
         import tomllib
-
 
         test_dir = tmp_path / "test"
         s = Settings(

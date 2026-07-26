@@ -6,6 +6,7 @@ import pytest
 class TestSessionAuth:
     def test_get_serializer(self, settings):
         import pit_panel.web.auth
+
         pit_panel.web.auth._serializer_cache = None
         from itsdangerous import BadSignature, URLSafeTimedSerializer
 
@@ -38,6 +39,7 @@ class TestSessionAuth:
         # Verify failure with a different secret key
         settings.secret_key = "different_secret_key"
         import pit_panel.web.auth
+
         pit_panel.web.auth._serializer_cache = None
         different_serializer = pit_panel.web.auth.get_serializer(settings)
 
@@ -46,6 +48,7 @@ class TestSessionAuth:
 
     def test_get_serializer_returns_cached_instance(self, settings):
         import pit_panel.web.auth
+
         pit_panel.web.auth._serializer_cache = None
 
         serializer1 = pit_panel.web.auth.get_serializer(settings)
@@ -62,6 +65,7 @@ class TestSessionAuth:
         from itsdangerous import URLSafeTimedSerializer
 
         import pit_panel.web.auth
+
         pit_panel.web.auth._serializer_cache = None
         from pit_panel.web.auth import get_serializer
 

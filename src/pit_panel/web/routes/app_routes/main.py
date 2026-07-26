@@ -496,9 +496,7 @@ async def app_deploy_from_repo(
 
     # Try resolving by existing subdomain ID first
     if subdomain_id > 0:
-        result = await db.execute(
-            select(Subdomain).where(Subdomain.id == subdomain_id)
-        )
+        result = await db.execute(select(Subdomain).where(Subdomain.id == subdomain_id))
         sd = result.scalar_one_or_none()
         if sd and sd.app_type:
             return HTMLResponse(
@@ -586,14 +584,10 @@ async def app_deploy_from_repo(
                 " Run: sudo rm -rf {src_dir}</p>"
             )
         except TimeoutError:
-            return HTMLResponse(
-                '<p class="text-red-500">Git clone timed out. Try again.</p>'
-            )
+            return HTMLResponse('<p class="text-red-500">Git clone timed out. Try again.</p>')
         except Exception as e:
             logger.error("Git clone error for %s: %s", repo_url, e)
-            return HTMLResponse(
-                f'<p class="text-red-500">Clone failed: {str(e)[:200]}</p>'
-            )
+            return HTMLResponse(f'<p class="text-red-500">Clone failed: {str(e)[:200]}</p>')
 
     try:
         result = await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
