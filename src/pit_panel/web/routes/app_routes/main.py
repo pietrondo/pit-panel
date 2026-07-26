@@ -486,7 +486,9 @@ async def app_deploy_from_repo(
 
     valid_url = repo_url.startswith(("http://", "https://", "git@"))
     if not valid_url:
-        return HTMLResponse('<p class="text-red-500">Invalid repository URL scheme</p>', status_code=400)
+        return HTMLResponse(
+            '<p class="text-red-500">Invalid repository URL scheme</p>', status_code=400
+        )
 
     sd: Subdomain | None = None
 
