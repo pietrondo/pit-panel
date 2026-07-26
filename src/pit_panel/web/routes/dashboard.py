@@ -81,13 +81,13 @@ async def _stats_context() -> dict[str, Any]:
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
     # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
-    (total, running), disk_usage, cpu_usage, ram_usage, hostname = await asyncio.gather(
+    (total, running), disk_usage, cpu_usage, ram_usage = await asyncio.gather(
         docker_mgr.containers_count(),
         asyncio.to_thread(_disk_usage),
         asyncio.to_thread(_cpu_usage),
         asyncio.to_thread(_ram_usage),
-        asyncio.to_thread(_server_hostname),
     )
+    hostname = _server_hostname()
 
     return {
         "subdomain_count": 0,
@@ -134,15 +134,14 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
         disk_usage,
         cpu_usage,
         ram_usage,
-        hostname,
     ) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
         asyncio.to_thread(_disk_usage),
         asyncio.to_thread(_cpu_usage),
         asyncio.to_thread(_ram_usage),
-        asyncio.to_thread(_server_hostname),
     )
+    hostname = _server_hostname()
 
     total_subdomains = row.total if row else 0
     apps_running = row.running if row else 0
@@ -194,15 +193,14 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
         disk_usage,
         cpu_usage,
         ram_usage,
-        hostname,
     ) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
         asyncio.to_thread(_disk_usage),
         asyncio.to_thread(_cpu_usage),
         asyncio.to_thread(_ram_usage),
-        asyncio.to_thread(_server_hostname),
     )
+    hostname = _server_hostname()
 
     stats = {
         "subdomain_count": row.total if row else 0,
