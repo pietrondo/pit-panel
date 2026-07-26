@@ -15,7 +15,7 @@ from pit_panel.web.deps import get_admin
 router = APIRouter()
 
 
-@router.post("/security/lynis/audit", response_class=HTMLResponse) # type: ignore[untyped-decorator]
+@router.post("/security/lynis/audit", response_class=HTMLResponse)  # type: ignore[untyped-decorator]
 async def security_lynis_audit(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -29,7 +29,7 @@ async def security_lynis_audit(
     return HTMLResponse('<span class="text-green-600">System audit started in background</span>')
 
 
-@router.get("/security/lynis/report") # type: ignore[untyped-decorator]
+@router.get("/security/lynis/report")  # type: ignore[untyped-decorator]
 async def security_lynis_report(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     user = await get_admin(request, db)
     if not user:

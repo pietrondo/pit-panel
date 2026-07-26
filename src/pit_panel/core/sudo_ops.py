@@ -41,7 +41,6 @@ async def run_cmd(
         settings = get_settings()
         sudo_password = settings.sudo_password.strip() if settings.sudo_password else None
 
-    # Authenticate via sudo -v if a password is provided
     if use_sudo and sudo_password:
         auth_proc = await asyncio.create_subprocess_exec(
             "sudo", "-S", "-p", "", "-v",
@@ -61,6 +60,7 @@ async def run_cmd(
             return CmdResult(stdout="", stderr="sudo authentication timeout", returncode=-1)
         if auth_proc.returncode != 0:
             return CmdResult(stdout="", stderr="sudo authentication failed", returncode=-1)
+
 
     input_bytes = input.encode() if input is not None else None
 
