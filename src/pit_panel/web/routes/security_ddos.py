@@ -61,21 +61,48 @@ async def _ensure_sudoers() -> bool:
 
 _IPTABLES_RULES: list[list[str]] = [
     ["-N", DDOS_CHAIN],
-    ["-A", DDOS_CHAIN, "-p", "tcp", "--syn", "-m", "limit", "--limit", "2/s", "--limit-burst", "5", "-j", "RETURN"],
+    [
+        "-A", DDOS_CHAIN, "-p", "tcp", "--syn", "-m", "limit", "--limit", "2/s",
+        "--limit-burst", "5", "-j", "RETURN",
+    ],
     ["-A", DDOS_CHAIN, "-p", "tcp", "--syn", "-j", "DROP"],
     ["-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "ALL", "NONE", "-j", "DROP"],
     ["-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "ALL", "FIN,URG,PSH", "-j", "DROP"],
-    ["-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "ALL", "SYN,RST,ACK,FIN,URG", "-j", "DROP"],
+    [
+        "-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "ALL", "SYN,RST,ACK,FIN,URG",
+        "-j", "DROP",
+    ],
     ["-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN,RST", "-j", "DROP"],
     ["-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "SYN,FIN", "SYN,FIN", "-j", "DROP"],
-    ["-A", DDOS_CHAIN, "-p", "icmp", "--icmp-type", "echo-request", "-m", "limit", "--limit", "1/s", "--limit-burst", "4", "-j", "RETURN"],
+    [
+        "-A", DDOS_CHAIN, "-p", "icmp", "--icmp-type", "echo-request", "-m", "limit",
+        "--limit", "1/s", "--limit-burst", "4", "-j", "RETURN",
+    ],
     ["-A", DDOS_CHAIN, "-p", "icmp", "--icmp-type", "echo-request", "-j", "DROP"],
-    ["-A", DDOS_CHAIN, "-p", "tcp", "--dport", "80", "-m", "connlimit", "--connlimit-above", "30", "--connlimit-mask", "32", "-j", "DROP"],
-    ["-A", DDOS_CHAIN, "-p", "tcp", "--dport", "443", "-m", "connlimit", "--connlimit-above", "30", "--connlimit-mask", "32", "-j", "DROP"],
-    ["-A", DDOS_CHAIN, "-p", "tcp", "--dport", "80", "-m", "recent", "--set", "--name", "HTTP_FLOOD"],
-    ["-A", DDOS_CHAIN, "-p", "tcp", "--dport", "80", "-m", "recent", "--update", "--seconds", "10", "--hitcount", "50", "--name", "HTTP_FLOOD", "-j", "DROP"],
-    ["-A", DDOS_CHAIN, "-p", "tcp", "--dport", "443", "-m", "recent", "--set", "--name", "HTTPS_FLOOD"],
-    ["-A", DDOS_CHAIN, "-p", "tcp", "--dport", "443", "-m", "recent", "--update", "--seconds", "10", "--hitcount", "50", "--name", "HTTPS_FLOOD", "-j", "DROP"],
+    [
+        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "80", "-m", "connlimit",
+        "--connlimit-above", "30", "--connlimit-mask", "32", "-j", "DROP",
+    ],
+    [
+        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "443", "-m", "connlimit",
+        "--connlimit-above", "30", "--connlimit-mask", "32", "-j", "DROP",
+    ],
+    [
+        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "80", "-m", "recent", "--set",
+        "--name", "HTTP_FLOOD",
+    ],
+    [
+        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "80", "-m", "recent", "--update",
+        "--seconds", "10", "--hitcount", "50", "--name", "HTTP_FLOOD", "-j", "DROP",
+    ],
+    [
+        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "443", "-m", "recent", "--set",
+        "--name", "HTTPS_FLOOD",
+    ],
+    [
+        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "443", "-m", "recent", "--update",
+        "--seconds", "10", "--hitcount", "50", "--name", "HTTPS_FLOOD", "-j", "DROP",
+    ],
     ["-A", DDOS_CHAIN, "-j", "RETURN"],
 ]
 

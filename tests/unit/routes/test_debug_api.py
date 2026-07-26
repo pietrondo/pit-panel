@@ -625,7 +625,10 @@ async def test_rotate_token_writes_new_file(monkeypatch, tmp_path):
     token_file = tmp_path / "debug_token"
     token_file.write_text("old_token\n")
     grace_file = tmp_path / "debug_token.grace"
-    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: MagicMock(debug_token_path=str(token_file)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.debug_api.get_settings",
+        lambda: MagicMock(debug_token_path=str(token_file)),
+    )
     monkeypatch.setattr("pit_panel.web.routes.debug_api._GRACE_PATH", str(grace_file))
 
     from pit_panel.web.routes.debug_api import rotate_debug_token
@@ -651,7 +654,10 @@ async def test_rotate_token_writes_new_file(monkeypatch, tmp_path):
 async def test_rotate_token_rejects_wrong_current_token(monkeypatch, tmp_path):
     token_file = tmp_path / "debug_token"
     token_file.write_text("old_token\n")
-    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: MagicMock(debug_token_path=str(token_file)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.debug_api.get_settings",
+        lambda: MagicMock(debug_token_path=str(token_file)),
+    )
     monkeypatch.setattr("pit_panel.web.routes.debug_api._GRACE_PATH", str(tmp_path / "grace"))
 
     from pit_panel.web.routes.debug_api import rotate_debug_token
@@ -671,7 +677,10 @@ async def test_rotate_token_rejects_wrong_current_token(monkeypatch, tmp_path):
 async def test_rotate_token_rejects_short_new_token(monkeypatch, tmp_path):
     token_file = tmp_path / "debug_token"
     token_file.write_text("old_token\n")
-    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: MagicMock(debug_token_path=str(token_file)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.debug_api.get_settings",
+        lambda: MagicMock(debug_token_path=str(token_file)),
+    )
     monkeypatch.setattr("pit_panel.web.routes.debug_api._GRACE_PATH", str(tmp_path / "grace"))
 
     from pit_panel.web.routes.debug_api import rotate_debug_token
@@ -702,7 +711,10 @@ async def test_verify_token_accepts_grace_period(monkeypatch, tmp_path):
         _json.dumps({"old_token": "OLD_TOKEN", "expires_at": _t.time() + 600})
     )
 
-    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: MagicMock(debug_token_path=str(token_file)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.debug_api.get_settings",
+        lambda: MagicMock(debug_token_path=str(token_file)),
+    )
     monkeypatch.setattr("pit_panel.web.routes.debug_api._GRACE_PATH", str(grace_file))
 
     tok = _verify_token("OLD_TOKEN")
@@ -722,7 +734,10 @@ async def test_verify_token_rejects_expired_grace(monkeypatch, tmp_path):
         _json.dumps({"old_token": "OLD_TOKEN", "expires_at": _t.time() - 1})
     )
 
-    monkeypatch.setattr("pit_panel.web.routes.debug_api.get_settings", lambda: MagicMock(debug_token_path=str(token_file)))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.debug_api.get_settings",
+        lambda: MagicMock(debug_token_path=str(token_file)),
+    )
     monkeypatch.setattr("pit_panel.web.routes.debug_api._GRACE_PATH", str(grace_file))
 
     with pytest.raises(HTTPException) as exc:
@@ -752,7 +767,11 @@ async def test_tail_ws_authenticates_then_streams(monkeypatch):
             self.closed_code = None
             self.closed_reason = None
             self.frames: list[str] = []
-            self.query_params: dict[str, str] = {"token": "WS_TOKEN", "service": "pit-panel", "lines": "10"}
+            self.query_params: dict[str, str] = {
+                "token": "WS_TOKEN",
+                "service": "pit-panel",
+                "lines": "10",
+            }
             self.client = type("C", (), {"host": "127.0.0.1"})()
             self.headers: dict[str, str] = {}
 

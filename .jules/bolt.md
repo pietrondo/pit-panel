@@ -8,3 +8,6 @@
 ## 2024-07-21 - Batch systemctl is-active queries
 **Learning:** Sequential calls to 'systemctl is-active' via sudo incur significant overhead (e.g. ~30ms vs ~7ms) due to subprocess and authentication latency. 'systemctl is-active' natively supports multiple services as arguments and returns newline-separated results.
 **Action:** Always batch 'systemctl is-active' checks by passing all service names as arguments to a single call and splitting the output by newline.
+## 2024-10-24 - Avoid thread pool overhead for static returns
+**Learning:** Offloading fast synchronous functions returning static cached data to `asyncio.to_thread` introduces significant context-switching overhead on high-frequency polling routes.
+**Action:** Call static or fast synchronous lookup functions directly on the main thread rather than wrapping them in a thread pool executor.
