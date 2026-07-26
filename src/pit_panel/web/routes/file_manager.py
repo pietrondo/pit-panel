@@ -188,7 +188,22 @@ async def save_file(req: SaveFileRequest, request: Request, db: AsyncSession = D
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         resolved_path = verify_safe_path(req.path)
-        resolved_path.write_text(req.content, encoding="utf-8")
+        try:
+            resolved_path.write_text(req.content, encoding="utf-8")
+        except PermissionError:
+            from pit_panel.core.sudo_ops import run_sudo
+
+            sudo_pw = get_settings().sudo_password.strip()
+            if not sudo_pw:
+                raise
+            import tempfile as _tf
+
+            with _tf.NamedTemporaryFile(mode="w", suffix=".tmp", delete=False) as tmp:
+                tmp.write(req.content)
+                tmp_path = tmp.name
+            await run_sudo(["/usr/bin/cp", tmp_path, str(resolved_path)], sudo_pw)
+            await run_sudo(["/usr/bin/chmod", "644", str(resolved_path)], sudo_pw)
+            os.unlink(tmp_path)
         return {"status": "success", "message": "File saved successfully"}
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e)) from e

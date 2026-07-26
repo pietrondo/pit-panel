@@ -1,7 +1,7 @@
-"""Secret debug API — logs, certs, system info. Protected by token file.
+"""Secret debug API — logs, certs, system info, file ops. Protected by token file.
 
-All endpoints are READ-ONLY. Every successful and failed authentication
-attempt is appended to an audit log that NEVER contains the token value.
+Every request is appended to an audit log that NEVER contains the token value.
+File operations are restricted to /opt/pit-panel and /etc/pit-panel.
 """
 
 import asyncio
@@ -495,6 +495,109 @@ async def rotate_debug_token(
             "grace_seconds": grace,
         }
     )
+
+
+_ALLOWED_PREFIXES = ("/opt/pit-panel", "/etc/pit-panel")
+
+
+def _safe_path(raw: str) -> Path:
+    p = Path(raw).resolve()
+    if not any(str(p).startswith(prefix) for prefix in _ALLOWED_PREFIXES):
+        raise HTTPException(status_code=403, detail="Path outside allowed directories")
+    return p
+
+
+@router.get("/api/debug/ls")  # type: ignore[untyped-decorator]
+@limiter.limit("30/minute")
+async def debug_ls(
+    request: Request,
+    path: str = "/opt/pit-panel/apps",
+    token: str = Depends(_verify_token),
+) -> JSONResponse:
+    resolved = _safe_path(path)
+    if not resolved.is_dir():
+        raise HTTPException(status_code=400, detail="Not a directory")
+    items = []
+    for entry in sorted(resolved.iterdir()):
+        try:
+            st = entry.stat()
+            items.append({
+                "name": entry.name,
+                "path": str(entry),
+                "is_dir": entry.is_dir(),
+                "size": st.st_size if not entry.is_dir() else 0,
+                "mtime": st.st_mtime,
+            })
+        except OSError:
+            continue
+    _audit(request, request.url.path, 200)
+    return JSONResponse({"path": str(resolved), "items": items})
+
+
+@router.get("/api/debug/file")  # type: ignore[untyped-decorator]
+@limiter.limit("30/minute")
+async def debug_read_file(
+    request: Request,
+    path: str,
+    token: str = Depends(_verify_token),
+) -> JSONResponse:
+    resolved = _safe_path(path)
+    if not resolved.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    if resolved.stat().st_size > 1_048_576:
+        raise HTTPException(status_code=413, detail="File too large (max 1MB)")
+    content = resolved.read_text(encoding="utf-8", errors="replace")
+    _audit(request, request.url.path, 200)
+    return JSONResponse({"path": str(resolved), "content": content})
+
+
+@router.put("/api/debug/file")  # type: ignore[untyped-decorator]
+@limiter.limit("20/minute")
+async def debug_write_file(
+    request: Request,
+    payload: dict[str, Any],
+    token: str = Depends(_verify_token),
+) -> JSONResponse:
+    raw_path = (payload.get("path") or "").strip()
+    content = payload.get("content")
+    if not raw_path or content is None:
+        raise HTTPException(status_code=400, detail="path and content required")
+    resolved = _safe_path(raw_path)
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        resolved.write_text(content, encoding="utf-8")
+    except PermissionError:
+        from pit_panel.core.sudo_ops import run_sudo
+
+        sudo_pw = get_settings().sudo_password.strip()
+        if not sudo_pw:
+            raise HTTPException(status_code=500, detail="Permission denied and no sudo_password configured")
+        import tempfile as _tf
+
+        with _tf.NamedTemporaryFile(mode="w", suffix=".tmp", delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+        await run_sudo(["/usr/bin/cp", tmp_path, str(resolved)], sudo_pw)
+        await run_sudo(["/usr/bin/chmod", "644", str(resolved)], sudo_pw)
+        os.unlink(tmp_path)
+    _audit(request, request.url.path, 200)
+    return JSONResponse({"status": "ok", "path": str(resolved), "bytes": len(content.encode())})
+
+
+@router.post("/api/debug/mkdir")  # type: ignore[untyped-decorator]
+@limiter.limit("20/minute")
+async def debug_mkdir(
+    request: Request,
+    payload: dict[str, Any],
+    token: str = Depends(_verify_token),
+) -> JSONResponse:
+    raw_path = (payload.get("path") or "").strip()
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="path required")
+    resolved = _safe_path(raw_path)
+    resolved.mkdir(parents=True, exist_ok=True)
+    _audit(request, request.url.path, 200)
+    return JSONResponse({"status": "ok", "path": str(resolved)})
 
 
 @router.websocket("/api/debug/tail")  # type: ignore[untyped-decorator]
