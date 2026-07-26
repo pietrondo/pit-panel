@@ -1,9 +1,9 @@
 """Lynis system audit routes."""
 
-import asyncio
 import json
 from typing import Any
 
+import aiofiles
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,12 +37,9 @@ async def security_lynis_report(request: Request, db: AsyncSession = Depends(get
 
     cache_path = "/var/lib/pit-panel/lynis_last_report.json"
 
-    def _read_cache() -> dict[str, str]:
-        with open(cache_path, encoding="utf-8") as f:
-            return dict(json.load(f))
-
     try:
-        data = await asyncio.to_thread(_read_cache)
-        return data
+        async with aiofiles.open(cache_path, encoding="utf-8") as f:
+            content = await f.read()
+            return dict(json.loads(content))
     except Exception as e:
         return {"status": "error", "error": f"No audit report found: {e}"}

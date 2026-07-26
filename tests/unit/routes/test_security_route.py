@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -1035,7 +1035,14 @@ async def test_security_lynis_report(monkeypatch) -> None:
     )
 
     mock_json = '{"hardening_index": 80, "warnings": ["w"], "suggestions": ["s"]}'
-    with patch("builtins.open", mock_open(read_data=mock_json)):
+    # mock aiofiles.open
+    import unittest.mock
+    mock_file = unittest.mock.AsyncMock()
+    mock_file.read.return_value = mock_json
+    mock_aio_open = unittest.mock.MagicMock()
+    mock_aio_open.return_value.__aenter__.return_value = mock_file
+
+    with unittest.mock.patch("aiofiles.open", mock_aio_open):
         response = client.get("/security/lynis/report")
         assert response.status_code == 200
         assert "hardening_index" in response.json()

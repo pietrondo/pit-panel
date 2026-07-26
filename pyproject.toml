@@ -72,7 +72,7 @@ follow_imports = "skip"
 
 [[tool.mypy.overrides]]
 module = [
-    "fastapi.*", "sqlalchemy.*", "httpx.*", "jinja2.*", "uvicorn.*",
+    "aiofiles.*", "fastapi.*", "sqlalchemy.*", "aiofiles.*", "httpx.*", "jinja2.*", "uvicorn.*",
     "bcrypt", "pyotp", "itsdangerous", "pydantic_settings", "slowapi.*",
     "qrcode", "yaml",
 ]
