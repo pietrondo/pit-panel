@@ -1,8 +1,9 @@
 {
-    "name": "MongoDB",
-    "version": "1.0",
-    "description": "MongoDB NoSQL database",
-    "requires_db": false,
-    "default_port": 27017,
-    "icon": "🍃"
+  "name": "MongoDB",
+  "version": "1.0",
+  "description": "MongoDB NoSQL database",
+  "requires_db": false,
+  "default_port": 27017,
+  "icon": "🍃",
+  "mem_limit": "512m"
 }

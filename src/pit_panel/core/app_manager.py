@@ -8,6 +8,8 @@ from pathlib import Path
 from string import Template
 from typing import Any, cast
 
+import yaml
+
 TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates-app"
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,40 @@ class AppManager:
             elif file_path.name != "meta.json":
                 shutil.copy2(file_path, target_dir / file_path.name)
 
+        self._apply_mem_limits(target_dir, template_dir)
+
         return target_dir
+
+    def _apply_mem_limits(self, target_dir: Path, template_dir: Path) -> None:
+        meta_path = template_dir / "meta.json"
+        if not meta_path.exists():
+            return
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return
+
+        mem_limit = meta.get("mem_limit")
+        if not mem_limit:
+            return
+
+        compose_path = target_dir / "docker-compose.yml"
+        if not compose_path.exists():
+            return
+
+        try:
+            compose = yaml.safe_load(compose_path.read_text())
+            if not isinstance(compose, dict):
+                return
+            services = compose.get("services")
+            if not isinstance(services, dict):
+                return
+            for svc in services.values():
+                if isinstance(svc, dict):
+                    svc["mem_limit"] = mem_limit
+            compose_path.write_text(yaml.dump(compose, default_flow_style=False, sort_keys=False))
+        except Exception as e:
+            logger.warning("Failed to apply mem_limit to %s: %s", compose_path, e)
 
     def delete_app(self, subdomain: str) -> bool:
         target_dir = self.apps_dir / subdomain

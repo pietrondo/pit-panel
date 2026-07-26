@@ -1,8 +1,9 @@
 {
-    "name": "Redis",
-    "version": "1.0",
-    "description": "Redis in-memory data store",
-    "requires_db": false,
-    "default_port": 6379,
-    "icon": "🔴"
+  "name": "Redis",
+  "version": "1.0",
+  "description": "Redis in-memory data store",
+  "requires_db": false,
+  "default_port": 6379,
+  "icon": "🔴",
+  "mem_limit": "128m"
 }

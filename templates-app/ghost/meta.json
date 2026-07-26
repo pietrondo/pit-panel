@@ -1,8 +1,9 @@
 {
-    "name": "Ghost",
-    "version": "1.0",
-    "description": "Ghost CMS blogging platform",
-    "requires_db": true,
-    "default_port": 2368,
-    "admin_path": "/ghost"
+  "name": "Ghost",
+  "version": "1.0",
+  "description": "Ghost CMS blogging platform",
+  "requires_db": true,
+  "default_port": 2368,
+  "admin_path": "/ghost",
+  "mem_limit": "256m"
 }

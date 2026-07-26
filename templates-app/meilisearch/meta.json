@@ -1,9 +1,10 @@
 {
-    "name": "meilisearch",
-    "display_name": "Meilisearch",
-    "version": "latest",
-    "description": "Lightning-fast search engine. Typo-tolerant, instant, and customizable.",
-    "icon": "🔍",
-    "requires_db": false,
-    "default_port": 7700
+  "name": "meilisearch",
+  "display_name": "Meilisearch",
+  "version": "latest",
+  "description": "Lightning-fast search engine. Typo-tolerant, instant, and customizable.",
+  "icon": "🔍",
+  "requires_db": false,
+  "default_port": 7700,
+  "mem_limit": "256m"
 }

@@ -1,8 +1,9 @@
 {
-    "name": "PostgreSQL",
-    "version": "1.0",
-    "description": "PostgreSQL database server",
-    "requires_db": false,
-    "default_port": 5432,
-    "icon": "🐘"
+  "name": "PostgreSQL",
+  "version": "1.0",
+  "description": "PostgreSQL database server",
+  "requires_db": false,
+  "default_port": 5432,
+  "icon": "🐘",
+  "mem_limit": "256m"
 }

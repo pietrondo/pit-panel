@@ -5,5 +5,6 @@
   "icon": "📊",
   "version": "v2.1",
   "default_port": 8000,
-  "requires_db": true
+  "requires_db": true,
+  "mem_limit": "256m"
 }

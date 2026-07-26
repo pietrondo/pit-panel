@@ -1,0 +1,11 @@
+{
+  "name": "stump",
+  "display_name": "Stump",
+  "version": "latest",
+  "description": "Reader per fumetti/manga (CBR, CBZ, EPUB). Streaming diretto dal browser, gestione librerie, progresso lettura, multi-utente.",
+  "icon": "🦇",
+  "requires_db": false,
+  "default_port": 10801,
+  "admin_path": "/",
+  "mem_limit": "256m"
+}
