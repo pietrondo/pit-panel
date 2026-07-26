@@ -33,7 +33,7 @@
         <form method="POST" action="/subdomains/add" class="flex items-end gap-4">
             <div class="flex-1">
                 <label class="label">Subdomain name</label>
-                <input type="text" name="subdomain" required placeholder="myapp"
+                <input aria-label="Subdomain" type="text" name="subdomain" required placeholder="myapp"
                        class="input"
                        pattern="[a-z0-9-]+" title="Only lowercase letters, numbers, hyphens">
             </div>
@@ -82,7 +82,7 @@
                         </template>
                         <template x-if="editing">
                             <span class="inline-flex items-center gap-1">
-                                <input type="text" x-model="name" class="input text-xs py-1 w-32 font-mono" placeholder="subdomain">
+                                <input aria-label="subdomain" type="text" x-model="name" class="input text-xs py-1 w-32 font-mono" placeholder="subdomain">
                                 <span class="text-xs text-surface-400 font-mono">.{{ sd.base_domain }}</span>
                             </span>
                         </template>

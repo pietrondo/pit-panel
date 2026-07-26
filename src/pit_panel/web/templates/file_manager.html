@@ -200,7 +200,7 @@
                     <label class="cursor-pointer block">
                         <span class="text-4xl block mb-2">📥</span>
                         <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Click to choose a file</span>
-                        <input type="file" class="hidden" @change="uploadFile($event)">
+                        <input aria-label="File" type="file" class="hidden" @change="uploadFile($event)">
                     </label>
                 </div>
             </div>
