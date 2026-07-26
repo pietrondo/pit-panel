@@ -603,6 +603,25 @@ async def debug_mkdir(
 _COMPOSE_ACTIONS = {"up", "down", "restart", "pull", "logs"}
 
 
+@router.post("/api/debug/update")  # type: ignore[untyped-decorator]
+@limiter.limit("3/minute")
+async def debug_update(
+    request: Request,
+    token: str = Depends(_verify_token),
+) -> JSONResponse:
+    from pit_panel.core.sudo_ops import run_sudo
+
+    sudo_pw = get_settings().sudo_password.strip()
+    app_dir = "/opt/pit-panel"
+    pull_out = await _run(["git", "pull", "--ff-only"], timeout=30, cwd=app_dir)
+    if not sudo_pw:
+        _audit(request, request.url.path, 200)
+        return JSONResponse({"status": "pulled", "output": pull_out, "restart": "skipped (no sudo_password)"})
+    restart_out = await run_sudo(["/usr/bin/systemctl", "restart", "pit-panel"], sudo_pw)
+    _audit(request, request.url.path, 200)
+    return JSONResponse({"status": "ok", "pull": pull_out, "restart": restart_out or "done"})
+
+
 @router.post("/api/debug/compose")  # type: ignore[untyped-decorator]
 @limiter.limit("10/minute")
 async def debug_compose(
