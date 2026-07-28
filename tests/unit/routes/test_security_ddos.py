@@ -1,9 +1,11 @@
 from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from pit_panel.web.routes.security_ddos import router
+
 
 @pytest.fixture
 def app():
@@ -29,7 +31,9 @@ async def test_security_ddos_status_active(client, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.get_admin", mock_get_admin)
 
     mock_is_shield_active = AsyncMock(return_value=True)
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos._is_shield_active", mock_is_shield_active)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_ddos._is_shield_active", mock_is_shield_active
+    )
 
     response = client.get("/security/ddos/status")
     assert response.status_code == 200
@@ -41,7 +45,9 @@ async def test_security_ddos_status_inactive(client, monkeypatch: pytest.MonkeyP
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.get_admin", mock_get_admin)
 
     mock_is_shield_active = AsyncMock(return_value=False)
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos._is_shield_active", mock_is_shield_active)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_ddos._is_shield_active", mock_is_shield_active
+    )
 
     response = client.get("/security/ddos/status")
     assert response.status_code == 200
@@ -197,7 +203,9 @@ ESTAB 0      0      10.0.0.1:443       5.6.7.8:12347
     assert "1 conn" in response.text
 
 @pytest.mark.asyncio
-async def test_security_ddos_top_connections_fallback(client, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_security_ddos_top_connections_fallback(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
     mock_get_admin = AsyncMock(return_value=MagicMock(id=1))
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.get_admin", mock_get_admin)
 
@@ -241,8 +249,12 @@ async def test_security_protect_all(client, monkeypatch: pytest.MonkeyPatch) -> 
     mock_run_cmd = AsyncMock(return_value=mock_res_success)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
 
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos._ensure_sudoers", AsyncMock(return_value=True))
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos._enable_shield", AsyncMock(return_value=[]))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_ddos._ensure_sudoers", AsyncMock(return_value=True)
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_ddos._enable_shield", AsyncMock(return_value=[])
+    )
 
     response = client.post("/security/protect-all")
     assert response.status_code == 200
@@ -262,7 +274,9 @@ async def test_security_protect_all_fail(client, monkeypatch: pytest.MonkeyPatch
     mock_run_cmd = AsyncMock(return_value=mock_res_fail)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
 
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos._ensure_sudoers", AsyncMock(return_value=False))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_ddos._ensure_sudoers", AsyncMock(return_value=False)
+    )
 
     response = client.post("/security/protect-all")
     assert response.status_code == 200
@@ -298,8 +312,9 @@ async def test_internal_ensure_sudoers_no_password(monkeypatch: pytest.MonkeyPat
 
 @pytest.mark.asyncio
 async def test_internal_ensure_sudoers_with_password(monkeypatch: pytest.MonkeyPatch) -> None:
-    from pit_panel.web.routes.security_ddos import _ensure_sudoers
     import asyncio
+
+    from pit_panel.web.routes.security_ddos import _ensure_sudoers
 
     mock_res_fail = MagicMock(returncode=1)
     mock_res_success = MagicMock(returncode=0)
@@ -320,8 +335,9 @@ async def test_internal_ensure_sudoers_with_password(monkeypatch: pytest.MonkeyP
 
 @pytest.mark.asyncio
 async def test_internal_ensure_sudoers_with_password_fail(monkeypatch: pytest.MonkeyPatch) -> None:
-    from pit_panel.web.routes.security_ddos import _ensure_sudoers
     import asyncio
+
+    from pit_panel.web.routes.security_ddos import _ensure_sudoers
 
     mock_res_fail = MagicMock(returncode=1)
     mock_run_cmd = AsyncMock(return_value=mock_res_fail)
@@ -433,14 +449,18 @@ async def test_security_ddos_block_ip_unauthorized(client, monkeypatch: pytest.M
     assert response.status_code == 401
 
 @pytest.mark.asyncio
-async def test_security_ddos_unblock_ip_unauthorized(client, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_security_ddos_unblock_ip_unauthorized(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
     mock_get_admin = AsyncMock(return_value=None)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.get_admin", mock_get_admin)
     response = client.post("/security/ddos/unblock-ip")
     assert response.status_code == 401
 
 @pytest.mark.asyncio
-async def test_security_ddos_top_connections_unauthorized(client, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_security_ddos_top_connections_unauthorized(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
     mock_get_admin = AsyncMock(return_value=None)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.get_admin", mock_get_admin)
     response = client.get("/security/ddos/top-connections")
@@ -471,8 +491,13 @@ async def test_security_protect_all_fail_shield(client, monkeypatch: pytest.Monk
     mock_run_cmd = AsyncMock(return_value=mock_res_success)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
 
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos._ensure_sudoers", AsyncMock(return_value=True))
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos._enable_shield", AsyncMock(return_value=["Warning"]))
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_ddos._ensure_sudoers", AsyncMock(return_value=True)
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.security_ddos._enable_shield",
+        AsyncMock(return_value=["Warning"])
+    )
 
     response = client.post("/security/protect-all")
     assert response.status_code == 200
