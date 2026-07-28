@@ -59,8 +59,8 @@ def _ram_usage() -> dict[str, Any]:
             with open("/proc/meminfo") as f:
                 mem = {}
                 for line in f:
-                    parts = line.split()
-                    if parts[0] in ("MemTotal:", "MemAvailable:", "MemFree:"):
+                    if line.startswith(("MemTotal:", "MemAvailable:", "MemFree:")):
+                        parts = line.split()
                         mem[parts[0].rstrip(":")] = int(parts[1]) // 1024
                     # ⚡ Bolt: Early exit once we have the necessary fields
                     if "MemTotal" in mem and "MemAvailable" in mem:
