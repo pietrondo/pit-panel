@@ -23,9 +23,7 @@ _SUDOERS_LINES = [
 ]
 
 _SUDOERS_FIX_CMD = (
-    "sudo tee -a /etc/sudoers.d/pit-panel <<'EOF'\n"
-    + "\n".join(_SUDOERS_LINES)
-    + "\nEOF"
+    "sudo tee -a /etc/sudoers.d/pit-panel <<'EOF'\n" + "\n".join(_SUDOERS_LINES) + "\nEOF"
 )
 
 
@@ -47,7 +45,13 @@ async def _ensure_sudoers() -> bool:
     input_data = (sudo_password + "\n" + payload).encode()
     try:
         proc = await asyncio.create_subprocess_exec(
-            "sudo", "-S", "-p", "", "tee", "-a", "/etc/sudoers.d/pit-panel",
+            "sudo",
+            "-S",
+            "-p",
+            "",
+            "tee",
+            "-a",
+            "/etc/sudoers.d/pit-panel",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -59,49 +63,152 @@ async def _ensure_sudoers() -> bool:
     res = await run_cmd(["sudo", "-n", "iptables", "-L", "-n"], timeout=5)
     return res.returncode == 0
 
+
 _IPTABLES_RULES: list[list[str]] = [
     ["-N", DDOS_CHAIN],
     [
-        "-A", DDOS_CHAIN, "-p", "tcp", "--syn", "-m", "limit", "--limit", "2/s",
-        "--limit-burst", "5", "-j", "RETURN",
+        "-A",
+        DDOS_CHAIN,
+        "-p",
+        "tcp",
+        "--syn",
+        "-m",
+        "limit",
+        "--limit",
+        "2/s",
+        "--limit-burst",
+        "5",
+        "-j",
+        "RETURN",
     ],
     ["-A", DDOS_CHAIN, "-p", "tcp", "--syn", "-j", "DROP"],
     ["-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "ALL", "NONE", "-j", "DROP"],
     ["-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "ALL", "FIN,URG,PSH", "-j", "DROP"],
     [
-        "-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "ALL", "SYN,RST,ACK,FIN,URG",
-        "-j", "DROP",
+        "-A",
+        DDOS_CHAIN,
+        "-p",
+        "tcp",
+        "--tcp-flags",
+        "ALL",
+        "SYN,RST,ACK,FIN,URG",
+        "-j",
+        "DROP",
     ],
     ["-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN,RST", "-j", "DROP"],
     ["-A", DDOS_CHAIN, "-p", "tcp", "--tcp-flags", "SYN,FIN", "SYN,FIN", "-j", "DROP"],
     [
-        "-A", DDOS_CHAIN, "-p", "icmp", "--icmp-type", "echo-request", "-m", "limit",
-        "--limit", "1/s", "--limit-burst", "4", "-j", "RETURN",
+        "-A",
+        DDOS_CHAIN,
+        "-p",
+        "icmp",
+        "--icmp-type",
+        "echo-request",
+        "-m",
+        "limit",
+        "--limit",
+        "1/s",
+        "--limit-burst",
+        "4",
+        "-j",
+        "RETURN",
     ],
     ["-A", DDOS_CHAIN, "-p", "icmp", "--icmp-type", "echo-request", "-j", "DROP"],
     [
-        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "80", "-m", "connlimit",
-        "--connlimit-above", "30", "--connlimit-mask", "32", "-j", "DROP",
+        "-A",
+        DDOS_CHAIN,
+        "-p",
+        "tcp",
+        "--dport",
+        "80",
+        "-m",
+        "connlimit",
+        "--connlimit-above",
+        "30",
+        "--connlimit-mask",
+        "32",
+        "-j",
+        "DROP",
     ],
     [
-        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "443", "-m", "connlimit",
-        "--connlimit-above", "30", "--connlimit-mask", "32", "-j", "DROP",
+        "-A",
+        DDOS_CHAIN,
+        "-p",
+        "tcp",
+        "--dport",
+        "443",
+        "-m",
+        "connlimit",
+        "--connlimit-above",
+        "30",
+        "--connlimit-mask",
+        "32",
+        "-j",
+        "DROP",
     ],
     [
-        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "80", "-m", "recent", "--set",
-        "--name", "HTTP_FLOOD",
+        "-A",
+        DDOS_CHAIN,
+        "-p",
+        "tcp",
+        "--dport",
+        "80",
+        "-m",
+        "recent",
+        "--set",
+        "--name",
+        "HTTP_FLOOD",
     ],
     [
-        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "80", "-m", "recent", "--update",
-        "--seconds", "10", "--hitcount", "50", "--name", "HTTP_FLOOD", "-j", "DROP",
+        "-A",
+        DDOS_CHAIN,
+        "-p",
+        "tcp",
+        "--dport",
+        "80",
+        "-m",
+        "recent",
+        "--update",
+        "--seconds",
+        "10",
+        "--hitcount",
+        "50",
+        "--name",
+        "HTTP_FLOOD",
+        "-j",
+        "DROP",
     ],
     [
-        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "443", "-m", "recent", "--set",
-        "--name", "HTTPS_FLOOD",
+        "-A",
+        DDOS_CHAIN,
+        "-p",
+        "tcp",
+        "--dport",
+        "443",
+        "-m",
+        "recent",
+        "--set",
+        "--name",
+        "HTTPS_FLOOD",
     ],
     [
-        "-A", DDOS_CHAIN, "-p", "tcp", "--dport", "443", "-m", "recent", "--update",
-        "--seconds", "10", "--hitcount", "50", "--name", "HTTPS_FLOOD", "-j", "DROP",
+        "-A",
+        DDOS_CHAIN,
+        "-p",
+        "tcp",
+        "--dport",
+        "443",
+        "-m",
+        "recent",
+        "--update",
+        "--seconds",
+        "10",
+        "--hitcount",
+        "50",
+        "--name",
+        "HTTPS_FLOOD",
+        "-j",
+        "DROP",
     ],
     ["-A", DDOS_CHAIN, "-j", "RETURN"],
 ]
@@ -130,10 +237,22 @@ async def _enable_shield() -> list[str]:
     await _iptables(["-I", "INPUT", "1", "-j", DDOS_CHAIN])
 
     for port in ("80", "443"):
-        await _iptables([
-            "-A", DDOS_CHAIN, "-p", "tcp", "--dport", port,
-            "-m", "state", "--state", "ESTABLISHED", "-j", "RETURN",
-        ])
+        await _iptables(
+            [
+                "-A",
+                DDOS_CHAIN,
+                "-p",
+                "tcp",
+                "--dport",
+                port,
+                "-m",
+                "state",
+                "--state",
+                "ESTABLISHED",
+                "-j",
+                "RETURN",
+            ]
+        )
 
     return results
 
@@ -185,9 +304,7 @@ async def security_ddos_enable(request: Request, db: AsyncSession = Depends(get_
     errors = await _enable_shield()
 
     async def _enable_f2b_ddos():
-        await run_cmd(
-            ["sudo", "-n", "fail2ban-client", "start", "sshd-ddos"], timeout=10
-        )
+        await run_cmd(["sudo", "-n", "fail2ban-client", "start", "sshd-ddos"], timeout=10)
 
     with contextlib.suppress(Exception):
         await asyncio.wait_for(_enable_f2b_ddos(), timeout=12)
@@ -241,9 +358,7 @@ async def security_ddos_block_ip(request: Request, db: AsyncSession = Depends(ge
         return HTMLResponse(
             f'<span class="text-green-600 text-xs">✅ {ip} bloccato a livello kernel</span>'
         )
-    return HTMLResponse(
-        f'<span class="text-red-600 text-xs">❌ Impossibile bloccare {ip}</span>'
-    )
+    return HTMLResponse(f'<span class="text-red-600 text-xs">❌ Impossibile bloccare {ip}</span>')
 
 
 @router.post("/security/ddos/unblock-ip", response_class=HTMLResponse)
@@ -266,12 +381,8 @@ async def security_ddos_unblock_ip(request: Request, db: AsyncSession = Depends(
 
     ok = await _iptables(["-D", "INPUT", "-s", ip, "-j", "DROP"])
     if ok:
-        return HTMLResponse(
-            f'<span class="text-green-600 text-xs">✅ {ip} sbloccato</span>'
-        )
-    return HTMLResponse(
-        f'<span class="text-red-600 text-xs">❌ Regola non trovata per {ip}</span>'
-    )
+        return HTMLResponse(f'<span class="text-green-600 text-xs">✅ {ip} sbloccato</span>')
+    return HTMLResponse(f'<span class="text-red-600 text-xs">❌ Regola non trovata per {ip}</span>')
 
 
 @router.get("/security/ddos/top-connections", response_class=HTMLResponse)

@@ -407,6 +407,7 @@ async def run_lynis_audit() -> dict[str, Any]:
     await _run_cmd(["sudo", "-n", "lynis", "audit", "system", "--quick"], timeout=180)
 
     import aiofiles
+
     dat_path = "/var/log/lynis-report.dat"
     dat_content = ""
     try:
