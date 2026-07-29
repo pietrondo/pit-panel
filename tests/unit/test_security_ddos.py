@@ -514,7 +514,8 @@ async def test_security_ddos_top_connections_fallback(
         MagicMock(returncode=1),
         MagicMock(
             returncode=0,
-            stdout="State Recv-Q Send-Q Local Address:Port Peer Address:Port Process\nESTAB 0 0 10.0.0.1:80 192.168.1.100:12345\n",
+            stdout="State Recv-Q Send-Q Local Address:Port Peer Address:Port Process\n"
+            "ESTAB 0 0 10.0.0.1:80 192.168.1.100:12345\n",
         ),
     ]
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
