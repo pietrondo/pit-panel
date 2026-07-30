@@ -80,13 +80,13 @@ def _ram_usage() -> dict[str, Any]:
 async def _stats_context() -> dict[str, Any]:
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
-    # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
-    (total, running), disk_usage, cpu_usage, ram_usage = await asyncio.gather(
-        docker_mgr.containers_count(),
-        asyncio.to_thread(_disk_usage),
-        asyncio.to_thread(_cpu_usage),
-        asyncio.to_thread(_ram_usage),
-    )
+    # ⚡ Bolt: Execute I/O bound docker cmds concurrently
+    total, running = await docker_mgr.containers_count()
+
+    # ⚡ Bolt: Call fast synchronous functions directly to avoid thread pool overhead
+    disk_usage = _disk_usage()
+    cpu_usage = _cpu_usage()
+    ram_usage = _ram_usage()
     hostname = _server_hostname()
 
     return {
@@ -127,20 +127,19 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
 
     docker_mgr = DockerManager(settings.apps_dir)
 
-    # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
+    # ⚡ Bolt: Execute I/O bound db/docker tasks concurrently
     (
         (subdomains, row),
         (containers_total, containers_running),
-        disk_usage,
-        cpu_usage,
-        ram_usage,
     ) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
-        asyncio.to_thread(_disk_usage),
-        asyncio.to_thread(_cpu_usage),
-        asyncio.to_thread(_ram_usage),
     )
+
+    # ⚡ Bolt: Call fast synchronous functions directly to avoid thread pool overhead
+    disk_usage = _disk_usage()
+    cpu_usage = _cpu_usage()
+    ram_usage = _ram_usage()
     hostname = _server_hostname()
 
     total_subdomains = row.total if row else 0
@@ -186,20 +185,19 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
             )
         ).first()
 
-    # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
+    # ⚡ Bolt: Execute I/O bound db/docker tasks concurrently
     (
         row,
         (containers_total, containers_running),
-        disk_usage,
-        cpu_usage,
-        ram_usage,
     ) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
-        asyncio.to_thread(_disk_usage),
-        asyncio.to_thread(_cpu_usage),
-        asyncio.to_thread(_ram_usage),
     )
+
+    # ⚡ Bolt: Call fast synchronous functions directly to avoid thread pool overhead
+    disk_usage = _disk_usage()
+    cpu_usage = _cpu_usage()
+    ram_usage = _ram_usage()
     hostname = _server_hostname()
 
     stats = {
