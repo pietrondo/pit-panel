@@ -1,13 +1,16 @@
 import re
 
-with open('src/pit_panel/web/routes/security_ddos.py', 'r', encoding='utf-8') as f:
+with open("src/pit_panel/web/routes/debug_api.py", "r") as f:
     content = f.read()
 
-# E501 errors are just line length on rules. We can just add # noqa: E501 to them.
-lines = content.split('\n')
-for i, line in enumerate(lines):
-    if 'DDOS_CHAIN' in line and '["-A"' in line and len(line) > 100 and '# noqa' not in line:
-        lines[i] = line + "  # noqa: E501"
+content = content.replace(
+    'raise HTTPException(status_code=500, detail="Permission denied and no sudo_password configured")',
+    'raise HTTPException(\n                status_code=500,\n                detail="Permission denied and no sudo_password configured",\n            ) from None'
+)
+content = content.replace(
+    'return JSONResponse({"status": "pulled", "output": pull_out, "restart": "skipped (no sudo_password)"})',
+    'return JSONResponse(\n            {\n                "status": "pulled",\n                "output": pull_out,\n                "restart": "skipped (no sudo_password)",\n            }\n        )'
+)
 
-with open('src/pit_panel/web/routes/security_ddos.py', 'w', encoding='utf-8') as f:
-    f.write('\n'.join(lines))
+with open("src/pit_panel/web/routes/debug_api.py", "w") as f:
+    f.write(content)
