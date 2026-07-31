@@ -45,7 +45,7 @@ def _server_hostname() -> str:
 def _cpu_usage() -> dict[str, Any]:
     try:
         with open("/proc/loadavg") as f:
-            load = float(f.read().split()[0])
+            load = float(f.read().split(" ", 1)[0])
             cores = _STATIC_CPU_CORES
             pct = min(round((load / cores) * 100), 100)
             return {"load_1m": load, "cores": cores, "pct": pct}
@@ -59,8 +59,8 @@ def _ram_usage() -> dict[str, Any]:
             with open("/proc/meminfo") as f:
                 mem = {}
                 for line in f:
-                    parts = line.split()
-                    if parts[0] in ("MemTotal:", "MemAvailable:", "MemFree:"):
+                    if line.startswith(("MemTotal:", "MemAvailable:", "MemFree:")):
+                        parts = line.split()
                         mem[parts[0].rstrip(":")] = int(parts[1]) // 1024
                     # ⚡ Bolt: Early exit once we have the necessary fields
                     if "MemTotal" in mem and "MemAvailable" in mem:
@@ -81,12 +81,10 @@ async def _stats_context() -> dict[str, Any]:
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
     # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
-    (total, running), disk_usage, cpu_usage, ram_usage = await asyncio.gather(
-        docker_mgr.containers_count(),
-        asyncio.to_thread(_disk_usage),
-        asyncio.to_thread(_cpu_usage),
-        asyncio.to_thread(_ram_usage),
-    )
+    total, running = await docker_mgr.containers_count()
+    disk_usage = _disk_usage()
+    cpu_usage = _cpu_usage()
+    ram_usage = _ram_usage()
     hostname = _server_hostname()
 
     return {
@@ -128,19 +126,13 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     docker_mgr = DockerManager(settings.apps_dir)
 
     # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
-    (
-        (subdomains, row),
-        (containers_total, containers_running),
-        disk_usage,
-        cpu_usage,
-        ram_usage,
-    ) = await asyncio.gather(
+    (subdomains, row), (containers_total, containers_running) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
-        asyncio.to_thread(_disk_usage),
-        asyncio.to_thread(_cpu_usage),
-        asyncio.to_thread(_ram_usage),
     )
+    disk_usage = _disk_usage()
+    cpu_usage = _cpu_usage()
+    ram_usage = _ram_usage()
     hostname = _server_hostname()
 
     total_subdomains = row.total if row else 0
@@ -187,19 +179,13 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
         ).first()
 
     # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
-    (
-        row,
-        (containers_total, containers_running),
-        disk_usage,
-        cpu_usage,
-        ram_usage,
-    ) = await asyncio.gather(
+    row, (containers_total, containers_running) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
-        asyncio.to_thread(_disk_usage),
-        asyncio.to_thread(_cpu_usage),
-        asyncio.to_thread(_ram_usage),
     )
+    disk_usage = _disk_usage()
+    cpu_usage = _cpu_usage()
+    ram_usage = _ram_usage()
     hostname = _server_hostname()
 
     stats = {

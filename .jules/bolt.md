@@ -14,3 +14,6 @@
 ## 2024-05-24 - Async File I/O Optimization
 **Learning:** Writing files synchronously (e.g., using `open()` or `asyncio.to_thread(_save_file)` with large chunks) within an async endpoint like `/api/file-manager/upload` blocks the event loop and scales poorly under concurrency, causing bottlenecks.
 **Action:** Replace synchronous file writing loops and `asyncio.to_thread` with non-blocking alternatives like `aiofiles.open()` in an `async with` block alongside asynchronous file reading (e.g., `await file.read()`).
+## 2024-07-31 - Overhead of asyncio.to_thread on fast I/O
+**Learning:** Wrapping very fast, synchronous operations (like reading `/proc/loadavg` or `/proc/meminfo`) in `asyncio.to_thread` introduces significant thread-switching overhead (~1ms per call) that far exceeds the time it takes to execute the operation synchronously (~0.05ms), especially on high-frequency HTMX polling routes.
+**Action:** Do not use `asyncio.to_thread` for reading small system pseudo-files or simple memory operations. Call them directly on the main thread to reduce event loop overhead.
