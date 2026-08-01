@@ -39,7 +39,7 @@
             </div>
             <div class="w-48">
                 <label class="label">App type (optional)</label>
-                <select name="app_type" class="input">
+                <select name="app_type" class="input" aria-label="App type">
                     {% for val, label in stack_options %}
                     <option value="{{ val }}">{{ label }}</option>
                     {% endfor %}
@@ -94,7 +94,7 @@
                         </template>
                         <template x-if="editing">
                             <span>
-                                <select class="input text-xs py-1" x-model="appType">
+                                <select class="input text-xs py-1" x-model="appType" aria-label="App type edit">
                                     {% for val, label in stack_options %}
                                     <option value="{{ val }}">{{ label }}</option>
                                     {% endfor %}

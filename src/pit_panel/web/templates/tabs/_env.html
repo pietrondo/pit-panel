@@ -16,7 +16,7 @@
         <form hx-post="/apps/{{ sd.id }}/env" hx-target="closest .card" hx-swap="outerHTML">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">.env</label>
-                <textarea name="env_content" rows="15" class="w-full font-mono text-sm p-3 border rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="KEY=value">{{ env_content }}</textarea>
+                <textarea name="env_content" aria-label="Environment variables" rows="15" class="w-full font-mono text-sm p-3 border rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="KEY=value">{{ env_content }}</textarea>
             </div>
             <div class="flex justify-end">
                 <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400">Save Changes</button>

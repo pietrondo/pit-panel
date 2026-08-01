@@ -73,7 +73,7 @@
 
             <div>
                 <label class="label">SSL Provider</label>
-                <select name="acme_provider" class="input">
+                <select name="acme_provider" class="input" aria-label="SSL Provider">
                     {% for val, name in acme_providers %}
                     <option value="{{ val }}">{{ name }}</option>
                     {% endfor %}
@@ -98,7 +98,7 @@
 
             <div>
                 <label class="label">Challenge Mode</label>
-                <select name="dns_provider" class="input" onchange="document.getElementById('api-section').style.display = this.value ? 'block' : 'none'">
+                <select name="dns_provider" class="input" aria-label="Challenge Mode" onchange="document.getElementById('api-section').style.display = this.value ? 'block' : 'none'">
                     <option value="">HTTP-01 (any provider — Register.it, OVH, etc.)</option>
                     <option disabled>── DNS-01 Providers ──</option>
                     {% for val, name in providers %}
