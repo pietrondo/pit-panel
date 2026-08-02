@@ -14,9 +14,14 @@
 ## 2024-05-24 - Async File I/O Optimization
 **Learning:** Writing files synchronously (e.g., using `open()` or `asyncio.to_thread(_save_file)` with large chunks) within an async endpoint like `/api/file-manager/upload` blocks the event loop and scales poorly under concurrency, causing bottlenecks.
 **Action:** Replace synchronous file writing loops and `asyncio.to_thread` with non-blocking alternatives like `aiofiles.open()` in an `async with` block alongside asynchronous file reading (e.g., `await file.read()`).
+<<<<<<< HEAD
 ## 2024-05-24 - Async to_thread Context Switching Overhead
 **Learning:** Using `asyncio.to_thread` for very fast, synchronous operations like reading small pseudo-files (`/proc/loadavg`, `/proc/meminfo`) on high-frequency polling routes incurs significant context-switching overhead (~18x slower in benchmarks) that far outweighs the benefit of offloading to a thread.
 **Action:** Call fast, non-blocking synchronous file reads directly on the main thread rather than wrapping them in `asyncio.to_thread` when in hot code paths.
 ## 2024-10-24 - Optimize File Parsing with .startswith()
 **Learning:** Using `.split()` on every line during file parsing (like `/proc/meminfo`) creates unnecessary list objects and slows down high-frequency loops.
 **Action:** Use `.startswith()` on strings directly before attempting to extract or split data to avoid unnecessary memory allocations and improve CPU execution time during parsing.
+## 2024-07-31 - Overhead of asyncio.to_thread on fast I/O
+**Learning:** Wrapping very fast, synchronous operations (like reading `/proc/loadavg` or `/proc/meminfo`) in `asyncio.to_thread` introduces significant thread-switching overhead (~1ms per call) that far exceeds the time it takes to execute the operation synchronously (~0.05ms), especially on high-frequency HTMX polling routes.
+**Action:** Do not use `asyncio.to_thread` for reading small system pseudo-files or simple memory operations. Call them directly on the main thread to reduce event loop overhead.
+>>>>>>> origin/bolt-optimize-dashboard-stats-8573878563315887391
