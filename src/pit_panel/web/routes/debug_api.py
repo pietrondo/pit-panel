@@ -566,12 +566,14 @@ async def debug_write_file(
     resolved.parent.mkdir(parents=True, exist_ok=True)
     try:
         resolved.write_text(content, encoding="utf-8")
-    except PermissionError:
+    except PermissionError as err:
         from pit_panel.core.sudo_ops import run_sudo
 
         sudo_pw = get_settings().sudo_password.strip()
         if not sudo_pw:
-            raise HTTPException(status_code=500, detail="Permission denied and no sudo_password configured")
+            raise HTTPException(
+                status_code=500, detail="Permission denied and no sudo_password configured"
+            ) from err
         import tempfile as _tf
 
         with _tf.NamedTemporaryFile(mode="w", suffix=".tmp", delete=False) as tmp:
@@ -616,7 +618,9 @@ async def debug_update(
     pull_out = await _run(["git", "pull", "--ff-only"], timeout=30, cwd=app_dir)
     if not sudo_pw:
         _audit(request, request.url.path, 200)
-        return JSONResponse({"status": "pulled", "output": pull_out, "restart": "skipped (no sudo_password)"})
+        return JSONResponse(
+            {"status": "pulled", "output": pull_out, "restart": "skipped (no sudo_password)"}
+        )
     restart_out = await run_sudo(["/usr/bin/systemctl", "restart", "pit-panel"], sudo_pw)
     _audit(request, request.url.path, 200)
     return JSONResponse({"status": "ok", "pull": pull_out, "restart": restart_out or "done"})
