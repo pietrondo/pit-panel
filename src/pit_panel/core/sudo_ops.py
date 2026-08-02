@@ -65,7 +65,6 @@ async def run_cmd(
         if auth_proc.returncode != 0:
             return CmdResult(stdout="", stderr="sudo authentication failed", returncode=-1)
 
-
     input_bytes = input.encode() if input is not None else None
 
     try:

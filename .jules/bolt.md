@@ -17,3 +17,6 @@
 ## 2024-05-24 - Async to_thread Context Switching Overhead
 **Learning:** Using `asyncio.to_thread` for very fast, synchronous operations like reading small pseudo-files (`/proc/loadavg`, `/proc/meminfo`) on high-frequency polling routes incurs significant context-switching overhead (~18x slower in benchmarks) that far outweighs the benefit of offloading to a thread.
 **Action:** Call fast, non-blocking synchronous file reads directly on the main thread rather than wrapping them in `asyncio.to_thread` when in hot code paths.
+## 2024-10-24 - Optimize File Parsing with .startswith()
+**Learning:** Using `.split()` on every line during file parsing (like `/proc/meminfo`) creates unnecessary list objects and slows down high-frequency loops.
+**Action:** Use `.startswith()` on strings directly before attempting to extract or split data to avoid unnecessary memory allocations and improve CPU execution time during parsing.
