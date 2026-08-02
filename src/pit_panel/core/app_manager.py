@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import secrets
 import shutil
 from pathlib import Path
@@ -12,6 +13,14 @@ import yaml
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates-app"
 logger = logging.getLogger(__name__)
+
+_SUBDOMAIN_RE = re.compile(r"^[a-z0-9_][a-z0-9_-]{0,62}$")
+
+
+def _validate_subdomain(subdomain: str) -> str:
+    if not subdomain or not _SUBDOMAIN_RE.match(subdomain):
+        raise ValueError(f"Invalid subdomain: {subdomain!r}")
+    return subdomain
 
 
 class AppManager:
@@ -27,6 +36,7 @@ class AppManager:
         if stack_type not in self.list_templates():
             raise ValueError(f"Invalid stack type: {stack_type}")
 
+        _validate_subdomain(subdomain)
         template_dir = TEMPLATES_DIR / stack_type
 
         target_dir = self.apps_dir / subdomain
@@ -91,6 +101,7 @@ class AppManager:
             logger.warning("Failed to apply mem_limit to %s: %s", compose_path, e)
 
     def delete_app(self, subdomain: str) -> bool:
+        _validate_subdomain(subdomain)
         target_dir = self.apps_dir / subdomain
         if target_dir.exists() and target_dir.is_dir():
             try:

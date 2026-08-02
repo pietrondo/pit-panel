@@ -16,7 +16,10 @@ async def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) 
     res = await run_cmd(cmd, timeout=timeout, input=input)
     if res.returncode == -1:
         return "unavailable"
-    return res.stdout.strip() or res.stderr.strip()
+    out = res.stdout.strip() or res.stderr.strip()
+    if res.returncode != 0:
+        out = f"[exit={res.returncode}] {out}"
+    return out
 
 
 def _get_client_ip(request: Request) -> str:
@@ -94,22 +97,10 @@ def _parse_ufw_rules(ufw_output: str) -> list[dict[str, Any]]:
 async def _firewall_status() -> dict[str, Any]:
     ufw = await _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
     if "not found" in ufw.lower() or "command not found" in ufw.lower():
-        install = await _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "ufw"], timeout=60)
-        if "Setting up ufw" in install or "ufw is already" in install:
-            await _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
-            for port in ["22/tcp", "80/tcp", "443/tcp", "8080/tcp"]:
-                await _run_cmd(["sudo", "-n", "ufw", "allow", port])
-            ufw = await _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
+        return {"active": False, "rules": [], "installed": False}
     active = "Status: active" in ufw
-    if not active and "Status: inactive" in ufw:
-        await _run_cmd(["sudo", "-n", "ufw", "--force", "enable"])
-        for port in ["22/tcp", "80/tcp", "443/tcp", "8080/tcp"]:
-            await _run_cmd(["sudo", "-n", "ufw", "allow", port])
-        ufw = await _run_cmd(["sudo", "-n", "ufw", "status", "numbered"])
-        active = "Status: active" in ufw
-
     parsed_rules = _parse_ufw_rules(ufw)
-    return {"active": active, "rules": parsed_rules[:20]}
+    return {"active": active, "rules": parsed_rules[:20], "installed": True}
 
 
 async def _add_ufw_rule(
@@ -174,26 +165,16 @@ async def _disable_ufw() -> bool:
 async def _fail2ban_status() -> dict[str, Any]:
     status = await _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
     if "not found" in status.lower() or "command not found" in status.lower():
-        install = await _run_cmd(["sudo", "-n", "apt-get", "install", "-y", "fail2ban"], timeout=60)
-        if "Setting up fail2ban" in install or "fail2ban is already" in install:
-            await _ensure_fail2ban_jails()
-            status = await _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
-    jails = []
-    active = "|- Number of jail:" in status
+        return {"active": False, "jails": [], "installed": False}
     if "sudo:" in status and "|- Number of jail:" not in status:
-        return {"active": False, "jails": []}
+        return {"active": False, "jails": [], "installed": True}
+    jails: list[str] = []
+    active = "|- Number of jail:" in status
     for line in status.split("\n"):
         stripped = line.strip().lstrip("`")
         if stripped.startswith("- ") and "Jail list:" not in stripped:
             jails.append(stripped.lstrip("- "))
-    if active and not jails:
-        await _ensure_fail2ban_jails()
-        status = await _run_cmd(["sudo", "-n", "fail2ban-client", "status"])
-        for line in status.split("\n"):
-            stripped = line.strip().lstrip("`")
-            if stripped.startswith("- ") and "Jail list:" not in stripped:
-                jails.append(stripped.lstrip("- "))
-    return {"active": active, "jails": jails}
+    return {"active": active, "jails": jails, "installed": True}
 
 
 JAIL_DEFAULTS = {

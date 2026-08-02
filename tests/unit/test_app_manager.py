@@ -19,6 +19,33 @@ def test_deploy_template_directory_traversal(tmp_path: Path) -> None:
         manager.deploy_template("test", "some/path")
 
 
+def test_deploy_template_invalid_subdomain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    templates_dir = tmp_path / "templates"
+    templates_dir.mkdir()
+    stack_dir = templates_dir / "validstack"
+    stack_dir.mkdir()
+    (stack_dir / "meta.json").write_text('{"name": "validstack"}')
+
+    monkeypatch.setattr(app_manager_module, "TEMPLATES_DIR", templates_dir)
+    manager = AppManager(apps_dir=str(tmp_path / "apps"))
+
+    for bad in ("../../etc", "../foo", "a/b", "-bad", "x" * 100, ""):
+        with pytest.raises(ValueError, match="Invalid subdomain"):
+            manager.deploy_template(bad, "validstack")
+
+
+def test_delete_app_invalid_subdomain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manager = AppManager(apps_dir=str(tmp_path / "apps"))
+
+    for bad in ("../etc", "a/b", ""):
+        with pytest.raises(ValueError, match="Invalid subdomain"):
+            manager.delete_app(bad)
+
+
 def test_deploy_template_unknown_stack(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
     templates_dir.mkdir()

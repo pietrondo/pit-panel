@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import (
 
 from pit_panel.config import Settings
 
-_engine = None
-_sessionmaker = None
+_engine: AsyncEngine | None = None
+_sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_engine(settings: Settings | None = None) -> AsyncEngine:
@@ -23,6 +23,13 @@ def get_engine(settings: Settings | None = None) -> AsyncEngine:
             echo=settings.debug,
         )
     return _engine
+
+
+async def dispose_engine() -> None:
+    """Dispose the global engine if it exists. Safe to call multiple times."""
+    global _engine
+    if _engine is not None:
+        await _engine.dispose()
 
 
 def get_sessionmaker(settings: Settings | None = None) -> async_sessionmaker[AsyncSession]:

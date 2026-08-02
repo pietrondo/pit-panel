@@ -18,6 +18,7 @@ async def test_run_cmd_success():
     with patch("asyncio.create_subprocess_exec") as mock_exec:
         mock_process = AsyncMock()
         mock_process.communicate.return_value = (b"output\n", b"")
+        mock_process.returncode = 0
         mock_exec.return_value = mock_process
 
         result = await _run_cmd(["echo", "output"])
@@ -40,6 +41,7 @@ async def test_run_cmd_stderr_fallback():
     with patch("asyncio.create_subprocess_exec") as mock_exec:
         mock_process = AsyncMock()
         mock_process.communicate.return_value = (b"", b"error\n")
+        mock_process.returncode = 0
         mock_exec.return_value = mock_process
 
         result = await _run_cmd(["echo", "error"])
@@ -77,53 +79,24 @@ async def test_firewall_status_active():
 @pytest.mark.asyncio
 async def test_firewall_status_inactive():
     with patch("pit_panel.core.security._run_cmd", new_callable=AsyncMock) as mock_run_cmd:
-        # First call returns inactive, second returns enable, then allows, then active
-        mock_run_cmd.side_effect = [
-            "Status: inactive\n",
-            "Firewall is active and enabled on system startup\n",
-            "Rule added\n",
-            "Rule added\n",
-            "Rule added\n",
-            "Rule added\n",
-            (
-                "Status: active\n\n"
-                "     To                         Action      From\n"
-                "     --                         ------      ----\n"
-                "[ 1] 80/tcp                     ALLOW IN    Anywhere\n"
-            ),
-        ]
+        mock_run_cmd.return_value = "Status: inactive\n"
 
         result = await _firewall_status()
 
-        assert result["active"] is True
-        assert len(result["rules"]) == 1
-        assert result["rules"][0]["port"] == "80"
+        assert result["active"] is False
+        assert result["rules"] == []
 
 
 @pytest.mark.asyncio
 async def test_firewall_status_not_found():
     with patch("pit_panel.core.security._run_cmd", new_callable=AsyncMock) as mock_run_cmd:
-        mock_run_cmd.side_effect = [
-            "ufw: command not found\n",
-            "Setting up ufw\n",
-            "Firewall is active and enabled on system startup\n",
-            "Rule added\n",
-            "Rule added\n",
-            "Rule added\n",
-            "Rule added\n",
-            (
-                "Status: active\n\n"
-                "     To                         Action      From\n"
-                "     --                         ------      ----\n"
-                "[ 1] 80/tcp                     ALLOW IN    Anywhere\n"
-            ),
-        ]
+        mock_run_cmd.return_value = "ufw: command not found\n"
 
         result = await _firewall_status()
 
-        assert result["active"] is True
-        assert len(result["rules"]) == 1
-        assert result["rules"][0]["port"] == "80"
+        assert result["active"] is False
+        assert result["installed"] is False
+        assert result["rules"] == []
 
 
 @pytest.mark.asyncio
@@ -139,39 +112,25 @@ async def test_fail2ban_status_active():
 
 @pytest.mark.asyncio
 async def test_fail2ban_status_not_found():
-    with (
-        patch("pit_panel.core.security._run_cmd", new_callable=AsyncMock) as mock_run_cmd,
-        patch("pit_panel.core.security._ensure_fail2ban_jails") as mock_ensure,
-    ):
-        mock_run_cmd.side_effect = [
-            "fail2ban-client: command not found\n",
-            "Setting up fail2ban\n",
-            "Status\n|- Number of jail:\t1\n`- sshd\n",
-        ]
+    with patch("pit_panel.core.security._run_cmd", new_callable=AsyncMock) as mock_run_cmd:
+        mock_run_cmd.return_value = "fail2ban-client: command not found\n"
 
         result = await _fail2ban_status()
 
-        assert result["active"] is True
-        assert "sshd" in result["jails"]
-        mock_ensure.assert_called_once()
+        assert result["active"] is False
+        assert result["installed"] is False
+        assert result["jails"] == []
 
 
 @pytest.mark.asyncio
 async def test_fail2ban_status_no_jails():
-    with (
-        patch("pit_panel.core.security._run_cmd", new_callable=AsyncMock) as mock_run_cmd,
-        patch("pit_panel.core.security._ensure_fail2ban_jails") as mock_ensure,
-    ):
-        mock_run_cmd.side_effect = [
-            "Status\n|- Number of jail:\t0\n`- Jail list:\t\n",
-            "Status\n|- Number of jail:\t1\n`- sshd\n",
-        ]
+    with patch("pit_panel.core.security._run_cmd", new_callable=AsyncMock) as mock_run_cmd:
+        mock_run_cmd.return_value = "Status\n|- Number of jail:\t0\n`- Jail list:\t\n"
 
         result = await _fail2ban_status()
 
         assert result["active"] is True
-        assert "sshd" in result["jails"]
-        mock_ensure.assert_called_once()
+        assert result["jails"] == []
 
 
 @pytest.mark.asyncio

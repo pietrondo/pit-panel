@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import logging
 import os
 import platform
 import shutil
@@ -37,6 +38,8 @@ from pit_panel.web.deps import get_admin
 from pit_panel.web.limiter import limiter
 from pit_panel.web.render import render
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 ALLOWED_ROOTS = [
@@ -63,6 +66,26 @@ def verify_safe_path(path_str: str) -> Path:
         except ValueError:
             continue
     raise PermissionError("Path access denied: outside allowed directories")
+
+
+def _list_dir_sync(resolved_path: Path) -> list[dict[str, object]]:
+    items: list[dict[str, object]] = []
+    for entry in resolved_path.iterdir():
+        try:
+            stat = entry.stat()
+            items.append(
+                {
+                    "name": entry.name,
+                    "path": str(entry.absolute()),
+                    "is_dir": entry.is_dir(),
+                    "size": stat.st_size if not entry.is_dir() else 0,
+                    "mtime": stat.st_mtime,
+                    "permissions": oct(stat.st_mode & 0o777),
+                }
+            )
+        except Exception:
+            continue
+    return items
 
 
 async def check_ws_admin(websocket: WebSocket, db: AsyncSession) -> bool:
@@ -139,28 +162,15 @@ async def list_files(
         if not resolved_path.is_dir():
             raise HTTPException(status_code=400, detail="Path is not a directory")
 
-        items = []
-        for entry in resolved_path.iterdir():
-            try:
-                stat = entry.stat()
-                permissions = oct(stat.st_mode & 0o777)
-                items.append(
-                    {
-                        "name": entry.name,
-                        "path": str(entry.absolute()),
-                        "is_dir": entry.is_dir(),
-                        "size": stat.st_size if not entry.is_dir() else 0,
-                        "mtime": stat.st_mtime,
-                        "permissions": permissions,
-                    }
-                )
-            except Exception:
-                continue
+        items = await asyncio.to_thread(_list_dir_sync, resolved_path)
         return {"status": "success", "path": str(resolved_path), "items": items}
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=403, detail="Permission denied") from e
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("list_files failed")
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.get("/api/file-manager/file")
@@ -175,9 +185,12 @@ async def get_file_content(path: str, request: Request, db: AsyncSession = Depen
         content = resolved_path.read_text(encoding="utf-8", errors="replace")
         return {"content": content, "path": str(resolved_path)}
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=403, detail="Permission denied") from e
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("get_file_content failed")
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.post("/api/file-manager/save")
@@ -206,9 +219,12 @@ async def save_file(req: SaveFileRequest, request: Request, db: AsyncSession = D
             os.unlink(tmp_path)
         return {"status": "success", "message": "File saved successfully"}
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=403, detail="Permission denied") from e
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("save_file failed")
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.post("/api/file-manager/create")
@@ -229,9 +245,12 @@ async def create_resource(
             resolved_target.touch()
         return {"status": "success", "message": f"{req.type.capitalize()} created successfully"}
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=403, detail="Permission denied") from e
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("create_resource failed")
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.post("/api/file-manager/delete")
@@ -249,9 +268,12 @@ async def delete_resource(
             resolved_path.unlink()
         return {"status": "success", "message": "Resource deleted successfully"}
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=403, detail="Permission denied") from e
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("delete_resource failed")
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.post("/api/file-manager/upload")
@@ -276,9 +298,12 @@ async def upload_file(
 
         return {"status": "success", "message": "File uploaded successfully"}
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=403, detail="Permission denied") from e
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("upload_file failed")
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.websocket("/system/terminal/ws")

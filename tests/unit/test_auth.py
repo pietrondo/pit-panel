@@ -246,7 +246,11 @@ class TestAppFactory:
         from pit_panel.web.app import create_app
 
         tmpdir = tempfile.mkdtemp()
-        settings = Settings(secret_key="test", database_url=f"sqlite+aiosqlite:///{tmpdir}/test.db")
+        settings = Settings(
+            secret_key="test",
+            database_url=f"sqlite+aiosqlite:///{tmpdir}/test.db",
+            debug=True,
+        )
         init_settings()
         monkeypatch.setattr("pit_panel.config._settings", settings)
         app = create_app(settings)

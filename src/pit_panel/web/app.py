@@ -2,18 +2,23 @@
 
 import asyncio
 import contextlib
+import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
 from pit_panel.config import Settings, init_settings
-from pit_panel.db.session import get_sessionmaker
+from pit_panel.db.session import dispose_engine, get_sessionmaker
 from pit_panel.security.ipban import is_ip_banned
+from pit_panel.web.auth import SESSION_COOKIE
 from pit_panel.web.limiter import limiter
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -35,23 +40,36 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         with contextlib.suppress(asyncio.CancelledError):
             await t
 
+    with contextlib.suppress(Exception):
+        await dispose_engine()
+
 
 async def _ip_ban_middleware(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
     client_ip = request.client.host if request.client else "unknown"
+    app_settings = getattr(request.app.state, "settings", None)
     try:
-        sessionmaker = get_sessionmaker()
+        if app_settings is not None:
+            sessionmaker = get_sessionmaker(app_settings)
+        else:
+            sessionmaker = get_sessionmaker()
         async with sessionmaker() as db:
             if await is_ip_banned(db, client_ip):
-                from fastapi.responses import JSONResponse
-
                 return JSONResponse(
                     {"detail": "IP banned due to suspicious activity"},
                     status_code=403,
                 )
     except Exception:
-        pass
+        logger.exception("IP-ban check failed for %s", client_ip)
+        # In production, fail closed: if we cannot verify the IP, deny the
+        # request. In debug/dev mode, fail open so the panel is still usable
+        # when the DB is uninitialized.
+        if app_settings is None or not app_settings.debug:
+            return JSONResponse(
+                {"detail": "Service temporarily unavailable"},
+                status_code=503,
+            )
     return await call_next(request)
 
 
@@ -71,6 +89,38 @@ async def _security_headers_middleware(
     return response
 
 
+_CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+_CSRF_EXEMPT_PATHS = ("/api/debug", "/login", "/logout", "/setup-2fa")
+
+
+async def _csrf_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    if request.method in _CSRF_SAFE_METHODS:
+        return await call_next(request)
+    if any(request.url.path.startswith(p) for p in _CSRF_EXEMPT_PATHS):
+        return await call_next(request)
+    # No session cookie => no CSRF risk (attacker has no auth to abuse).
+    if SESSION_COOKIE not in request.cookies:
+        return await call_next(request)
+    expected_origin = f"{request.url.scheme}://{request.url.netloc}"
+    origin = request.headers.get("origin") or ""
+    referer = request.headers.get("referer") or ""
+    if origin == expected_origin or referer.startswith(expected_origin):
+        return await call_next(request)
+    logger.warning(
+        "CSRF check failed: method=%s path=%s origin=%r referer=%r",
+        request.method,
+        request.url.path,
+        origin,
+        referer,
+    )
+    return JSONResponse(
+        {"detail": "CSRF validation failed"},
+        status_code=403,
+    )
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     if settings is None:
         settings = init_settings()
@@ -87,6 +137,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.add_exception_handler(RateLimitExceeded, _make_ratelimit_handler())
     app.middleware("http")(_ip_ban_middleware)
+    app.middleware("http")(_csrf_middleware)
     app.middleware("http")(_security_headers_middleware)
 
     static_dir = Path(__file__).parent / "static"
