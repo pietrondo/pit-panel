@@ -212,7 +212,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="label">Subdomain</label>
-                                <select name="subdomain_id" class="input" x-ref="sdSelect"
+                                <select name="subdomain_id" class="input" aria-label="Subdomain" x-ref="sdSelect"
                                         @change="$refs.newSd.value = ''">
                                     <option value="-1" selected>Create new...</option>
                                     {% for sd in subdomains %}
