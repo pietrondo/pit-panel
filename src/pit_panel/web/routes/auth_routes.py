@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import datetime
 import io
@@ -50,7 +51,7 @@ async def login_post(
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(password, user.password_hash):
+    if not user or not await asyncio.to_thread(verify_password, password, user.password_hash):
         ip = request.client.host if request.client else "unknown"
         await record_login_attempt(db, ip, username, False)
         from pit_panel.core.notifier import notify_login_failed
@@ -119,7 +120,7 @@ async def login_post(
     return resp
 
 
-@router.get("/logout")
+@router.post("/logout")
 async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> RedirectResponse:
     cookie = request.cookies.get(SESSION_COOKIE)
     if cookie:

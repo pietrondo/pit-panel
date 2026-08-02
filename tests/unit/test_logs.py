@@ -100,10 +100,13 @@ async def test_read_journal_async_failure():
 
 @pytest.mark.asyncio
 async def test_journal_partial():
-    with patch("pit_panel.web.routes.logs._read_journal") as mock_read:
+    fake_user = type("U", (), {"id": 1, "is_admin": True})()
+    with patch("pit_panel.web.routes.logs.get_admin") as mock_admin, \
+         patch("pit_panel.web.routes.logs._read_journal") as mock_read:
+        mock_admin.return_value = fake_user
         mock_read.return_value = "fake <log> data"
         request = MagicMock(spec=Request)
-        response = await journal_partial(request)
+        response = await journal_partial(request, db=MagicMock())
         assert response.status_code == 200
         assert "<pre" in response.body.decode()
         assert "fake &lt;log&gt; data" in response.body.decode()
@@ -111,10 +114,13 @@ async def test_journal_partial():
 
 @pytest.mark.asyncio
 async def test_applog_partial():
-    with patch("pit_panel.web.routes.logs._read_log") as mock_read:
+    fake_user = type("U", (), {"id": 1, "is_admin": True})()
+    with patch("pit_panel.web.routes.logs.get_admin") as mock_admin, \
+         patch("pit_panel.web.routes.logs._read_log") as mock_read:
+        mock_admin.return_value = fake_user
         mock_read.return_value = "fake app <log> data"
         request = MagicMock(spec=Request)
-        response = await applog_partial(request)
+        response = await applog_partial(request, db=MagicMock())
         assert response.status_code == 200
         assert "<pre" in response.body.decode()
         assert "fake app &lt;log&gt; data" in response.body.decode()
@@ -124,10 +130,23 @@ def test_journal_partial_integration(monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
+    from pit_panel.web.deps import get_db
     from pit_panel.web.routes.logs import router
 
     app = FastAPI()
     app.include_router(router)
+
+    fake_user = type("U", (), {"id": 1, "is_admin": True})()
+
+    async def mock_get_admin(request, db):
+        return fake_user
+
+    async def override_db():
+        yield None
+
+    app.dependency_overrides[get_db] = override_db
+    monkeypatch.setattr("pit_panel.web.routes.logs.get_admin", mock_get_admin)
+
     client = TestClient(app)
 
     async def mock_read_journal(*args, **kwargs):
@@ -148,10 +167,23 @@ def test_applog_partial_integration(monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
+    from pit_panel.web.deps import get_db
     from pit_panel.web.routes.logs import router
 
     app = FastAPI()
     app.include_router(router)
+
+    fake_user = type("U", (), {"id": 1, "is_admin": True})()
+
+    async def mock_get_admin(request, db):
+        return fake_user
+
+    async def override_db():
+        yield None
+
+    app.dependency_overrides[get_db] = override_db
+    monkeypatch.setattr("pit_panel.web.routes.logs.get_admin", mock_get_admin)
+
     client = TestClient(app)
 
     async def mock_read_log(*args, **kwargs):

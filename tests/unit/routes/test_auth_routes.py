@@ -215,14 +215,14 @@ class TestLoginPost:
 
 class TestLogout:
     def test_logout_no_cookie(self, client):
-        resp = client.get("/logout", follow_redirects=False)
+        resp = client.post("/logout", follow_redirects=False)
         assert resp.status_code == 302
         assert resp.headers["location"] == "/login"
 
     def test_logout_with_invalid_cookie(self, client):
         from pit_panel.web.auth import SESSION_COOKIE
 
-        resp = client.get(
+        resp = client.post(
             "/logout",
             cookies={SESSION_COOKIE: "invalid-cookie-value"},
             follow_redirects=False,
@@ -243,7 +243,7 @@ class TestLogout:
         with patch("pit_panel.web.routes.auth_routes.unsign_session_token") as mock_unsign:
             mock_unsign.return_value = {"sid": 1, "uid": 1, "tok": "hash"}
             with patch("pit_panel.web.routes.auth_routes.revoke_session", new_callable=AsyncMock):
-                resp = client.get(
+                resp = client.post(
                     "/logout",
                     cookies={SESSION_COOKIE: cookie},
                     follow_redirects=False,

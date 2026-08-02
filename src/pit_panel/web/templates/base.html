@@ -56,6 +56,11 @@
                             300: '#cbd5e1',  400: '#94a3b8',  500: '#64748b',
                             600: '#475569',  700: '#334155',  800: '#1e293b',
                             850: '#172033',  900: '#0f172a',  950: '#020617',
+                        },
+                        brand: {
+                            50:'#f0fdf4',100:'#dcfce7',200:'#bbf7d0',300:'#86efac',
+                            400:'#4ade80',500:'#22c55e',600:'#16a34a',700:'#15803d',
+                            800:'#166534',900:'#14532d'
                         }
                     },
                     fontFamily: {
@@ -152,6 +157,8 @@
         .dark .badge-red { background: rgba(239,68,68,0.1); color: #f87171; }
         .badge-yellow { background: #fef9c3; color: #a16207; }
         .dark .badge-yellow { background: rgba(234,179,8,0.1); color: #facc15; }
+        .badge-accent { background: #eef2ff; color: #4f46e5; }
+        .dark .badge-accent { background: rgba(99,102,241,0.1); color: #a5b4fc; }
     </style>
 </head>
 <body class="h-full bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-100 antialiased"
@@ -270,7 +277,9 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
                             </svg>
                         </button>
-                        <a href="/logout" class="btn-ghost text-xs py-1 px-2">Logout</a>
+                        <form method="post" action="/logout" class="inline">
+                            <button type="submit" class="btn-ghost text-xs py-1 px-2">Logout</button>
+                        </form>
                     </div>
                 </div>
             </div>
