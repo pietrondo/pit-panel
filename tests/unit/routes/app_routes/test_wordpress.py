@@ -24,36 +24,44 @@ def client(monkeypatch, tmp_path):
     app = create_app(s)
     return TestClient(app)
 
+
 def test_wp_flush_cache_requires_login(client):
     resp = client.post("/apps/1/wp/flush-cache", follow_redirects=False)
     assert resp.status_code == 200
     assert resp.headers.get("HX-Redirect") == "/login"
+
 
 def test_wp_update_plugins_requires_login(client):
     resp = client.post("/apps/1/wp/update-plugins", follow_redirects=False)
     assert resp.status_code == 200
     assert resp.headers.get("HX-Redirect") == "/login"
 
+
 def test_wp_update_core_requires_login(client):
     resp = client.post("/apps/1/wp/update-core", follow_redirects=False)
     assert resp.status_code == 200
     assert resp.headers.get("HX-Redirect") == "/login"
 
+
 def test_wp_auto_login_requires_login(client):
     resp = client.get("/apps/1/wp-auto-login", follow_redirects=False)
     assert resp.status_code in (302, 307)
+
 
 def test_wp_proxy_requires_login(client):
     resp = client.get("/apps/1/wp/wp-admin/", follow_redirects=False)
     assert resp.status_code == 401
 
+
 def test_proxy_service_requires_login(client):
     resp = client.get("/apps/1/proxy/phpmyadmin", follow_redirects=False)
     assert resp.status_code == 401
 
+
 def test_wp_fix_url_requires_login(client):
     resp = client.post("/apps/1/wp-fix-url", follow_redirects=False)
     assert resp.status_code == 401
+
 
 @pytest.mark.asyncio
 async def test_fix_wp_site_url_calls_docker() -> None:

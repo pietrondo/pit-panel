@@ -67,8 +67,10 @@ def _verify_token(x_debug_token: str | None = Header(None)) -> str:
             grace = json.loads(grace_path.read_text())
             old = (grace.get("old_token") or "").strip()
             expires_at = float(grace.get("expires_at") or 0)
-            if old and expires_at > time.time() and secrets.compare_digest(
-                x_debug_token.encode("utf-8"), old.encode("utf-8")
+            if (
+                old
+                and expires_at > time.time()
+                and secrets.compare_digest(x_debug_token.encode("utf-8"), old.encode("utf-8"))
             ):
                 return x_debug_token
         except (json.JSONDecodeError, OSError, ValueError):
@@ -521,13 +523,15 @@ async def debug_ls(
     for entry in sorted(resolved.iterdir()):
         try:
             st = entry.stat()
-            items.append({
-                "name": entry.name,
-                "path": str(entry),
-                "is_dir": entry.is_dir(),
-                "size": st.st_size if not entry.is_dir() else 0,
-                "mtime": st.st_mtime,
-            })
+            items.append(
+                {
+                    "name": entry.name,
+                    "path": str(entry),
+                    "is_dir": entry.is_dir(),
+                    "size": st.st_size if not entry.is_dir() else 0,
+                    "mtime": st.st_mtime,
+                }
+            )
         except OSError:
             continue
     _audit(request, request.url.path, 200)
@@ -619,11 +623,9 @@ async def debug_update(
     pull_out = await _run(["git", "pull", "--ff-only"], timeout=30, cwd=app_dir)
     if not sudo_pw:
         _audit(request, request.url.path, 200)
-        return JSONResponse({
-            "status": "pulled",
-            "output": pull_out,
-            "restart": "skipped (no sudo_password)"
-        })
+        return JSONResponse(
+            {"status": "pulled", "output": pull_out, "restart": "skipped (no sudo_password)"}
+        )
     restart_out = await run_sudo(["/usr/bin/systemctl", "restart", "pit-panel"], sudo_pw)
     _audit(request, request.url.path, 200)
     return JSONResponse({"status": "ok", "pull": pull_out, "restart": restart_out or "done"})
@@ -689,8 +691,10 @@ async def tail_ws(
     expected = ""
     if token_path.exists():
         expected = token_path.read_text().strip()
-    if not expected or not token or not secrets.compare_digest(
-        token.encode("utf-8"), expected.encode("utf-8")
+    if (
+        not expected
+        or not token
+        or not secrets.compare_digest(token.encode("utf-8"), expected.encode("utf-8"))
     ):
         await websocket.close(code=1008, reason="invalid or missing token")
         return
@@ -705,7 +709,10 @@ async def tail_ws(
     is_container = False
     try:
         proc_check = await asyncio.create_subprocess_exec(
-            "docker", "inspect", "--type=container", service,
+            "docker",
+            "inspect",
+            "--type=container",
+            service,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

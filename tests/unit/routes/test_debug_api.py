@@ -373,9 +373,7 @@ async def test_debug_upstreams_returns_payload(monkeypatch):
     res = await debug_upstreams(mock_req, token="tok")
 
     assert isinstance(res, JSONResponse)
-    assert json.loads(res.body) == {
-        "upstreams": [{"address": "127.0.0.1:8080", "healthy": True}]
-    }
+    assert json.loads(res.body) == {"upstreams": [{"address": "127.0.0.1:8080", "healthy": True}]}
 
 
 @pytest.mark.asyncio
@@ -487,9 +485,7 @@ async def test_debug_audit_reads_back(tmp_audit):
 @pytest.mark.asyncio
 async def test_debug_audit_missing_file(monkeypatch, tmp_path):
     log = tmp_path / "nope.log"
-    monkeypatch.setattr(
-        "pit_panel.web.routes.debug_api._AUDIT_LOG_PATH", str(log)
-    )
+    monkeypatch.setattr("pit_panel.web.routes.debug_api._AUDIT_LOG_PATH", str(log))
 
     from pit_panel.web.routes.debug_api import debug_audit
 
@@ -600,6 +596,7 @@ async def test_debug_doctor_aggregates_health(monkeypatch):
             return _Resp()
 
     import httpx as _httpx
+
     monkeypatch.setattr(_httpx, "AsyncClient", lambda timeout: _Client())
 
     from pit_panel.web.routes.debug_api import debug_doctor
@@ -707,9 +704,7 @@ async def test_verify_token_accepts_grace_period(monkeypatch, tmp_path):
     token_file = tmp_path / "debug_token"
     grace_file = tmp_path / "debug_token.grace"
     token_file.write_text("NEW_TOKEN")
-    grace_file.write_text(
-        _json.dumps({"old_token": "OLD_TOKEN", "expires_at": _t.time() + 600})
-    )
+    grace_file.write_text(_json.dumps({"old_token": "OLD_TOKEN", "expires_at": _t.time() + 600}))
 
     monkeypatch.setattr(
         "pit_panel.web.routes.debug_api.get_settings",
@@ -730,9 +725,7 @@ async def test_verify_token_rejects_expired_grace(monkeypatch, tmp_path):
     token_file = tmp_path / "debug_token"
     grace_file = tmp_path / "debug_token.grace"
     token_file.write_text("NEW_TOKEN")
-    grace_file.write_text(
-        _json.dumps({"old_token": "OLD_TOKEN", "expires_at": _t.time() - 1})
-    )
+    grace_file.write_text(_json.dumps({"old_token": "OLD_TOKEN", "expires_at": _t.time() - 1}))
 
     monkeypatch.setattr(
         "pit_panel.web.routes.debug_api.get_settings",
@@ -752,6 +745,7 @@ async def test_tail_ws_authenticates_then_streams(monkeypatch):
 
     token_file = "/tmp/pit-panel-tail-test"
     import os as _os
+
     _os.makedirs(token_file, exist_ok=True)
     with open(f"{token_file}.tok", "w") as f:
         f.write("WS_TOKEN\n")
@@ -787,6 +781,7 @@ async def test_tail_ws_authenticates_then_streams(monkeypatch):
 
         async def receive_text(self):
             import asyncio as _a
+
             await _a.sleep(0.05)
             raise RuntimeError("client disconnected")
 
@@ -795,6 +790,7 @@ async def test_tail_ws_authenticates_then_streams(monkeypatch):
 
         def __init__(self):
             import asyncio as _a
+
             self.stdout = _a.StreamReader()
             self.stderr = _a.StreamReader()
             self.stdout.feed_data(b"Jul 25 10:00:00 host systemd[1]: test line 1\n")
@@ -875,6 +871,7 @@ async def test_tail_ws_rejects_invalid_service_name(monkeypatch):
         lambda: MagicMock(debug_token_path="/tmp/x.tok"),
     )
     import os as _os
+
     _os.makedirs("/tmp", exist_ok=True)
     with open("/tmp/x.tok", "w") as f:
         f.write("WS_TOKEN\n")

@@ -101,8 +101,10 @@ async def test_read_journal_async_failure():
 @pytest.mark.asyncio
 async def test_journal_partial():
     fake_user = type("U", (), {"id": 1, "is_admin": True})()
-    with patch("pit_panel.web.routes.logs.get_admin") as mock_admin, \
-         patch("pit_panel.web.routes.logs._read_journal") as mock_read:
+    with (
+        patch("pit_panel.web.routes.logs.get_admin") as mock_admin,
+        patch("pit_panel.web.routes.logs._read_journal") as mock_read,
+    ):
         mock_admin.return_value = fake_user
         mock_read.return_value = "fake <log> data"
         request = MagicMock(spec=Request)
@@ -115,8 +117,10 @@ async def test_journal_partial():
 @pytest.mark.asyncio
 async def test_applog_partial():
     fake_user = type("U", (), {"id": 1, "is_admin": True})()
-    with patch("pit_panel.web.routes.logs.get_admin") as mock_admin, \
-         patch("pit_panel.web.routes.logs._read_log") as mock_read:
+    with (
+        patch("pit_panel.web.routes.logs.get_admin") as mock_admin,
+        patch("pit_panel.web.routes.logs._read_log") as mock_read,
+    ):
         mock_admin.return_value = fake_user
         mock_read.return_value = "fake app <log> data"
         request = MagicMock(spec=Request)

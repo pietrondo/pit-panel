@@ -1037,6 +1037,7 @@ async def test_security_lynis_report(monkeypatch) -> None:
     mock_json = '{"hardening_index": 80, "warnings": ["w"], "suggestions": ["s"]}'
     # mock aiofiles.open
     import unittest.mock
+
     mock_file = unittest.mock.AsyncMock()
     mock_file.read.return_value = mock_json
     mock_aio_open = unittest.mock.MagicMock()

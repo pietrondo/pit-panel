@@ -13,9 +13,11 @@ def app():
     app.include_router(router)
     return app
 
+
 @pytest.fixture
 def client(app):
     return TestClient(app)
+
 
 @pytest.mark.asyncio
 async def test_security_ddos_status_unauthorized(client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -24,6 +26,7 @@ async def test_security_ddos_status_unauthorized(client, monkeypatch: pytest.Mon
 
     response = client.get("/security/ddos/status")
     assert response.status_code == 401
+
 
 @pytest.mark.asyncio
 async def test_security_ddos_status_active(client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -39,6 +42,7 @@ async def test_security_ddos_status_active(client, monkeypatch: pytest.MonkeyPat
     assert response.status_code == 200
     assert "Protezione ATTIVA" in response.text
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_status_inactive(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=MagicMock(id=1))
@@ -52,6 +56,7 @@ async def test_security_ddos_status_inactive(client, monkeypatch: pytest.MonkeyP
     response = client.get("/security/ddos/status")
     assert response.status_code == 200
     assert "Non attiva" in response.text
+
 
 @pytest.mark.asyncio
 async def test_security_ddos_enable_success(client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -71,6 +76,7 @@ async def test_security_ddos_enable_success(client, monkeypatch: pytest.MonkeyPa
     assert response.status_code == 200
     assert "Anti-DDoS Shield attivato" in response.text
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_enable_sudoers_fail(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=MagicMock(id=1))
@@ -82,6 +88,7 @@ async def test_security_ddos_enable_sudoers_fail(client, monkeypatch: pytest.Mon
     response = client.post("/security/ddos/enable")
     assert response.status_code == 200
     assert "iptables non è nei sudoers" in response.text
+
 
 @pytest.mark.asyncio
 async def test_security_ddos_enable_with_errors(client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -102,6 +109,7 @@ async def test_security_ddos_enable_with_errors(client, monkeypatch: pytest.Monk
     assert "Shield attivato con avvisi" in response.text
     assert "Error 1" in response.text
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_disable(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=MagicMock(id=1))
@@ -113,6 +121,7 @@ async def test_security_ddos_disable(client, monkeypatch: pytest.MonkeyPatch) ->
     response = client.post("/security/ddos/disable")
     assert response.status_code == 200
     assert "Shield rimosso" in response.text
+
 
 @pytest.mark.asyncio
 async def test_security_ddos_block_ip_success(client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -126,6 +135,7 @@ async def test_security_ddos_block_ip_success(client, monkeypatch: pytest.Monkey
     assert response.status_code == 200
     assert "1.2.3.4 bloccato" in response.text
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_block_ip_invalid(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=MagicMock(id=1))
@@ -134,6 +144,7 @@ async def test_security_ddos_block_ip_invalid(client, monkeypatch: pytest.Monkey
     response = client.post("/security/ddos/block-ip", data={"ip": "invalid-ip"})
     assert response.status_code == 400
     assert "IP non valido" in response.text
+
 
 @pytest.mark.asyncio
 async def test_security_ddos_block_ip_fail(client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -147,6 +158,7 @@ async def test_security_ddos_block_ip_fail(client, monkeypatch: pytest.MonkeyPat
     assert response.status_code == 200
     assert "Impossibile bloccare 1.2.3.4" in response.text
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_unblock_ip_success(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=MagicMock(id=1))
@@ -159,6 +171,7 @@ async def test_security_ddos_unblock_ip_success(client, monkeypatch: pytest.Monk
     assert response.status_code == 200
     assert "1.2.3.4 sbloccato" in response.text
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_unblock_ip_invalid(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=MagicMock(id=1))
@@ -167,6 +180,7 @@ async def test_security_ddos_unblock_ip_invalid(client, monkeypatch: pytest.Monk
     response = client.post("/security/ddos/unblock-ip", data={"ip": "invalid-ip"})
     assert response.status_code == 400
     assert "IP non valido" in response.text
+
 
 @pytest.mark.asyncio
 async def test_security_ddos_unblock_ip_fail(client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -179,6 +193,7 @@ async def test_security_ddos_unblock_ip_fail(client, monkeypatch: pytest.MonkeyP
     response = client.post("/security/ddos/unblock-ip", data={"ip": "1.2.3.4"})
     assert response.status_code == 200
     assert "Regola non trovata per 1.2.3.4" in response.text
+
 
 @pytest.mark.asyncio
 async def test_security_ddos_top_connections(client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -202,6 +217,7 @@ ESTAB 0      0      10.0.0.1:443       5.6.7.8:12347
     assert "5.6.7.8" in response.text
     assert "1 conn" in response.text
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_top_connections_fallback(
     client, monkeypatch: pytest.MonkeyPatch
@@ -221,6 +237,7 @@ ESTAB 0      0      10.0.0.1:443       1.2.3.4:12345
     assert response.status_code == 200
     assert "1.2.3.4" in response.text
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_top_connections_empty(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=MagicMock(id=1))
@@ -236,6 +253,7 @@ async def test_security_ddos_top_connections_empty(client, monkeypatch: pytest.M
     response = client.get("/security/ddos/top-connections")
     assert response.status_code == 200
     assert "Nessuna connessione attiva rilevata" in response.text
+
 
 @pytest.mark.asyncio
 async def test_security_protect_all(client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -262,6 +280,7 @@ async def test_security_protect_all(client, monkeypatch: pytest.MonkeyPatch) -> 
     assert "Fail2ban: sshd attivo" in response.text
     assert "Anti-DDoS Shield attivato" in response.text
 
+
 @pytest.mark.asyncio
 async def test_security_protect_all_fail(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=MagicMock(id=1))
@@ -284,6 +303,7 @@ async def test_security_protect_all_fail(client, monkeypatch: pytest.MonkeyPatch
     assert "Fail2ban: sshd non disponibile" in response.text
     assert "Anti-DDoS: iptables non nei sudoers" in response.text
 
+
 @pytest.mark.asyncio
 async def test_internal_ensure_sudoers(monkeypatch: pytest.MonkeyPatch) -> None:
     from pit_panel.web.routes.security_ddos import _ensure_sudoers
@@ -294,6 +314,7 @@ async def test_internal_ensure_sudoers(monkeypatch: pytest.MonkeyPatch) -> None:
 
     res = await _ensure_sudoers()
     assert res is True
+
 
 @pytest.mark.asyncio
 async def test_internal_ensure_sudoers_no_password(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -309,6 +330,7 @@ async def test_internal_ensure_sudoers_no_password(monkeypatch: pytest.MonkeyPat
 
     res = await _ensure_sudoers()
     assert res is False
+
 
 @pytest.mark.asyncio
 async def test_internal_ensure_sudoers_with_password(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -333,6 +355,7 @@ async def test_internal_ensure_sudoers_with_password(monkeypatch: pytest.MonkeyP
     res = await _ensure_sudoers()
     assert res is True
 
+
 @pytest.mark.asyncio
 async def test_internal_ensure_sudoers_with_password_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     import asyncio
@@ -353,9 +376,11 @@ async def test_internal_ensure_sudoers_with_password_fail(monkeypatch: pytest.Mo
     res = await _ensure_sudoers()
     assert res is False
 
+
 @pytest.mark.asyncio
 async def test_internal_iptables(monkeypatch: pytest.MonkeyPatch) -> None:
     from pit_panel.web.routes.security_ddos import _iptables
+
     mock_res = MagicMock(returncode=0)
     mock_run_cmd = AsyncMock(return_value=mock_res)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
@@ -364,9 +389,11 @@ async def test_internal_iptables(monkeypatch: pytest.MonkeyPatch) -> None:
     assert res is True
     mock_run_cmd.assert_called_once_with(["sudo", "-n", "iptables", "-L"], timeout=10)
 
+
 @pytest.mark.asyncio
 async def test_internal_is_shield_active(monkeypatch: pytest.MonkeyPatch) -> None:
     from pit_panel.web.routes.security_ddos import _is_shield_active
+
     mock_res = MagicMock(returncode=0, stderr="")
     mock_run_cmd = AsyncMock(return_value=mock_res)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
@@ -374,15 +401,18 @@ async def test_internal_is_shield_active(monkeypatch: pytest.MonkeyPatch) -> Non
     res = await _is_shield_active()
     assert res is True
 
+
 @pytest.mark.asyncio
 async def test_internal_is_shield_active_no_file(monkeypatch: pytest.MonkeyPatch) -> None:
     from pit_panel.web.routes.security_ddos import _is_shield_active
+
     mock_res = MagicMock(returncode=0, stderr="No such file")
     mock_run_cmd = AsyncMock(return_value=mock_res)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
 
     res = await _is_shield_active()
     assert res is False
+
 
 @pytest.mark.asyncio
 async def test_internal_enable_shield(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -396,6 +426,7 @@ async def test_internal_enable_shield(monkeypatch: pytest.MonkeyPatch) -> None:
     errors = await _enable_shield()
     assert len(errors) == 0
 
+
 @pytest.mark.asyncio
 async def test_internal_enable_shield_error(monkeypatch: pytest.MonkeyPatch) -> None:
     from pit_panel.web.routes.security_ddos import _enable_shield
@@ -407,6 +438,7 @@ async def test_internal_enable_shield_error(monkeypatch: pytest.MonkeyPatch) -> 
     assert len(errors) > 0
     assert any("⚠️" in e for e in errors)
 
+
 @pytest.mark.asyncio
 async def test_internal_disable_shield(monkeypatch: pytest.MonkeyPatch) -> None:
     from pit_panel.web.routes.security_ddos import _disable_shield
@@ -416,6 +448,8 @@ async def test_internal_disable_shield(monkeypatch: pytest.MonkeyPatch) -> None:
 
     await _disable_shield()
     assert mock_iptables.call_count == 3
+
+
 @pytest.mark.asyncio
 async def test_security_ddos_enable_exception(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=MagicMock(id=1))
@@ -434,6 +468,7 @@ async def test_security_ddos_enable_exception(client, monkeypatch: pytest.Monkey
     assert response.status_code == 200
     assert "Anti-DDoS Shield attivato" in response.text
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_disable_unauthorized(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=None)
@@ -441,12 +476,14 @@ async def test_security_ddos_disable_unauthorized(client, monkeypatch: pytest.Mo
     response = client.post("/security/ddos/disable")
     assert response.status_code == 401
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_block_ip_unauthorized(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=None)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.get_admin", mock_get_admin)
     response = client.post("/security/ddos/block-ip")
     assert response.status_code == 401
+
 
 @pytest.mark.asyncio
 async def test_security_ddos_unblock_ip_unauthorized(
@@ -457,6 +494,7 @@ async def test_security_ddos_unblock_ip_unauthorized(
     response = client.post("/security/ddos/unblock-ip")
     assert response.status_code == 401
 
+
 @pytest.mark.asyncio
 async def test_security_ddos_top_connections_unauthorized(
     client, monkeypatch: pytest.MonkeyPatch
@@ -466,18 +504,22 @@ async def test_security_ddos_top_connections_unauthorized(
     response = client.get("/security/ddos/top-connections")
     assert response.status_code == 401
 
+
 @pytest.mark.asyncio
 async def test_security_protect_all_unauthorized(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=None)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.get_admin", mock_get_admin)
     response = client.post("/security/protect-all")
     assert response.status_code == 401
+
+
 @pytest.mark.asyncio
 async def test_security_ddos_enable_unauthorized(client, monkeypatch: pytest.MonkeyPatch) -> None:
     mock_get_admin = AsyncMock(return_value=None)
     monkeypatch.setattr("pit_panel.web.routes.security_ddos.get_admin", mock_get_admin)
     response = client.post("/security/ddos/enable")
     assert response.status_code == 401
+
 
 @pytest.mark.asyncio
 async def test_security_protect_all_fail_shield(client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -495,8 +537,7 @@ async def test_security_protect_all_fail_shield(client, monkeypatch: pytest.Monk
         "pit_panel.web.routes.security_ddos._ensure_sudoers", AsyncMock(return_value=True)
     )
     monkeypatch.setattr(
-        "pit_panel.web.routes.security_ddos._enable_shield",
-        AsyncMock(return_value=["Warning"])
+        "pit_panel.web.routes.security_ddos._enable_shield", AsyncMock(return_value=["Warning"])
     )
 
     response = client.post("/security/protect-all")

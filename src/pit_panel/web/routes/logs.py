@@ -129,9 +129,7 @@ async def logs_page(
 
 
 @router.get("/logs/journal", response_class=HTMLResponse)
-async def journal_partial(
-    request: Request, db: AsyncSession = Depends(get_db)
-) -> HTMLResponse:
+async def journal_partial(request: Request, db: AsyncSession = Depends(get_db)) -> HTMLResponse:
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
@@ -145,9 +143,7 @@ async def journal_partial(
 
 
 @router.get("/logs/applog", response_class=HTMLResponse)
-async def applog_partial(
-    request: Request, db: AsyncSession = Depends(get_db)
-) -> HTMLResponse:
+async def applog_partial(request: Request, db: AsyncSession = Depends(get_db)) -> HTMLResponse:
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
