@@ -43,6 +43,7 @@ node_modules/
 .serena/
 .jules/
 .codegraph/
+reasonix.toml
 skills-lock.json
 
 # Project-level agent instructions (local per-dev)
