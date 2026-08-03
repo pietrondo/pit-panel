@@ -9,7 +9,7 @@
         <div class="flex items-center gap-2">
             <a href="/containers/{{ sd.id }}/logs" class="btn-ghost text-xs">Logs</a>
             <form method="POST" action="/containers/{{ sd.id }}/restart" class="inline">
-                <button type="submit" class="btn-ghost text-xs text-orange-600">Restart</button>
+                <button type="submit" class="btn-ghost text-xs text-orange-600" aria-label="Restart {{ sd.subdomain }} app containers">Restart</button>
             </form>
         </div>
     </div>
@@ -47,11 +47,11 @@
                             <a href="/containers/container/{{ cid }}/logs" class="btn-ghost text-xs" target="_blank">Logs</a>
                             {% if 'Up' in (c.get('Status', '')) %}
                             <form method="POST" action="/containers/container/{{ cid }}/stop" class="inline">
-                                <button type="submit" class="btn-ghost text-xs text-red-600">Stop</button>
+                                <button type="submit" class="btn-ghost text-xs text-red-600" aria-label="Stop container {{ c.get('Name', '?') }}">Stop</button>
                             </form>
                             {% else %}
                             <form method="POST" action="/containers/container/{{ cid }}/start" class="inline">
-                                <button type="submit" class="btn-ghost text-xs text-green-600">Start</button>
+                                <button type="submit" class="btn-ghost text-xs text-green-600" aria-label="Start container {{ c.get('Name', '?') }}">Start</button>
                             </form>
                             {% endif %}
                         </div>
@@ -114,11 +114,11 @@
                             <a href="/containers/container/{{ cid }}/logs" class="btn-ghost text-xs" target="_blank">Logs</a>
                             {% if 'Up' in (c.get('Status', '')) %}
                             <form method="POST" action="/containers/container/{{ cid }}/stop" class="inline">
-                                <button type="submit" class="btn-ghost text-xs text-red-600">Stop</button>
+                                <button type="submit" class="btn-ghost text-xs text-red-600" aria-label="Stop container {{ c.get('Name', '?') }}">Stop</button>
                             </form>
                             {% else %}
                             <form method="POST" action="/containers/container/{{ cid }}/start" class="inline">
-                                <button type="submit" class="btn-ghost text-xs text-green-600">Start</button>
+                                <button type="submit" class="btn-ghost text-xs text-green-600" aria-label="Start container {{ c.get('Name', '?') }}">Start</button>
                             </form>
                             {% endif %}
                         </div>
