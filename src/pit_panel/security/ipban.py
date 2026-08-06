@@ -1,6 +1,7 @@
 """IP ban management and brute-force protection."""
 
 import datetime as dt
+import time
 from typing import cast
 
 from sqlalchemy import func, select
@@ -12,15 +13,29 @@ MAX_FAILED_ATTEMPTS = 5
 BAN_DURATION_MINUTES = 30
 FAILED_WINDOW_MINUTES = 15
 
+_BAN_CACHE: dict[str, tuple[float, bool]] = {}
+
 
 async def is_ip_banned(db: AsyncSession, ip: str) -> bool:
+    now = time.monotonic()
+    if ip in _BAN_CACHE:
+        cached_at, is_banned = _BAN_CACHE[ip]
+        if now - cached_at < 60.0:
+            return is_banned
+
     result = await db.execute(
         select(IPBan).where(
             IPBan.ip_address == ip,
             (IPBan.expires_at.is_(None)) | (IPBan.expires_at > dt.datetime.now(dt.UTC)),
         )
     )
-    return result.scalar_one_or_none() is not None
+    is_banned = result.scalar_one_or_none() is not None
+
+    if len(_BAN_CACHE) > 10000:
+        _BAN_CACHE.clear()
+
+    _BAN_CACHE[ip] = (now, is_banned)
+    return is_banned
 
 
 async def record_login_attempt(db: AsyncSession, ip: str, username: str, success: bool) -> None:
@@ -61,6 +76,7 @@ async def record_login_attempt(db: AsyncSession, ip: str, username: str, success
                 )
                 db.add(ban)
             await db.commit()
+            _BAN_CACHE.pop(ip, None)
 
 
 async def unban_ip(db: AsyncSession, ip: str, user_id: int | None = None) -> bool:
@@ -69,6 +85,7 @@ async def unban_ip(db: AsyncSession, ip: str, user_id: int | None = None) -> boo
     if ban:
         await db.delete(ban)
         await db.commit()
+        _BAN_CACHE.pop(ip, None)
         return True
     return False
 
@@ -84,6 +101,7 @@ async def ban_ip(db: AsyncSession, ip: str, reason: str, duration_minutes: int =
     )
     db.add(ban_entry)
     await db.commit()
+    _BAN_CACHE.pop(ip, None)
     return True
 
 
@@ -112,4 +130,8 @@ async def ban_ips_bulk(
 
     db.add_all([IPBan(ip_address=ip, reason=reason, expires_at=expires) for ip in new_ips])
     await db.commit()
+
+    for ip in new_ips:
+        _BAN_CACHE.pop(ip, None)
+
     return len(new_ips)

@@ -25,3 +25,6 @@
 **Learning:** Wrapping very fast, synchronous operations (like reading `/proc/loadavg` or `/proc/meminfo`) in `asyncio.to_thread` introduces significant thread-switching overhead (~1ms per call) that far exceeds the time it takes to execute the operation synchronously (~0.05ms), especially on high-frequency HTMX polling routes.
 **Action:** Do not use `asyncio.to_thread` for reading small system pseudo-files or simple memory operations. Call them directly on the main thread to reduce event loop overhead.
 >>>>>>> origin/bolt-optimize-dashboard-stats-8573878563315887391
+## 2024-08-06 - Optimize IP Ban Check Middleware
+**Learning:** In a high-frequency route (middleware), executing an async DB query on every request for IP ban checks introduces significant overhead.
+**Action:** Implemented a short-lived in-memory LRU cache to store ban status per IP, falling back to the DB upon cache miss, and clearing relevant entries on state change.
