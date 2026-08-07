@@ -788,4 +788,4 @@ async def app_update_all(request: Request, db: AsyncSession = Depends(get_db)):
         f'<p class="text-sm text-green-700 dark:text-green-400">'
         f"Updated {ok_count}/{total} apps</p></div>"
     )
-    return HTMLResponse(html, headers={"HX-Refresh": "true"})
+    return HTMLResponse(html)
