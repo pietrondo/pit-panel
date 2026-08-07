@@ -1,6 +1,7 @@
 """IP ban management and brute-force protection."""
 
 import datetime as dt
+import time
 from typing import cast
 
 from sqlalchemy import func, select
@@ -12,15 +13,37 @@ MAX_FAILED_ATTEMPTS = 5
 BAN_DURATION_MINUTES = 30
 FAILED_WINDOW_MINUTES = 15
 
+_ip_ban_cache: dict[str, tuple[bool, float]] = {}
+MAX_CACHE_SIZE = 10000
+
+async def _clear_ip_ban_cache(ip: str | None = None) -> None:
+    if ip:
+        _ip_ban_cache.pop(ip, None)
+    else:
+        _ip_ban_cache.clear()
 
 async def is_ip_banned(db: AsyncSession, ip: str) -> bool:
+    now = time.monotonic()
+    cached = _ip_ban_cache.get(ip)
+    if cached is not None and now - cached[1] < 60:
+        return cached[0]
+
     result = await db.execute(
         select(IPBan).where(
             IPBan.ip_address == ip,
             (IPBan.expires_at.is_(None)) | (IPBan.expires_at > dt.datetime.now(dt.UTC)),
         )
     )
-    return result.scalar_one_or_none() is not None
+    is_banned = result.scalar_one_or_none() is not None
+
+    # Implement simple bounding to avoid memory exhaustion
+    if len(_ip_ban_cache) >= MAX_CACHE_SIZE:
+        # Clear the cache if it gets too large (simple approach instead of LRU)
+        _ip_ban_cache.clear()
+
+    _ip_ban_cache[ip] = (is_banned, time.monotonic())
+
+    return is_banned
 
 
 async def record_login_attempt(db: AsyncSession, ip: str, username: str, success: bool) -> None:
@@ -61,6 +84,7 @@ async def record_login_attempt(db: AsyncSession, ip: str, username: str, success
                 )
                 db.add(ban)
             await db.commit()
+        await _clear_ip_ban_cache(ip)
 
 
 async def unban_ip(db: AsyncSession, ip: str, user_id: int | None = None) -> bool:
@@ -69,6 +93,7 @@ async def unban_ip(db: AsyncSession, ip: str, user_id: int | None = None) -> boo
     if ban:
         await db.delete(ban)
         await db.commit()
+        await _clear_ip_ban_cache(ip)
         return True
     return False
 
@@ -84,6 +109,7 @@ async def ban_ip(db: AsyncSession, ip: str, reason: str, duration_minutes: int =
     )
     db.add(ban_entry)
     await db.commit()
+    await _clear_ip_ban_cache(ip)
     return True
 
 
@@ -112,4 +138,6 @@ async def ban_ips_bulk(
 
     db.add_all([IPBan(ip_address=ip, reason=reason, expires_at=expires) for ip in new_ips])
     await db.commit()
+    for ip in new_ips:
+        await _clear_ip_ban_cache(ip)
     return len(new_ips)

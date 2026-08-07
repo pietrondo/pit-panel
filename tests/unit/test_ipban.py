@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import select
 
 from pit_panel.db.models import IPBan, LoginAttempt, User
-from pit_panel.security.ipban import ban_ip, is_ip_banned
+from pit_panel.security.ipban import _clear_ip_ban_cache, ban_ip, is_ip_banned
 
 
 class TestIPBanModel:
@@ -62,6 +62,7 @@ class TestIPBanLogic:
     @pytest.mark.asyncio  # type: ignore[untyped-decorator]
     async def test_is_ip_banned_false(self: Any, db_session: Any) -> None:
         from pit_panel.security.ipban import is_ip_banned
+        await _clear_ip_ban_cache()
 
         banned = await is_ip_banned(db_session, "10.0.0.1")
         assert not banned
@@ -69,6 +70,7 @@ class TestIPBanLogic:
     @pytest.mark.asyncio  # type: ignore[untyped-decorator]
     async def test_is_ip_banned_true(self: Any, db_session: Any) -> None:
         from pit_panel.security.ipban import is_ip_banned
+        await _clear_ip_ban_cache()
 
         ban = IPBan(ip_address="10.0.0.2", reason="test", failed_attempts=5)
         db_session.add(ban)
@@ -80,6 +82,7 @@ class TestIPBanLogic:
     @pytest.mark.asyncio  # type: ignore[untyped-decorator]
     async def test_record_login_failure_triggers_ban(self: Any, db_session: Any) -> None:
         from pit_panel.security.ipban import is_ip_banned, record_login_attempt
+        await _clear_ip_ban_cache()
 
         for _ in range(5):
             await record_login_attempt(db_session, "192.168.1.100", "admin", False)
@@ -90,6 +93,7 @@ class TestIPBanLogic:
     @pytest.mark.asyncio  # type: ignore[untyped-decorator]
     async def test_successful_login_no_ban(self: Any, db_session: Any) -> None:
         from pit_panel.security.ipban import is_ip_banned, record_login_attempt
+        await _clear_ip_ban_cache()
 
         await record_login_attempt(db_session, "192.168.1.200", "admin", True)
         await record_login_attempt(db_session, "192.168.1.200", "admin", False)
@@ -171,6 +175,7 @@ class TestSecurityApp:
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 async def test_ban_ip_adds_record(db_session: Any) -> None:
+    await _clear_ip_ban_cache()
     result = await ban_ip(db_session, "1.2.3.4", "test ban", 60)
     assert result is True
 
@@ -180,6 +185,7 @@ async def test_ban_ip_adds_record(db_session: Any) -> None:
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 async def test_ban_ip_duplicate_rejected(db_session: Any) -> None:
+    await _clear_ip_ban_cache()
     await ban_ip(db_session, "1.2.3.4", "first", 60)
     result = await ban_ip(db_session, "1.2.3.4", "second", 120)
     assert result is False
@@ -207,6 +213,7 @@ class TestSystemApp:
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 async def test_ban_ips_bulk(db_session: Any) -> None:
     from pit_panel.security.ipban import ban_ips_bulk, is_ip_banned
+    await _clear_ip_ban_cache()
 
     ips = ["1.1.1.1", "1.1.1.2", "1.1.1.3"]
     count = await ban_ips_bulk(db_session, ips, "bulk test")
