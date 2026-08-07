@@ -3,6 +3,7 @@
 import datetime as dt
 from typing import cast
 
+from cachetools import TTLCache
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,16 +12,25 @@ from pit_panel.db.models import IPBan, LoginAttempt
 MAX_FAILED_ATTEMPTS = 5
 BAN_DURATION_MINUTES = 30
 FAILED_WINDOW_MINUTES = 15
+CACHE_TTL_SECONDS = 60
+CACHE_MAX_SIZE = 10000
+
+_ip_ban_cache: TTLCache[str, bool] = TTLCache(maxsize=CACHE_MAX_SIZE, ttl=CACHE_TTL_SECONDS)
 
 
 async def is_ip_banned(db: AsyncSession, ip: str) -> bool:
+    if ip in _ip_ban_cache:
+        return _ip_ban_cache[ip]
+
     result = await db.execute(
         select(IPBan).where(
             IPBan.ip_address == ip,
             (IPBan.expires_at.is_(None)) | (IPBan.expires_at > dt.datetime.now(dt.UTC)),
         )
     )
-    return result.scalar_one_or_none() is not None
+    is_banned = result.scalar_one_or_none() is not None
+    _ip_ban_cache[ip] = is_banned
+    return is_banned
 
 
 async def record_login_attempt(db: AsyncSession, ip: str, username: str, success: bool) -> None:
@@ -61,6 +71,7 @@ async def record_login_attempt(db: AsyncSession, ip: str, username: str, success
                 )
                 db.add(ban)
             await db.commit()
+            _ip_ban_cache.pop(ip, None)
 
 
 async def unban_ip(db: AsyncSession, ip: str, user_id: int | None = None) -> bool:
@@ -69,6 +80,7 @@ async def unban_ip(db: AsyncSession, ip: str, user_id: int | None = None) -> boo
     if ban:
         await db.delete(ban)
         await db.commit()
+        _ip_ban_cache.pop(ip, None)
         return True
     return False
 
@@ -84,6 +96,7 @@ async def ban_ip(db: AsyncSession, ip: str, reason: str, duration_minutes: int =
     )
     db.add(ban_entry)
     await db.commit()
+    _ip_ban_cache.pop(ip, None)
     return True
 
 
@@ -112,4 +125,6 @@ async def ban_ips_bulk(
 
     db.add_all([IPBan(ip_address=ip, reason=reason, expires_at=expires) for ip in new_ips])
     await db.commit()
+    for ip in new_ips:
+        _ip_ban_cache.pop(ip, None)
     return len(new_ips)

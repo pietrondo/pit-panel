@@ -25,6 +25,7 @@ dependencies = [
     "playwright>=1.60.0",
     "tomli-w>=1.2.0",
     "aiofiles>=25.1.0",
+    "cachetools>=7.1.7",
 ]
 
 [project.optional-dependencies]
