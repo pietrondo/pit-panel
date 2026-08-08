@@ -23,5 +23,6 @@
 **Action:** Use `.startswith()` on strings directly before attempting to extract or split data to avoid unnecessary memory allocations and improve CPU execution time during parsing.
 ## 2024-07-31 - Overhead of asyncio.to_thread on fast I/O
 **Learning:** Wrapping very fast, synchronous operations (like reading `/proc/loadavg` or `/proc/meminfo`) in `asyncio.to_thread` introduces significant thread-switching overhead (~1ms per call) that far exceeds the time it takes to execute the operation synchronously (~0.05ms), especially on high-frequency HTMX polling routes.
-**Action:** Do not use `asyncio.to_thread` for reading small system pseudo-files or simple memory operations. Call them directly on the main thread to reduce event loop overhead.
->>>>>>> origin/bolt-optimize-dashboard-stats-8573878563315887391
+## 2025-02-12 - In-Memory Cache for DB Queries in Fast Polling Routes
+**Learning:** High-frequency polling endpoints (like HTMX updating every 10 seconds) execute identical database queries for each connected client unnecessarily. Uncached repetitive DB polling creates bottlenecks.
+**Action:** Implement a short-lived in-memory cache using a bounded dictionary structure with a manual `MAX_CACHE_SIZE` limit and TTL checks via `time.monotonic()` for global data fetched on high-frequency routes to reduce DB load.
