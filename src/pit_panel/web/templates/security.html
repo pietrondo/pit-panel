@@ -76,7 +76,7 @@
 <div class="card mb-6">
     <div class="p-4 flex gap-2 items-end flex-wrap">
         <div class="flex-1 min-w-[200px]">
-            <label class="block text-xs text-gray-500 mb-1">Blocca IP immediatamente</label>
+            <label for="quick-ban-ip" class="block text-xs text-gray-500 mb-1">Blocca IP immediatamente</label>
             <input id="quick-ban-ip" placeholder="es. 185.220.101.1 o 10.0.0.0/24" class="input text-sm w-full">
         </div>
         <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
@@ -134,7 +134,7 @@
                     <td class="px-4 py-2 text-gray-500">{{ ban.reason }}</td>
                     <td class="px-4 py-2 text-gray-500">{% if ban.expires_at %}{{ ban.expires_at.strftime('%d/%m %H:%M') }}{% else %}∞{% endif %}</td>
                     <td class="px-4 py-2 text-right">
-                        <form method="POST" action="/security/unban" class="inline">
+                        <form method="POST" action="/security/unban" class="inline" onsubmit="return confirm('Sei sicuro di voler sbloccare questo IP?')">
                             <input type="hidden" name="ip" value="{{ ban.ip_address }}">
                             <button class="text-green-600 hover:text-green-800 font-medium">Sblocca</button>
                         </form>
@@ -163,7 +163,7 @@
                     <td class="px-4 py-2 font-mono text-gray-500">{{ sess.ip }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ sess.created.strftime('%d/%m %H:%M') if sess.created }}</td>
                     <td class="px-4 py-2 text-right">
-                        <form method="POST" action="/security/revoke-session" class="inline">
+                        <form method="POST" action="/security/revoke-session" class="inline" onsubmit="return confirm('Sei sicuro di voler revocare questa sessione?')">
                             <input type="hidden" name="session_id" value="{{ sess.id }}">
                             <button class="text-red-600 hover:text-red-800 font-medium">Revoca</button>
                         </form>
