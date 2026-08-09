@@ -1,12 +1,12 @@
 """IP ban management and brute-force protection."""
 
 import datetime as dt
+import time
 from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import time
 from pit_panel.db.models import IPBan, LoginAttempt
 
 MAX_FAILED_ATTEMPTS = 5

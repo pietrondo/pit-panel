@@ -5,7 +5,8 @@ import pytest
 from sqlalchemy import select
 
 from pit_panel.db.models import IPBan, LoginAttempt, User
-from pit_panel.security.ipban import ban_ip, is_ip_banned, invalidate_ban_cache
+from pit_panel.security.ipban import ban_ip, invalidate_ban_cache, is_ip_banned
+
 
 @pytest.fixture(autouse=True)
 def clear_ban_cache() -> None:
