@@ -7,3 +7,8 @@
 **Vulnerability:** The `upload_file` endpoint in `src/pit_panel/web/routes/file_manager.py` processed file uploads using `asyncio.to_thread` wrapping `shutil.copyfileobj(file.file, f)`. For large file uploads, this synchronous I/O can block thread pool workers and cause memory exhaustion or application slowdowns (DoS).
 **Learning:** When dealing with asynchronous Python web frameworks (like FastAPI), file operations shouldn't be naively offloaded to threads if they involve potentially unbound data copying from SpooledTemporaryFiles, as they still load large objects or block execution in ways that evade typical async resource management.
 **Prevention:** Always use `aiofiles.open` inside an `async with` context and perform chunked asynchronous reads (`await file.read(chunk_size)`) to stream file uploads to disk safely without blocking the event loop or consuming excessive memory.
+
+## 2024-08-09 - Path Traversal via string startswith()
+**Vulnerability:** The `_safe_path` function in `src/pit_panel/web/routes/debug_api.py` used `str(p).startswith(prefix)` to check if a path was within an allowed directory. This allows paths like `/opt/pit-panel-hacked/test` to bypass the check because the string starts with `/opt/pit-panel`.
+**Learning:** Using string matching like `.startswith()` for path validation is dangerous and leads to path traversal / authorization bypass vulnerabilities because it ignores directory boundaries.
+**Prevention:** Always use proper path manipulation libraries for authorization checks. In Python, use `pathlib.Path` methods like `p.is_relative_to(allowed_root)` after fully resolving both the target path and the allowed root path.

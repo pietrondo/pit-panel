@@ -504,7 +504,7 @@ _ALLOWED_PREFIXES = ("/opt/pit-panel", "/etc/pit-panel")
 
 def _safe_path(raw: str) -> Path:
     p = Path(raw).resolve()
-    if not any(str(p).startswith(prefix) for prefix in _ALLOWED_PREFIXES):
+    if not any(p == Path(prefix).resolve() or p.is_relative_to(Path(prefix).resolve()) for prefix in _ALLOWED_PREFIXES):
         raise HTTPException(status_code=403, detail="Path outside allowed directories")
     return p
 
