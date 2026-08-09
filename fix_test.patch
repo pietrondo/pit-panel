@@ -1,0 +1,34 @@
+--- tests/unit/routes/test_subdomains.py
++++ tests/unit/routes/test_subdomains.py
+@@ -6,6 +6,8 @@
+ @pytest.fixture
+ def mock_db():
+     db = AsyncMock()
++    db.add = MagicMock()
++    db.delete = MagicMock()
+     return db
+
+ @pytest.fixture
+@@ -99,19 +101,20 @@
+     mock_caddy_instance.renew_certificate.assert_called_once_with("test-sub.example.com")
+
+ @pytest.mark.asyncio
++@pytest.mark.parametrize("invalid_name", ["invalid_name!", "../test", "test/123", "-test", "test-", " "])
+ @patch("pit_panel.web.routes.subdomains.get_user")
+-async def test_subdomain_add_invalid_name(mock_get_user, test_client, mock_db, mock_settings):
++async def test_subdomain_add_invalid_name(mock_get_user, test_client, mock_db, mock_settings, invalid_name):
+     mock_user = MagicMock()
+     mock_user.id = 1
+     mock_get_user.return_value = mock_user
+
+     mock_result = MagicMock()
+     mock_result.scalars.return_value.all.return_value = []
+     mock_db.execute = AsyncMock(return_value=mock_result)
+
+     with patch("pit_panel.web.routes.subdomains.render") as mock_render:
+         mock_render.return_value = "rendered html"
+-        response = test_client.post("/subdomains/add", data={"subdomain": "invalid_name!", "app_type": "none"})
++        response = test_client.post("/subdomains/add", data={"subdomain": invalid_name, "app_type": "none"})
+
+         assert response.status_code == 200
+         mock_render.assert_called_once()

@@ -1,0 +1,121 @@
+Name                                               Stmts   Miss  Cover   Missing
+--------------------------------------------------------------------------------
+src/pit_panel/__init__.py                              0      0   100%
+src/pit_panel/cli/__init__.py                          0      0   100%
+src/pit_panel/cli/admin.py                            61      1    98%   93
+src/pit_panel/config.py                               84      0   100%
+src/pit_panel/core/__init__.py                         0      0   100%
+src/pit_panel/core/app_manager.py                     99     16    84%   51-57, 75, 78-79, 87, 92, 95, 100-101, 117
+src/pit_panel/core/backup.py                         133      6    95%   39, 62-63, 139, 174-175
+src/pit_panel/core/blocklist.py                       47      0   100%
+src/pit_panel/core/caddy.py                          192     48    75%   18-37, 41, 51-57, 60-61, 64-80, 85-96, 150, 154, 161-162, 220-227, 229, 233-236, 268-269
+src/pit_panel/core/docker_ops.py                     126     18    86%   75-76, 164-185, 248-249
+src/pit_panel/core/health.py                          43      1    98%   55
+src/pit_panel/core/notifier.py                        44      0   100%
+src/pit_panel/core/repo_detector.py                   74      8    89%   22-26, 33, 35, 57, 79
+src/pit_panel/core/security.py                       269     43    84%   21, 34, 115, 118-120, 139, 148-150, 161-162, 236-246, 250-251, 286-287, 314, 317-318, 322, 336, 383, 397-400, 414-419
+src/pit_panel/core/string_utils.py                     6      0   100%
+src/pit_panel/core/sudo_ops.py                        74     12    84%   60-64, 66, 128-132, 135
+src/pit_panel/core/updater.py                         54      0   100%
+src/pit_panel/core/wp_proxy.py                       111     42    62%   133-135, 160-167, 175-225
+src/pit_panel/db/__init__.py                           0      0   100%
+src/pit_panel/db/models.py                           108      0   100%
+src/pit_panel/db/session.py                           28      0   100%
+src/pit_panel/security/__init__.py                     0      0   100%
+src/pit_panel/security/bug_analyzer.py                94     35    63%   80, 90, 112-115, 129-187
+src/pit_panel/security/crypto.py                      10      0   100%
+src/pit_panel/security/ipban.py                       61      6    90%   29, 51-52, 73, 99, 109
+src/pit_panel/security/malware_scanner.py            200     10    95%   185-186, 321-324, 337-338, 355, 374-375
+src/pit_panel/security/totp.py                         9      0   100%
+src/pit_panel/web/__init__.py                          0      0   100%
+src/pit_panel/web/app.py                             108     11    90%   56, 59, 69, 106-118, 190
+src/pit_panel/web/auth.py                             49      0   100%
+src/pit_panel/web/deps.py                             41      0   100%
+src/pit_panel/web/limiter.py                          23      0   100%
+src/pit_panel/web/render.py                           14      0   100%
+src/pit_panel/web/routes/__init__.py                  15      0   100%
+src/pit_panel/web/routes/app_routes/__init__.py        3      0   100%
+src/pit_panel/web/routes/app_routes/main.py          397    243    39%   33-43, 47-55, 62-63, 74-76, 100-157, 215, 236-265, 272-275, 300-338, 348-354, 370, 387-388, 398-400, 404, 444, 476-478, 481-655, 671-675, 692-694, 711-725, 753-791
+src/pit_panel/web/routes/app_routes/ops.py           521    245    53%   34-36, 52-54, 64-76, 109-149, 156, 182, 187, 193, 230, 248-249, 290-302, 307-329, 342, 347, 372-379, 388, 393, 398, 429-431, 440-460, 465-521, 528-530, 535, 548-552, 565-567, 572, 604-606, 629, 645-646, 660-662, 667, 678-679, 684-685, 704-705, 727-755, 766, 771-773, 785, 796-860
+src/pit_panel/web/routes/app_routes/router.py          2      0   100%
+src/pit_panel/web/routes/app_routes/wordpress.py     252    181    28%   28-33, 37-72, 83-96, 109-122, 135-148, 154-166, 186-187, 191-227, 233-274, 283-303, 314-372, 394-477, 497-507
+src/pit_panel/web/routes/auth_routes.py              108     19    82%   52-54, 57-60, 72, 99-120, 142-143, 163
+src/pit_panel/web/routes/containers.py               145     65    55%   70-81, 120-136, 161-169, 176-184, 191-202, 215-226
+src/pit_panel/web/routes/dashboard.py                107     23    79%   75, 81-90, 166-208
+src/pit_panel/web/routes/debug.py                     65      0   100%
+src/pit_panel/web/routes/debug_api.py                404    110    73%   76-77, 238, 294, 332-334, 355-356, 393-394, 401-402, 450, 464, 506-509, 519-538, 548-555, 565-591, 601-607, 619-631, 641-663, 721-722, 727, 735-738, 742, 749-750, 768-770
+src/pit_panel/web/routes/file_manager.py             391    181    54%   56, 66-67, 86-87, 96-101, 104-115, 158, 163, 167-173, 184, 187-193, 206-219, 221-227, 247-253, 266, 270-276, 300-306, 332-341, 355-389, 414-478, 489-490, 498-500, 509, 512-517, 523-524, 530-532
+src/pit_panel/web/routes/logs.py                      96     20    79%   28, 69-72, 94-97, 107, 114-128, 135, 149
+src/pit_panel/web/routes/security.py                 160     36    78%   114, 174, 180-181, 196-205, 216, 239-291
+src/pit_panel/web/routes/security_abuseipdb.py        84      8    90%   38-40, 69-71, 78, 118
+src/pit_panel/web/routes/security_blocklist.py        35      6    83%   19-21, 47, 53, 57
+src/pit_panel/web/routes/security_ddos.py            167      0   100%
+src/pit_panel/web/routes/security_fail2ban.py         91     45    51%   35, 55-67, 72-101, 108-132, 141, 144, 161, 164, 174-178
+src/pit_panel/web/routes/security_firewall.py         63     18    71%   25, 32, 39, 44, 58, 63, 68, 73, 78-83, 91, 102, 111-113
+src/pit_panel/web/routes/security_lynis.py            29      4    86%   26, 36, 44-45
+src/pit_panel/web/routes/security_malware.py         133     93    30%   25-55, 64-89, 98-108, 113-126, 131-151, 156-167, 176, 201-208, 233-251
+src/pit_panel/web/routes/settings.py                  76      8    89%   128-137
+src/pit_panel/web/routes/ssl.py                      213      4    98%   212-215
+src/pit_panel/web/routes/subdomains.py                98      0   100%
+src/pit_panel/web/routes/system.py                   150     69    54%   33-38, 48-60, 72, 96-160, 175-177, 192, 199-202, 207-209, 273-291
+src/pit_panel/web/routes/system_manage.py             91      9    90%   106-116, 125, 129, 141-142
+tests/conftest.py                                     18      0   100%
+tests/unit/cli/__init__.py                             0      0   100%
+tests/unit/cli/test_admin.py                          87      0   100%
+tests/unit/core/test_sudo_ops.py                      60      0   100%
+tests/unit/routes/app_routes/test_main.py            109      3    97%   67, 98, 142
+tests/unit/routes/app_routes/test_ops.py             235      1    99%   56
+tests/unit/routes/app_routes/test_wordpress.py        46      0   100%
+tests/unit/routes/test_auth_routes.py                186      0   100%
+tests/unit/routes/test_containers_route.py            38      0   100%
+tests/unit/routes/test_dashboard.py                   58      0   100%
+tests/unit/routes/test_dashboard_web.py               82      0   100%
+tests/unit/routes/test_debug.py                       20      0   100%
+tests/unit/routes/test_debug_api.py                  591      9    98%   413, 577, 810, 845, 852, 855, 888, 895, 898
+tests/unit/routes/test_security_ddos.py              365      0   100%
+tests/unit/routes/test_security_route.py             462      1    99%   283
+tests/unit/routes/test_settings.py                   222      0   100%
+tests/unit/routes/test_subdomains.py                 225      0   100%
+tests/unit/test_app.py                                16      0   100%
+tests/unit/test_app_manager.py                        54      0   100%
+tests/unit/test_app_manager_edge.py                   43      0   100%
+tests/unit/test_auth.py                              178      0   100%
+tests/unit/test_backup.py                            169      0   100%
+tests/unit/test_blocklist.py                         170     10    94%   23-28, 263, 266, 271, 274
+tests/unit/test_bug_analyzer.py                       45      0   100%
+tests/unit/test_caddy.py                             210      0   100%
+tests/unit/test_caddy_edge.py                        103      0   100%
+tests/unit/test_config.py                            121      0   100%
+tests/unit/test_crypto.py                             14      0   100%
+tests/unit/test_dashboard_template.py                 10      0   100%
+tests/unit/test_deps.py                              117      0   100%
+tests/unit/test_docker_ops.py                        141      0   100%
+tests/unit/test_docker_ops_edge.py                    60      4    93%   10-13
+tests/unit/test_file_manager.py                      154      4    97%   133, 169, 234, 258
+tests/unit/test_health.py                             65      0   100%
+tests/unit/test_ipban.py                             156      0   100%
+tests/unit/test_limiter.py                            43      0   100%
+tests/unit/test_logs.py                              127      0   100%
+tests/unit/test_malware_scanner.py                   287      2    99%   20, 330
+tests/unit/test_migrations.py                         20      0   100%
+tests/unit/test_models.py                             52      0   100%
+tests/unit/test_notifier.py                          147      0   100%
+tests/unit/test_rate_limits.py                        61      0   100%
+tests/unit/test_render.py                             37      0   100%
+tests/unit/test_repo_detector.py                      80      0   100%
+tests/unit/test_repo_detector_edge.py                 28      0   100%
+tests/unit/test_security_core.py                     293      0   100%
+tests/unit/test_security_ddos_helpers.py             349      0   100%
+tests/unit/test_session.py                            53      0   100%
+tests/unit/test_ssl.py                               408      0   100%
+tests/unit/test_ssl_generate.py                       19      0   100%
+tests/unit/test_string_utils.py                       17      0   100%
+tests/unit/test_subdomain.py                           0      0   100%
+tests/unit/test_system.py                            132      0   100%
+tests/unit/test_system_manage.py                     110      0   100%
+tests/unit/test_totp.py                               27      0   100%
+tests/unit/test_updater.py                           143      0   100%
+tests/unit/test_web_routes.py                        631     15    98%   100, 344, 347, 391, 394, 453, 456, 469, 537, 540, 596, 599, 609, 864, 903
+tests/unit/test_wp_proxy.py                          131      0   100%
+--------------------------------------------------------------------------------
+TOTAL                                              13883   1693    88%
