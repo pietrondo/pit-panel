@@ -25,3 +25,6 @@
 **Learning:** Wrapping very fast, synchronous operations (like reading `/proc/loadavg` or `/proc/meminfo`) in `asyncio.to_thread` introduces significant thread-switching overhead (~1ms per call) that far exceeds the time it takes to execute the operation synchronously (~0.05ms), especially on high-frequency HTMX polling routes.
 **Action:** Do not use `asyncio.to_thread` for reading small system pseudo-files or simple memory operations. Call them directly on the main thread to reduce event loop overhead.
 >>>>>>> origin/bolt-optimize-dashboard-stats-8573878563315887391
+## 2024-08-09 - Custom Bounded Cache without dependencies
+**Learning:** In a codebase without cachetools, simple in-memory global dictionaries can be used for LRU/TTL caching, but they must be strictly bounded to prevent OOM vulnerabilities.
+**Action:** Always implement a MAX_CACHE_SIZE constraint and manual time.monotonic() check when introducing dictionaries for request-level caching.
