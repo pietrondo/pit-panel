@@ -202,3 +202,129 @@ async def test_auto_login_success(tmp_path):
     assert len(cookies) == 2
     assert any("wordpress_logged_in" in c for c in cookies)
     assert any("Path=/" in c for c in cookies)
+
+
+@pytest.mark.asyncio
+async def test_auto_login_oserror(tmp_path):
+    app_dir = tmp_path / "blog"
+    app_dir.mkdir()
+    (app_dir / ".env").write_text("WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n")
+
+    with patch(
+        "pit_panel.core.wp_proxy.asyncio.create_subprocess_exec", side_effect=OSError("Exec failed")
+    ):
+        result = await auto_login(str(tmp_path), "blog", 8081, "blog.example.com")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_auto_login_json_error(tmp_path):
+    app_dir = tmp_path / "blog"
+    app_dir.mkdir()
+    (app_dir / ".env").write_text("WP_ADMIN_USER=admin\nWP_ADMIN_PASSWORD=secret\n")
+
+    with patch("pit_panel.core.wp_proxy.asyncio.create_subprocess_exec") as mock_sub:
+        proc = AsyncMock()
+        proc.communicate = AsyncMock(return_value=(b"invalid json", b""))
+        proc.returncode = 0
+        mock_sub.return_value = proc
+
+        result = await auto_login(str(tmp_path), "blog", 8081, "blog.example.com")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_proxy_request_success():
+    import httpx
+    from fastapi import Request
+
+    from pit_panel.core.wp_proxy import proxy_request
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/wp-admin/",
+        "query_string": b"foo=bar",
+        "headers": [
+            (b"host", b"testserver"),
+            (b"host", b"testserver"),
+            (b"connection", b"keep-alive"),
+            (b"x-custom-header", b"custom-value"),
+        ],
+        "path_params": {"path": "wp-admin/"},
+    }
+    request = Request(scope)
+
+    async def mock_receive():
+        return {"type": "http.request", "body": b"reqbody"}
+
+    request._receive = mock_receive
+
+    mock_resp = AsyncMock()
+    mock_resp.content = b"<html><a href='/wp-admin/'>Link</a></html>"
+    # httpx.Headers supports get_list
+    mock_resp.headers = httpx.Headers(
+        {
+            "content-type": "text/html",
+            "content-length": "100",
+            "set-cookie": "wordpress_logged_in_abc=token; path=/; HttpOnly",
+            "location": "/wp-admin/",
+        }
+    )
+    mock_resp.status_code = 200
+
+    # Since httpx.AsyncClient is used as async with httpx.AsyncClient() as client:
+    mock_client_instance = AsyncMock()
+    mock_client_instance.request = AsyncMock(return_value=mock_resp)
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value = mock_client_instance
+
+    with patch("pit_panel.core.wp_proxy.httpx.AsyncClient", return_value=mock_client):
+        response = await proxy_request(request, 8081, 3)
+
+    assert response.status_code == 200
+    assert b"/apps/3/wp/wp-admin/" in response.body
+    assert "set-cookie" in response.headers
+    assert "path=/apps/3/wp" in response.headers["set-cookie"]
+    assert response.headers.get("location") == "/apps/3/wp/wp-admin/"
+
+    # check mock call
+    mock_client_instance.request.assert_called_once()
+    kwargs = mock_client_instance.request.call_args.kwargs
+    assert kwargs["url"] == "http://localhost:8081/wp-admin/?foo=bar"
+    assert "connection" not in kwargs["headers"]
+    assert kwargs["content"] == b"reqbody"
+    assert kwargs["headers"]["x-custom-header"] == "custom-value"
+
+
+@pytest.mark.asyncio
+async def test_proxy_request_connect_error():
+    import httpx
+    from fastapi import Request
+
+    from pit_panel.core.wp_proxy import proxy_request
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "headers": [(b"host", b"testserver")],
+        "path_params": {"path": ""},
+    }
+    request = Request(scope)
+
+    async def mock_receive():
+        return {"type": "http.request", "body": b""}
+
+    request._receive = mock_receive
+
+    mock_client_instance = AsyncMock()
+    mock_client_instance.request = AsyncMock(side_effect=httpx.ConnectError("Failed"))
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value = mock_client_instance
+
+    with patch("pit_panel.core.wp_proxy.httpx.AsyncClient", return_value=mock_client):
+        response = await proxy_request(request, 8081, 3)
+
+    assert response.status_code == 502
+    assert response.body == b"WordPress container unreachable"
