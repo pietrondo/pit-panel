@@ -60,8 +60,7 @@ async def debug_page(request: Request, db: AsyncSession = Depends(get_db)):
         ping_github,
         curl_api,
         service_status,
-        caddy_status,
-        docker_status,
+        caddy_docker_status,
         journal_errors,
     ) = await asyncio.gather(
         _run(["git", "--version"]),
@@ -81,10 +80,14 @@ async def debug_page(request: Request, db: AsyncSession = Depends(get_db)):
         _run(["ping", "-c", "1", "-W", "3", "github.com"]),
         _run(["curl", "-sI", "--max-time", "5", "https://api.github.com"]),
         _run(["systemctl", "status", "pit-panel.service", "--no-pager", "-l"]),
-        _run(["systemctl", "is-active", "caddy"]),
-        _run(["systemctl", "is-active", "docker"]),
+        _run(["systemctl", "is-active", "caddy", "docker"]),
         _run(["journalctl", "-u", "pit-panel.service", "-p", "3", "-n", "20", "--no-pager"]),
     )
+
+    # ⚡ Bolt: Batch `systemctl is-active` calls into a single subprocess execution.
+    is_active_results = caddy_docker_status.splitlines()
+    caddy_status = is_active_results[0] if len(is_active_results) > 0 else "unknown"
+    docker_status = is_active_results[1] if len(is_active_results) > 1 else "unknown"
 
     diag = {
         "python": platform.python_version(),
