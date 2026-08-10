@@ -43,7 +43,7 @@
                 </template>
                 <template x-for="folder in folders" :key="folder.path">
                     <button @click="loadPath(folder.path)"
-                            :aria-label="`Open folder ${folder.name}`"
+                            :aria-label="`${folder.name} (Open folder)`"
                             class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition-colors truncate">
                         <span class="text-yellow-500">📁</span>
                         <span x-text="folder.name" class="truncate"></span>
@@ -68,10 +68,12 @@
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
                         <!-- Up directory indicator -->
                         <template x-if="parentPath">
-                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer" @click="loadPath(parentPath)">
-                                <td class="px-6 py-3 font-medium text-slate-900 dark:text-white flex items-center gap-2">
-                                    <span class="text-yellow-500">📁</span>
-                                    <span>..</span>
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td class="px-6 py-3 font-medium text-slate-900 dark:text-white">
+                                    <button @click="loadPath(parentPath)" aria-label=".. (Up directory)" class="flex items-center gap-2 hover:underline text-left w-full">
+                                        <span class="text-yellow-500">📁</span>
+                                        <span>..</span>
+                                    </button>
                                 </td>
                                 <td class="px-6 py-3 text-slate-500">-</td>
                                 <td class="px-6 py-3 text-slate-500">-</td>
@@ -83,8 +85,15 @@
                         <!-- Items list -->
                         <template x-if="items.length === 0 && !parentPath">
                             <tr>
-                                <td colspan="5" class="px-6 py-12 text-center text-slate-500 dark:text-slate-400 italic">
-                                    This directory is empty
+                                <td colspan="5" class="px-6 py-12">
+                                    <div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
+                                        <span class="text-4xl mb-3">📂</span>
+                                        <p class="mb-4">This directory is empty</p>
+                                        <div class="flex gap-3">
+                                            <button @click="createOpen = true" class="btn btn-primary text-sm">+ Create New</button>
+                                            <button @click="uploadOpen = true" class="btn btn-ghost border-slate-300 dark:border-slate-700 text-sm">↑ Upload File</button>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         </template>
@@ -92,7 +101,7 @@
                             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                                 <td class="px-6 py-3 font-medium text-slate-900 dark:text-white">
                                     <button @click="item.is_dir ? loadPath(item.path) : openFile(item.path)"
-                                            :aria-label="`${item.is_dir ? 'Open folder' : 'Edit file'} ${item.name}`"
+                                            :aria-label="`${item.name} (${item.is_dir ? 'Open folder' : 'Edit file'})`"
                                             class="flex items-center gap-2 hover:underline text-left truncate max-w-xs md:max-w-md">
                                         <span x-text="item.is_dir ? '📁' : '📄'"></span>
                                         <span x-text="item.name" class="truncate"></span>
