@@ -4,6 +4,7 @@ import asyncio
 import os
 import platform
 import shutil
+import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -77,26 +78,8 @@ def _ram_usage() -> dict[str, Any]:
         return {"total_gb": 0, "used_gb": 0, "pct": 0}
 
 
-async def _stats_context() -> dict[str, Any]:
-    settings = get_settings()
-    docker_mgr = DockerManager(settings.apps_dir)
-    # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
-    total, running = await docker_mgr.containers_count()
-    disk_usage = _disk_usage()
-    cpu_usage = _cpu_usage()
-    ram_usage = _ram_usage()
-    hostname = _server_hostname()
-
-    return {
-        "subdomain_count": 0,
-        "apps_running": 0,
-        "containers_total": total,
-        "containers_running": running,
-        "disk_usage": disk_usage,
-        "cpu": cpu_usage,
-        "ram": ram_usage,
-        "hostname": hostname,
-    }
+_STATS_CACHE: dict[str, tuple[float, Any]] = {}
+MAX_CACHE_SIZE = 100
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -108,6 +91,12 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     docker_mgr = DockerManager(settings.apps_dir)
 
     async def _fetch_db_data():
+        now = time.monotonic()
+        if "dashboard_global" in _STATS_CACHE:
+            cached_at, value = _STATS_CACHE["dashboard_global"]
+            if now - cached_at < 5.0:
+                return value
+
         _subdomains_result = await db.execute(select(Subdomain).limit(20))
         _subdomains = _subdomains_result.scalars().all()
 
@@ -121,7 +110,13 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
                 )
             )
         ).first()
-        return _subdomains, _row
+
+        if len(_STATS_CACHE) >= MAX_CACHE_SIZE:
+            _STATS_CACHE.clear()
+
+        res = (_subdomains, _row)
+        _STATS_CACHE["dashboard_global"] = (now, res)
+        return res
 
     docker_mgr = DockerManager(settings.apps_dir)
 
@@ -129,13 +124,16 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     (
         (subdomains, row),
         (containers_total, containers_running),
+        disk_usage,
+        cpu_usage,
+        ram_usage,
     ) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
+        asyncio.to_thread(_disk_usage),
+        asyncio.to_thread(_cpu_usage),
+        asyncio.to_thread(_ram_usage),
     )
-    disk_usage = _disk_usage()
-    cpu_usage = _cpu_usage()
-    ram_usage = _ram_usage()
     hostname = _server_hostname()
 
     total_subdomains = row.total if row else 0
@@ -170,7 +168,13 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
     docker_mgr = DockerManager(settings.apps_dir)
 
     async def _fetch_db_data():
-        return (
+        now = time.monotonic()
+        if "stats_global" in _STATS_CACHE:
+            cached_at, value = _STATS_CACHE["stats_global"]
+            if now - cached_at < 5.0:
+                return value
+
+        row = (
             await db.execute(
                 select(
                     func.count(Subdomain.id).label("total"),
@@ -181,17 +185,26 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
             )
         ).first()
 
+        if len(_STATS_CACHE) >= MAX_CACHE_SIZE:
+            _STATS_CACHE.clear()
+
+        _STATS_CACHE["stats_global"] = (now, row)
+        return row
+
     # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
     (
         row,
         (containers_total, containers_running),
+        disk_usage,
+        cpu_usage,
+        ram_usage,
     ) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
+        asyncio.to_thread(_disk_usage),
+        asyncio.to_thread(_cpu_usage),
+        asyncio.to_thread(_ram_usage),
     )
-    disk_usage = _disk_usage()
-    cpu_usage = _cpu_usage()
-    ram_usage = _ram_usage()
     hostname = _server_hostname()
 
     stats = {
