@@ -12,7 +12,7 @@ from fastapi.responses import Response
 logger = logging.getLogger(__name__)
 
 _REWRITE_PREFIXES = ("/wp-admin", "/wp-content", "/wp-includes")
-_HOP_BY_HOP = frozenset({"host", "connection", "transfer-encoding", "keep-alive", "upgrade"})
+_HOP_BY_HOP = frozenset({"connection", "transfer-encoding", "keep-alive", "upgrade"})
 
 
 def read_env(apps_dir: str, subdomain: str) -> dict[str, str]:
