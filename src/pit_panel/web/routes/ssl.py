@@ -58,7 +58,7 @@ def _sanitize(val: str) -> str:
 def _validate_domain(val: str) -> bool:
     if not val:
         return True
-    return bool(re.fullmatch(r"^[a-zA-Z0-9.-]+$", val))
+    return bool(re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$", val))
 
 
 def _get_acme_config(
