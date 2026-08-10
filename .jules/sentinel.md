@@ -6,4 +6,7 @@
 ## 2024-05-20 - Insecure File Upload Handling / Resource Exhaustion
 **Vulnerability:** The `upload_file` endpoint in `src/pit_panel/web/routes/file_manager.py` processed file uploads using `asyncio.to_thread` wrapping `shutil.copyfileobj(file.file, f)`. For large file uploads, this synchronous I/O can block thread pool workers and cause memory exhaustion or application slowdowns (DoS).
 **Learning:** When dealing with asynchronous Python web frameworks (like FastAPI), file operations shouldn't be naively offloaded to threads if they involve potentially unbound data copying from SpooledTemporaryFiles, as they still load large objects or block execution in ways that evade typical async resource management.
-**Prevention:** Always use `aiofiles.open` inside an `async with` context and perform chunked asynchronous reads (`await file.read(chunk_size)`) to stream file uploads to disk safely without blocking the event loop or consuming excessive memory.
+## 2024-08-10 - Fix Path Traversal in _safe_path
+**Vulnerability:** Path traversal vulnerability in `_safe_path` function due to insecure string matching (`str.startswith`).
+**Learning:** The use of `str.startswith()` for path validation does not respect directory boundaries, allowing access to unintended paths sharing a common string prefix.
+**Prevention:** Always use `pathlib.Path.is_relative_to()` to validate directory bounds securely in Python.
