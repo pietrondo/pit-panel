@@ -122,7 +122,8 @@ class TestIPBanLogic:
 
 
 class TestSecurityApp:
-    def test_security_routes_registered(self: Any, settings: Any) -> None:
+    @pytest.mark.asyncio
+    async def test_security_routes_registered(self: Any, settings: Any) -> None:
         from pit_panel.web.app import create_app
 
         app = create_app(settings)
@@ -195,7 +196,8 @@ async def test_ban_ip_no_expiry(db_session: Any) -> None:
 
 
 class TestSystemApp:
-    def test_system_routes_registered(self: Any, settings: Any) -> None:
+    @pytest.mark.asyncio
+    async def test_system_routes_registered(self: Any, settings: Any) -> None:
         from pit_panel.web.app import create_app
 
         app = create_app(settings)
