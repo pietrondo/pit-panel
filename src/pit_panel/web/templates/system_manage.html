@@ -198,19 +198,19 @@
             <div class="card p-6">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">System Logs</h3>
                 <div class="flex flex-wrap gap-3">
-                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_panel"}' hx-target="#result"
+                    <button class="btn-primary text-sm" aria-label="Pit-Panel logs" hx-post="/system/manage/action" hx-vals='{"action": "journal_panel"}' hx-target="#result"
                             hx-on::before-request="loading = true" hx-on::after-request="loading = false">
                         Pit-Panel
                     </button>
-                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_caddy"}' hx-target="#result"
+                    <button class="btn-primary text-sm" aria-label="Caddy logs" hx-post="/system/manage/action" hx-vals='{"action": "journal_caddy"}' hx-target="#result"
                             hx-on::before-request="loading = true" hx-on::after-request="loading = false">
                         Caddy
                     </button>
-                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_docker"}' hx-target="#result"
+                    <button class="btn-primary text-sm" aria-label="Docker logs" hx-post="/system/manage/action" hx-vals='{"action": "journal_docker"}' hx-target="#result"
                             hx-on::before-request="loading = true" hx-on::after-request="loading = false">
                         Docker
                     </button>
-                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_ssh"}' hx-target="#result"
+                    <button class="btn-primary text-sm" aria-label="SSH logs" hx-post="/system/manage/action" hx-vals='{"action": "journal_ssh"}' hx-target="#result"
                             hx-on::before-request="loading = true" hx-on::after-request="loading = false">
                         SSH
                     </button>
