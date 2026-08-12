@@ -26,3 +26,6 @@
 ## 2025-02-12 - In-Memory Cache for DB Queries in Fast Polling Routes
 **Learning:** High-frequency polling endpoints (like HTMX updating every 10 seconds) execute identical database queries for each connected client unnecessarily. Uncached repetitive DB polling creates bottlenecks.
 **Action:** Implement a short-lived in-memory cache using a bounded dictionary structure with a manual `MAX_CACHE_SIZE` limit and TTL checks via `time.monotonic()` for global data fetched on high-frequency routes to reduce DB load.
+## 2026-08-12 - In-Memory Cache for DB Queries in Middleware Security Checks
+**Learning:** High-frequency polling endpoints and middleware (like `_ip_ban_middleware`) execute identical database queries for each connected client unnecessarily. Uncached repetitive DB polling creates bottlenecks.
+**Action:** Implement a short-lived in-memory cache using a bounded dictionary structure with a manual `MAX_CACHE_SIZE` limit and TTL checks via `time.monotonic()` for global data fetched on high-frequency routes or middleware to reduce DB load, ensuring to clear the cache upon updates.
