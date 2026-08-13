@@ -271,9 +271,11 @@ async def test_get_current_sha_failure():
         stdout = ""
         stderr = "error"
 
-    with patch("pit_panel.web.routes.system._run", AsyncMock(return_value=MockRes())):
-        with pytest.raises(RuntimeError):
-            await _get_current_sha()
+    with (
+        patch("pit_panel.web.routes.system._run", AsyncMock(return_value=MockRes())),
+        pytest.raises(RuntimeError),
+    ):
+        await _get_current_sha()
 
 
 @pytest.mark.asyncio
