@@ -256,8 +256,8 @@ async def _fail2ban_unban(jail: str, ip: str) -> bool:
         raise ValueError("Invalid jail name")
     try:
         ipaddress.ip_address(ip)
-    except ValueError:
-        raise ValueError("Invalid IP address")
+    except ValueError as e:
+        raise ValueError("Invalid IP address") from e
     out = await _run_cmd(["sudo", "-n", "fail2ban-client", "set", jail, "unbanip", ip], timeout=10)
     return ip not in out
 
