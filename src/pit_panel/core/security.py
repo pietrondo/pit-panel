@@ -233,6 +233,9 @@ async def _ensure_fail2ban_jails():
 
 
 async def _fail2ban_jail_banned(jail: str) -> list[dict[str, str]]:
+    import re
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        raise ValueError("Invalid jail name")
     out = await _run_cmd(["sudo", "-n", "/usr/bin/fail2ban-client", "status", jail], timeout=10)
     ips = []
     for line in out.split("\n"):
@@ -247,6 +250,14 @@ async def _fail2ban_jail_banned(jail: str) -> list[dict[str, str]]:
 
 
 async def _fail2ban_unban(jail: str, ip: str) -> bool:
+    import ipaddress
+    import re
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        raise ValueError("Invalid jail name")
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        raise ValueError("Invalid IP address")
     out = await _run_cmd(["sudo", "-n", "fail2ban-client", "set", jail, "unbanip", ip], timeout=10)
     return ip not in out
 
@@ -276,6 +287,9 @@ async def unban_ip_address(db: AsyncSession, ip: str, user_id: int | None = None
 
 
 async def _get_jail_config(jail: str) -> dict[str, Any]:
+    import re
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        raise ValueError("Invalid jail name")
     bantime = await _run_cmd(["sudo", "-n", "fail2ban-client", "get", jail, "bantime"])
     findtime = await _run_cmd(["sudo", "-n", "fail2ban-client", "get", jail, "findtime"])
     maxretry = await _run_cmd(["sudo", "-n", "fail2ban-client", "get", jail, "maxretry"])
@@ -295,6 +309,9 @@ async def _get_jail_config(jail: str) -> dict[str, Any]:
 
 
 async def _save_jail_config(jail: str, bantime: Any, findtime: Any, maxretry: Any) -> bool:
+    import re
+    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+        raise ValueError("Invalid jail name")
     import configparser
     from io import StringIO
 
