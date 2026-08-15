@@ -18,13 +18,24 @@ MAX_CACHE_SIZE = 1000
 CACHE_TTL_SECONDS = 30.0
 
 
-async def is_ip_banned(db: AsyncSession, ip: str) -> bool:
+def check_ip_banned_cache(ip: str) -> bool | None:
+    """
+    ⚡ Bolt Optimization:
+    Fast-path cache lookup that can be called synchronously.
+    This allows middleware to check the cache BEFORE paying the overhead
+    of establishing a database session via async sessionmaker.
+    """
     now = time.monotonic()
-
     if ip in _IP_BAN_CACHE:
         cached_at, is_banned = _IP_BAN_CACHE[ip]
         if now - cached_at < CACHE_TTL_SECONDS:
             return is_banned
+    return None
+
+async def is_ip_banned(db: AsyncSession, ip: str) -> bool:
+    cached = check_ip_banned_cache(ip)
+    if cached is not None:
+        return cached
 
     result = await db.execute(
         select(IPBan).where(
@@ -37,7 +48,7 @@ async def is_ip_banned(db: AsyncSession, ip: str) -> bool:
     if len(_IP_BAN_CACHE) >= MAX_CACHE_SIZE:
         _IP_BAN_CACHE.clear()
 
-    _IP_BAN_CACHE[ip] = (now, banned)
+    _IP_BAN_CACHE[ip] = (time.monotonic(), banned)
     return banned
 
 

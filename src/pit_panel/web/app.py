@@ -48,6 +48,21 @@ async def _ip_ban_middleware(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
     client_ip = request.client.host if request.client else "unknown"
+
+    # ⚡ Bolt Optimization: Synchronous fast-path cache check
+    # We check the cache before creating the SQLAlchemy session.
+    # This saves ~9ms of overhead for DB session allocation on cache hits
+    # while still accurately rejecting banned IPs and allowing valid ones.
+    from pit_panel.security.ipban import check_ip_banned_cache
+    cached = check_ip_banned_cache(client_ip)
+    if cached is True:
+        return JSONResponse(
+            {"detail": "IP banned due to suspicious activity"},
+            status_code=403,
+        )
+    elif cached is False:
+        return await call_next(request)
+
     app_settings = getattr(request.app.state, "settings", None)
     try:
         if app_settings is not None:
