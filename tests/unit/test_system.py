@@ -234,3 +234,161 @@ def test_resolve_uv_bin_not_found():
         pytest.raises(FileNotFoundError),
     ):
         _resolve_uv_bin()
+
+
+@pytest.mark.asyncio
+async def test_run_timeout():
+    import asyncio
+
+    from pit_panel.web.routes.system import _run
+
+    async def mock_communicate():
+        await asyncio.sleep(2)
+        return b"", b""
+
+    class MockProc:
+        def __init__(self):
+            self.returncode = None
+
+        async def communicate(self):
+            return await mock_communicate()
+
+        def kill(self):
+            pass
+
+    with patch("asyncio.create_subprocess_exec", return_value=MockProc()):
+        res = await _run(["echo"], timeout=0.01)
+        assert res.returncode == -1
+        assert res.stderr == "Timeout"
+
+
+@pytest.mark.asyncio
+async def test_get_current_sha_failure():
+    from pit_panel.web.routes.system import _get_current_sha
+
+    class MockRes:
+        returncode = 1
+        stdout = ""
+        stderr = "error"
+
+    with (
+        patch("pit_panel.web.routes.system._run", AsyncMock(return_value=MockRes())),
+        pytest.raises(RuntimeError),
+    ):
+        await _get_current_sha()
+
+
+@pytest.mark.asyncio
+async def test_get_git_info_all_failures():
+    from pit_panel.web.routes.system import _get_git_info, _git_info_cache
+
+    _git_info_cache.clear()
+
+    with (
+        patch("asyncio.create_subprocess_exec", side_effect=Exception("Failed")),
+        patch("httpx.AsyncClient.get", side_effect=Exception("Failed HTTP")),
+    ):
+        current, remote = await _get_git_info()
+        assert current == "unknown"
+        assert remote == "unknown"
+
+
+def test_system_page_unauthorized(client: TestClient, monkeypatch):
+    async def mock_get_admin(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("pit_panel.web.routes.system.get_admin", mock_get_admin)
+    response = client.get("/system", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
+
+
+def test_system_upgrade_unauthorized(client: TestClient, monkeypatch):
+    async def mock_get_admin(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("pit_panel.web.routes.system.get_admin", mock_get_admin)
+    response = client.post("/system/upgrade", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
+
+
+@patch("pit_panel.web.routes.system._get_current_sha", new_callable=AsyncMock)
+def test_system_upgrade_get_sha_fails(mock_get_sha, client: TestClient, monkeypatch):
+    async def mock_get_admin(*args, **kwargs):
+        from pit_panel.db.models import User
+        return User(id=1, username="admin", is_admin=True)
+    monkeypatch.setattr("pit_panel.web.routes.system.get_admin", mock_get_admin)
+
+    mock_get_sha.side_effect = Exception("SHA fetch failed")
+
+    response = client.post("/system/upgrade")
+    assert response.status_code == 200
+    assert b"FAIL git SHA check: SHA fetch failed" in response.content
+
+
+@patch("pit_panel.web.routes.system._get_current_sha", new_callable=AsyncMock)
+@patch("pit_panel.web.routes.system._resolve_uv_bin")
+def test_system_upgrade_uv_bin_fails(
+    mock_resolve_uv, mock_get_sha, client: TestClient, monkeypatch
+):
+    async def mock_get_admin(*args, **kwargs):
+        from pit_panel.db.models import User
+        return User(id=1, username="admin", is_admin=True)
+    monkeypatch.setattr("pit_panel.web.routes.system.get_admin", mock_get_admin)
+
+    mock_get_sha.return_value = "mock_sha"
+    mock_resolve_uv.side_effect = Exception("uv fetch failed")
+
+    response = client.post("/system/upgrade")
+    assert response.status_code == 200
+    assert b"FAIL uv path check: uv fetch failed" in response.content
+
+
+@patch("pit_panel.web.routes.system._get_current_sha", new_callable=AsyncMock)
+@patch("pit_panel.web.routes.system._resolve_uv_bin")
+@patch("pit_panel.web.routes.system._run")
+@patch("pit_panel.web.routes.system._sudo")
+def test_system_upgrade_db_commit_fails(
+    mock_sudo,
+    mock_run,
+    mock_resolve_uv,
+    mock_get_sha,
+    client: TestClient,
+    monkeypatch,
+):
+    async def mock_get_admin(*args, **kwargs):
+        from pit_panel.db.models import User
+        return User(id=1, username="admin", is_admin=True)
+    monkeypatch.setattr("pit_panel.web.routes.system.get_admin", mock_get_admin)
+
+    class MockResult:
+        def __init__(self, returncode=0, stdout="", stderr=""):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    mock_get_sha.return_value = "mock_sha"
+    mock_resolve_uv.return_value = "/bin/uv"
+    mock_run.return_value = MockResult(0, "success")
+    mock_sudo.return_value = MockResult(0, "success")
+
+    async def failing_get_db():
+        class FailingSession:
+            def add(self, *args, **kwargs):
+                pass
+
+            async def commit(self):
+                raise Exception("DB failure")
+
+            async def execute(self, *args, **kwargs):
+                return AsyncMock()
+
+        yield FailingSession()
+
+    monkeypatch.setattr("pit_panel.web.routes.system.get_db", failing_get_db)
+
+    with patch("pit_panel.core.sudo_ops.run_cmd", new_callable=AsyncMock):
+        response = client.post("/system/upgrade")
+        assert response.status_code == 200
+        assert b"OK" in response.content
