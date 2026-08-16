@@ -29,3 +29,6 @@
 ## 2026-08-12 - In-Memory Cache for DB Queries in Middleware Security Checks
 **Learning:** High-frequency polling endpoints and middleware (like `_ip_ban_middleware`) execute identical database queries for each connected client unnecessarily. Uncached repetitive DB polling creates bottlenecks.
 **Action:** Implement a short-lived in-memory cache using a bounded dictionary structure with a manual `MAX_CACHE_SIZE` limit and TTL checks via `time.monotonic()` for global data fetched on high-frequency routes or middleware to reduce DB load, ensuring to clear the cache upon updates.
+## 2025-02-12 - Skip DB Session Creation for Middleware Cache Hits
+**Learning:** Even when `is_ip_banned` utilizes an in-memory cache, instantiating the SQLAlchemy database session in middleware (`async with sessionmaker() as db:`) on every request takes significant overhead (~9ms vs ~0.06ms). Bypassing DB session creation entirely when an IP is already cached and valid dramatically speeds up middleware execution for cache hits.
+**Action:** When using in-memory caching for database queries in middleware (like IP banning), extract the cache-checking logic to a fast, synchronous path that executes *before* establishing the database session context.
