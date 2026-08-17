@@ -32,3 +32,7 @@
 ## 2025-02-12 - Skip DB Session Creation for Middleware Cache Hits
 **Learning:** Even when `is_ip_banned` utilizes an in-memory cache, instantiating the SQLAlchemy database session in middleware (`async with sessionmaker() as db:`) on every request takes significant overhead (~9ms vs ~0.06ms). Bypassing DB session creation entirely when an IP is already cached and valid dramatically speeds up middleware execution for cache hits.
 **Action:** When using in-memory caching for database queries in middleware (like IP banning), extract the cache-checking logic to a fast, synchronous path that executes *before* establishing the database session context.
+
+## 2026-08-17 - Expensive Security Object Instantiation in Hot Paths
+**Learning:** Dynamically instantiating `itsdangerous.URLSafeTimedSerializer` on every authenticated request (via dependency injection) adds ~0.5ms overhead per request. This was happening in `get_current_user` despite a cached serializer existing in `auth.py`.
+**Action:** Always reuse security object instances (serializers, hashers, etc.) across requests, especially in authentication middleware or global dependencies. Check for existing cached singletons before instantiating inline.
