@@ -367,6 +367,10 @@ async def app_deploy(
 ):
     user = await get_user(request, db)
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = "/login"
+            return response
         return RedirectResponse("/login", status_code=302)
 
     settings = get_settings()
