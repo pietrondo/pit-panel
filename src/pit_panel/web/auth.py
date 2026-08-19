@@ -1,5 +1,6 @@
 import datetime
 import secrets
+import time
 from typing import Any, cast
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -51,6 +52,10 @@ def create_session_token(
     return raw, signed
 
 
+_SESSION_CACHE: dict[str, tuple[float, int]] = {}
+MAX_SESSION_CACHE_SIZE = 1000
+SESSION_CACHE_TTL_SECONDS = 15.0
+
 def unsign_session_token(settings: Settings, cookie_value: str) -> dict[str, Any] | None:
     serializer = get_serializer(settings)
     try:
@@ -68,6 +73,13 @@ async def validate_session(
     data: dict[str, Any] | None = None,
 ) -> User | None:
     from sqlalchemy import select
+
+    now = time.monotonic()
+    if cookie_value in _SESSION_CACHE:
+        cached_at, cached_uid = _SESSION_CACHE[cookie_value]
+        if now - cached_at < SESSION_CACHE_TTL_SECONDS and cached_uid == user_id:
+            res = await db_session.execute(select(User).where(User.id == user_id))
+            return cast(User | None, res.scalar_one_or_none())
 
     if data is None:
         data = unsign_session_token(settings, cookie_value)
@@ -87,7 +99,14 @@ async def validate_session(
             DBSession.expires_at > datetime.datetime.now(datetime.UTC),
         )
     )
-    return cast(User | None, result.scalar_one_or_none())
+    user = cast(User | None, result.scalar_one_or_none())
+
+    if user:
+        if len(_SESSION_CACHE) >= MAX_SESSION_CACHE_SIZE:
+            _SESSION_CACHE.clear()
+        _SESSION_CACHE[cookie_value] = (now, user.id)
+
+    return user
 
 
 async def create_session_record(
@@ -117,5 +136,6 @@ async def create_session_record(
 async def revoke_session(db_session: Any, session_id: int) -> None:
     from sqlalchemy import delete
 
+    _SESSION_CACHE.clear()
     await db_session.execute(delete(DBSession).where(DBSession.id == session_id))
     await db_session.commit()

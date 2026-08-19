@@ -32,3 +32,7 @@
 ## 2025-02-12 - Skip DB Session Creation for Middleware Cache Hits
 **Learning:** Even when `is_ip_banned` utilizes an in-memory cache, instantiating the SQLAlchemy database session in middleware (`async with sessionmaker() as db:`) on every request takes significant overhead (~9ms vs ~0.06ms). Bypassing DB session creation entirely when an IP is already cached and valid dramatically speeds up middleware execution for cache hits.
 **Action:** When using in-memory caching for database queries in middleware (like IP banning), extract the cache-checking logic to a fast, synchronous path that executes *before* establishing the database session context.
+
+## 2026-08-19 - Session Validation JOIN Bypass
+**Learning:** High-frequency HTMX polling routes trigger `validate_session` continuously, incurring an expensive `User` joined with `Session` database query on every request.
+**Action:** Implement a short-lived in-memory cache mapping session tokens to verified `user_id`s, reducing the DB lookup to a fast, direct table read on cache hits.
