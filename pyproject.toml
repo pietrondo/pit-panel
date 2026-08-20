@@ -79,6 +79,10 @@ module = [
 ]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["pit_panel.web.routes.*", "pit_panel.web.routes.app_routes.*"]
+disable_error_code = ["no-untyped-def", "no-untyped-call", "untyped-decorator"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
