@@ -105,9 +105,10 @@ def test_main_no_domain_binding(mock_mkdir, mock_from_config, mock_parse_args, m
 @patch("pit_panel.main.uvicorn.run")
 def test_main_if_name_main(mock_run):
     with patch.object(sys, "argv", ["pit-panel"]):
-        import pit_panel.main
         import pathlib
-        with patch.object(pathlib.Path, "mkdir"):
+        with patch.object(pathlib.Path, "mkdir"), patch("pit_panel.main.Path") as mock_path:
+            mock_path.return_value.mkdir = MagicMock()
+            mock_path.return_value.__truediv__.return_value = "/tmp/app.log"
             runpy.run_module("pit_panel.main", run_name="__main__")
         mock_run.assert_called_once()
 
@@ -118,6 +119,8 @@ def test_dunder_main():
         patch.object(sys, "argv", ["pit-panel"]),
     ):
         import pathlib
-        with patch.object(pathlib.Path, "mkdir"):
+        with patch.object(pathlib.Path, "mkdir"), patch("pit_panel.main.Path") as mock_path:
+            mock_path.return_value.mkdir = MagicMock()
+            mock_path.return_value.__truediv__.return_value = "/tmp/app.log"
             runpy.run_module("pit_panel.__main__", run_name="__main__")
         mock_run.assert_called_once()
