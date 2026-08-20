@@ -14,7 +14,9 @@ from pit_panel.db.models import AuditLog, Subdomain
 logger = logging.getLogger(__name__)
 
 
-def _get_db_service_info(compose_path: Path, env_path: Path) -> tuple | None:
+def _get_db_service_info(
+    compose_path: Path, env_path: Path
+) -> tuple[str, str, str, str, str] | None:
     import yaml
 
     try:
@@ -29,7 +31,7 @@ def _get_db_service_info(compose_path: Path, env_path: Path) -> tuple | None:
                     k, v = line.split("=", 1)
                     env_vars[k.strip()] = v.strip().strip('"').strip("'")
 
-        def _resolve(key: str, cfg: dict) -> str:
+        def _resolve(key: str, cfg: dict[str, Any]) -> str:
             val = cfg.get(key, "")
             if isinstance(val, str) and val.startswith("${") and val.endswith("}"):
                 inner = val[2:-1]

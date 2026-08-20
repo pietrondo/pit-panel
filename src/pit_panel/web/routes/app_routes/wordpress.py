@@ -5,6 +5,7 @@ import base64
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from fastapi import Depends, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -33,7 +34,7 @@ def _get_wp_port(settings, subdomain: str) -> int | None:
         return None
 
 
-async def _run_wp_cli(settings, subdomain: str, wp_args: list[str]) -> dict:
+async def _run_wp_cli(settings: Any, subdomain: str, wp_args: list[str]) -> dict[str, Any]:
     cwd = os.path.join(settings.apps_dir, subdomain)
     # Ensure wp-cli phar is available
     dl_proc = await asyncio.create_subprocess_exec(

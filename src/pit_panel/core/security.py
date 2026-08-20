@@ -3,7 +3,7 @@
 import asyncio
 import contextlib
 import re
-from typing import Any
+from typing import Any, cast
 
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,12 +25,12 @@ async def _run_cmd(cmd: list[str], timeout: int = 10, input: str | None = None) 
 def _get_client_ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for")
     if xff:
-        return xff.split(",")[0].strip()
+        return cast(str, xff.split(",")[0].strip())
     xri = request.headers.get("x-real-ip")
     if xri:
-        return xri.strip()
+        return cast(str, xri.strip())
     if request.client and request.client.host:
-        return request.client.host
+        return cast(str, request.client.host)
     return "127.0.0.1"
 
 
@@ -115,11 +115,11 @@ async def _add_ufw_rule(
             return False
     else:
         if source_ip:
-            cmd += [action_lower, "from", source_ip, "to", "any", "port", port]
+            cmd += [action_lower, "from", source_ip, "to", "any", "port", cast(str, port)]
             if protocol and protocol.lower() != "any":
                 cmd += ["proto", protocol.lower()]
         else:
-            rule = port
+            rule = cast(str, port)
             if protocol and protocol.lower() != "any":
                 rule = f"{port}/{protocol.lower()}"
             cmd += [action_lower, rule]
@@ -216,7 +216,7 @@ JAIL_DEFAULTS = {
 }
 
 
-async def _ensure_fail2ban_jails():
+async def _ensure_fail2ban_jails() -> None:
     lines = []
     for jail, cfg in JAIL_DEFAULTS.items():
         lines.append(f"[{jail}]")
@@ -297,7 +297,7 @@ async def _get_jail_config(jail: str) -> dict[str, Any]:
     findtime = await _run_cmd(["sudo", "-n", "fail2ban-client", "get", jail, "findtime"])
     maxretry = await _run_cmd(["sudo", "-n", "fail2ban-client", "get", jail, "maxretry"])
 
-    def parse_val(val, default):
+    def parse_val(val: str, default: Any) -> int:
         try:
             return int(val.strip())
         except Exception:
@@ -427,7 +427,7 @@ async def run_lynis_audit() -> dict[str, Any]:
     try:
         os.makedirs(cache_dir, exist_ok=True)
 
-        def _write_lynis():
+        def _write_lynis() -> None:
             with open(cache_path, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2)
 
