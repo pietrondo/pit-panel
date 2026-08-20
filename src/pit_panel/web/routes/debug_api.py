@@ -643,7 +643,7 @@ async def debug_compose(
 ) -> JSONResponse:
     app = (payload.get("app") or "").strip()
     action = (payload.get("action") or "restart").strip()
-    if not app or not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", app):
+    if not app or not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", app):
         raise HTTPException(status_code=400, detail="Invalid app name")
     if action not in _COMPOSE_ACTIONS:
         raise HTTPException(status_code=400, detail=f"action must be one of {_COMPOSE_ACTIONS}")
