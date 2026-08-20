@@ -6,6 +6,7 @@ import datetime
 import logging
 import os
 import shutil
+import tarfile
 from pathlib import Path
 
 from fastapi import Depends, Form, Request, WebSocket, WebSocketDisconnect
@@ -25,6 +26,30 @@ from pit_panel.web.render import render
 from .router import router
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_extract_tar(archive: tarfile.TarFile, destination: Path) -> None:
+    """Extract regular files/directories without permitting archive traversal."""
+    root = destination.resolve()
+    members = archive.getmembers()
+    for member in members:
+        target = (root / member.name).resolve()
+        if not target.is_relative_to(root) or member.issym() or member.islnk():
+            raise ValueError("Unsafe backup archive member")
+        if not (member.isdir() or member.isreg()):
+            raise ValueError("Unsupported backup archive member")
+
+    for member in members:
+        target = root / member.name
+        if member.isdir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        source = archive.extractfile(member)
+        if source is None:
+            raise ValueError("Unreadable backup archive member")
+        with source, target.open("wb") as output:
+            shutil.copyfileobj(source, output)
 
 
 @router.post("/apps/{sd_id}/restart", response_class=HTMLResponse)
@@ -401,10 +426,8 @@ async def app_backup_restore(
 
     try:
         await docker_mgr.run_compose_command(sd.subdomain, ["down"])
-        import tarfile as _tf
-
-        with _tf.open(backup_path, "r:gz") as tar:
-            tar.extractall(Path(settings.apps_dir), filter="fully_trusted")
+        with tarfile.open(backup_path, "r:gz") as tar:
+            _safe_extract_tar(tar, Path(settings.apps_dir))
         await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
 
         db.add(

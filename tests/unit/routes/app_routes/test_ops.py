@@ -229,6 +229,25 @@ def test_backup_restore_authenticated(client, monkeypatch, tmp_path):
         client.app.dependency_overrides.clear()
 
 
+def test_safe_extract_tar_rejects_path_traversal(tmp_path):
+    import io
+    import tarfile
+
+    from pit_panel.web.routes.app_routes.ops import _safe_extract_tar
+
+    archive_path = tmp_path / "unsafe.tar.gz"
+    with tarfile.open(archive_path, "w:gz") as archive:
+        info = tarfile.TarInfo("../../outside.txt")
+        payload = b"unsafe"
+        info.size = len(payload)
+        archive.addfile(info, io.BytesIO(payload))
+
+    with tarfile.open(archive_path, "r:gz") as archive, pytest.raises(
+        ValueError, match="Unsafe"
+    ):
+        _safe_extract_tar(archive, tmp_path / "apps")
+
+
 def test_backup_run_authenticated(client, monkeypatch, tmp_path):
     from pit_panel.config import Settings
 
