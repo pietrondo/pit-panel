@@ -84,20 +84,16 @@ class TestGetCurrentUser:
 
     async def test_invalid_cookie(self, mock_request, mock_db, settings):
         mock_request.cookies = {SESSION_COOKIE: "invalid"}
-        import itsdangerous
 
-        with pytest.raises(itsdangerous.BadSignature):
+        with pytest.raises(HTTPException) as exc:
             await get_current_user(mock_request, mock_db, settings)
+        assert exc.value.status_code == 401
 
     async def test_missing_uid(self, mock_request, mock_db, settings, monkeypatch):
         mock_request.cookies = {SESSION_COOKIE: "valid"}
 
-        class MockSerializer:
-            def loads(self, cookie):
-                return {"other": "data"}
-
         monkeypatch.setattr(
-            "itsdangerous.URLSafeTimedSerializer", lambda *args, **kwargs: MockSerializer()
+            "pit_panel.web.deps.unsign_session_token", lambda s, c: {"other": "data"}
         )
 
         with pytest.raises(HTTPException) as exc:
@@ -107,12 +103,8 @@ class TestGetCurrentUser:
     async def test_invalid_session(self, mock_request, mock_db, settings, monkeypatch):
         mock_request.cookies = {SESSION_COOKIE: "valid"}
 
-        class MockSerializer:
-            def loads(self, cookie):
-                return {"uid": 1}
-
         monkeypatch.setattr(
-            "itsdangerous.URLSafeTimedSerializer", lambda *args, **kwargs: MockSerializer()
+            "pit_panel.web.deps.unsign_session_token", lambda s, c: {"uid": 1}
         )
 
         async def mock_validate(*args, **kwargs):
@@ -127,12 +119,8 @@ class TestGetCurrentUser:
     async def test_valid_session(self, mock_request, mock_db, settings, monkeypatch):
         mock_request.cookies = {SESSION_COOKIE: "valid"}
 
-        class MockSerializer:
-            def loads(self, cookie):
-                return {"uid": 1}
-
         monkeypatch.setattr(
-            "itsdangerous.URLSafeTimedSerializer", lambda *args, **kwargs: MockSerializer()
+            "pit_panel.web.deps.unsign_session_token", lambda s, c: {"uid": 1}
         )
 
         expected_user = User(id=1, username="test")
