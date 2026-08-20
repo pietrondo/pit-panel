@@ -177,7 +177,15 @@ async def app_renew_ssl(request: Request, sd_id: int, db: AsyncSession = Depends
 @router.post("/apps/{sd_id}/stop", response_class=HTMLResponse)
 async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
+
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+
+            response.headers["HX-Redirect"] = "/login"
+
+            return response
+
         return RedirectResponse("/login", status_code=302)
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
@@ -203,7 +211,15 @@ async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_
 @router.post("/apps/{sd_id}/clone", response_class=HTMLResponse)
 async def app_clone(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
+
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+
+            response.headers["HX-Redirect"] = "/login"
+
+            return response
+
         return RedirectResponse("/login", status_code=302)
 
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
@@ -251,7 +267,15 @@ async def app_clone(request: Request, sd_id: int, db: AsyncSession = Depends(get
 @router.post("/apps/{sd_id}/delete", response_class=HTMLResponse)
 async def app_delete(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
+
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+
+            response.headers["HX-Redirect"] = "/login"
+
+            return response
+
         return RedirectResponse("/login", status_code=302)
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()

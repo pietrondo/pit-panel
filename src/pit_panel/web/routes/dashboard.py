@@ -85,7 +85,15 @@ MAX_CACHE_SIZE = 100
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
+
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+
+            response.headers["HX-Redirect"] = "/login"
+
+            return response
+
         return RedirectResponse("/login", status_code=302)
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
