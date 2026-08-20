@@ -1,5 +1,6 @@
 import datetime
 import secrets
+import time
 from typing import Any, cast
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -60,6 +61,11 @@ def unsign_session_token(settings: Settings, cookie_value: str) -> dict[str, Any
         return None
 
 
+
+_SESSION_CACHE: dict[str, tuple[float, Any]] = {}
+_SESSION_CACHE_MAX_SIZE = 1000
+_SESSION_CACHE_TTL = 30.0
+
 async def validate_session(
     db_session: Any,
     cookie_value: str,
@@ -77,6 +83,16 @@ async def validate_session(
     token_hash = data.get("tok")
     session_id = data.get("sid")
 
+    now = time.monotonic()
+    cache_key = f"{session_id}:{token_hash}:{user_id}"
+    if cache_key in _SESSION_CACHE:
+        cached_at, user_data = _SESSION_CACHE[cache_key]
+        if now - cached_at < _SESSION_CACHE_TTL:
+            if user_data is None:
+                return None
+            user = User(**user_data)
+            return user
+
     result = await db_session.execute(
         select(User)
         .join(DBSession, User.id == DBSession.user_id)
@@ -87,7 +103,28 @@ async def validate_session(
             DBSession.expires_at > datetime.datetime.now(datetime.UTC),
         )
     )
-    return cast(User | None, result.scalar_one_or_none())
+    user = result.scalar_one_or_none()
+
+    if len(_SESSION_CACHE) >= _SESSION_CACHE_MAX_SIZE:
+        _SESSION_CACHE.clear()
+
+    if user:
+        user_data = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "password_hash": user.password_hash,
+            "totp_secret": user.totp_secret,
+            "totp_enabled": user.totp_enabled,
+            "is_admin": user.is_admin,
+            "created_at": user.created_at,
+            "last_login": user.last_login
+        }
+        _SESSION_CACHE[cache_key] = (now, user_data)
+    else:
+        _SESSION_CACHE[cache_key] = (now, None)
+
+    return cast(User | None, user)
 
 
 async def create_session_record(
@@ -117,5 +154,9 @@ async def create_session_record(
 async def revoke_session(db_session: Any, session_id: int) -> None:
     from sqlalchemy import delete
 
+    # Clear cache entries matching this session
+    keys_to_delete = [k for k in _SESSION_CACHE if k.startswith(f"{session_id}:")]
+    for k in keys_to_delete:
+        del _SESSION_CACHE[k]
     await db_session.execute(delete(DBSession).where(DBSession.id == session_id))
     await db_session.commit()
