@@ -1,5 +1,5 @@
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -89,8 +89,6 @@ async def test_analyze_system_logs_exception(mock_exec: Any) -> None:
     assert result == []
 
 
-
-
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("asyncio.create_subprocess_exec")
 async def test_analyze_container_logs_success(mock_exec: Any) -> None:
@@ -98,7 +96,8 @@ async def test_analyze_container_logs_success(mock_exec: Any) -> None:
     mock_ps_proc.returncode = 0
     mock_ps_proc.communicate.return_value = (b"cid1|test-app1\ncid2|clamav-server\n", b"")
 
-    mock_logs_proc = AsyncMock()
+    mock_logs_proc = MagicMock()
+    mock_logs_proc.communicate = AsyncMock()
     mock_logs_proc.returncode = 0
     mock_logs_proc.communicate.return_value = (b"2026-07-02 10:00:00 ERROR Database timeout\n", b"")
 
@@ -118,6 +117,7 @@ async def test_analyze_container_logs_success(mock_exec: Any) -> None:
     assert result[0]["error"] == 1
     assert result[0]["warning"] == 0
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("asyncio.create_subprocess_exec")
 async def test_analyze_container_logs_failure(mock_exec: Any) -> None:
@@ -131,14 +131,18 @@ async def test_analyze_container_logs_failure(mock_exec: Any) -> None:
 
     assert result == []
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("asyncio.create_subprocess_exec")
 async def test_analyze_container_logs_timeout(mock_exec: Any) -> None:
-    mock_ps_proc = AsyncMock()
+    mock_ps_proc = MagicMock()
+    mock_ps_proc.communicate = MagicMock(return_value=object())
     mock_ps_proc.returncode = 0
     mock_ps_proc.communicate.return_value = (b"cid1|test-app1\n", b"")
 
-    mock_logs_proc = AsyncMock()
+    mock_logs_proc = MagicMock()
+    mock_logs_proc.communicate = MagicMock(return_value=object())
+    mock_logs_proc.kill = MagicMock()
     mock_logs_proc.communicate.side_effect = TimeoutError()
 
     async def side_effect(*args: Any, **kwargs: Any) -> AsyncMock:
@@ -154,6 +158,7 @@ async def test_analyze_container_logs_timeout(mock_exec: Any) -> None:
         result = await analyze_container_logs()
         assert result == []
 
+
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
 @patch("asyncio.create_subprocess_exec")
 async def test_analyze_container_logs_exception(mock_exec: Any) -> None:
@@ -163,11 +168,12 @@ async def test_analyze_container_logs_exception(mock_exec: Any) -> None:
 
     assert result == []
 
+
 def test_summarize_counts() -> None:
     issues: list[dict[str, Any]] = [
         {"severity": "error", "count": 2},
         {"severity": "error", "count": 1},
-        {"severity": "warning", "count": 3}
+        {"severity": "warning", "count": 3},
     ]
     counts = _summarize_counts(issues)
 
