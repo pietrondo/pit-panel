@@ -384,6 +384,7 @@ async def app_wp_fix_url(request: Request, sd_id: int, db: AsyncSession = Depend
         "PATCH",
         "OPTIONS",
     ],
+    include_in_schema=False,
 )
 async def app_proxy_service(
     request: Request, sd_id: int, service_name: str, db: AsyncSession = Depends(get_db)
@@ -489,6 +490,7 @@ async def app_proxy_service(
         "PATCH",
         "OPTIONS",
     ],
+    include_in_schema=False,
 )
 async def app_wp_proxy(request: Request, sd_id: int, path: str, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)

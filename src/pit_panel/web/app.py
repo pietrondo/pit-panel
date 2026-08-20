@@ -6,6 +6,7 @@ import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
@@ -19,6 +20,11 @@ from pit_panel.web.auth import SESSION_COOKIE
 from pit_panel.web.limiter import limiter
 
 logger = logging.getLogger(__name__)
+
+
+def _unique_operation_id(route: Any) -> str:
+    methods = "_".join(sorted(route.methods or ()))
+    return f"{route.name}_{methods}" if methods else route.name
 
 
 @asynccontextmanager
@@ -144,6 +150,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="pit-panel",
         version="0.1.0",
+        generate_unique_id_function=_unique_operation_id,
         docs_url="/api/docs" if settings.debug else None,
         redoc_url=None,
         lifespan=_lifespan,
