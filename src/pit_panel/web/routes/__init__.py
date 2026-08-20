@@ -8,6 +8,7 @@ from .file_manager import router as file_manager_router
 from .logs import router as logs_router
 from .security import router as security_router
 from .settings import router as settings_router
+from .site_builder import router as site_builder_router
 from .ssl import router as ssl_router
 from .subdomains import router as subdomains_router
 from .system import router as system_router
@@ -24,6 +25,7 @@ __all__ = [
     "logs_router",
     "security_router",
     "settings_router",
+    "site_builder_router",
     "ssl_router",
     "subdomains_router",
     "system_router",

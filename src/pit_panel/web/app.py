@@ -170,6 +170,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logs_router,
         security_router,
         settings_router,
+        site_builder_router,
         ssl_router,
         subdomains_router,
         system_manage_router,
@@ -186,6 +187,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(logs_router)
     app.include_router(security_router)
     app.include_router(settings_router)
+    app.include_router(site_builder_router)
     app.include_router(ssl_router)
     app.include_router(subdomains_router)
     app.include_router(system_router)

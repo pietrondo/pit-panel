@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ site.name }}{% endblock %}
+{% block content %}
+<div x-data="siteEditor()" x-init="init()" class="p-6 max-w-7xl mx-auto">
+    <header class="mb-4 flex items-center justify-between">
+        <div>
+            <a href="/site-builder" class="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">&larr; Back</a>
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">{{ site.name }}</h1>
+            <div class="text-xs text-slate-500">
+                <code>{{ site.subdomain }}</code>
+                <span class="ml-2 px-2 py-0.5 rounded text-xs
+                    {% if site.status == 'published' %}bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200
+                    {% else %}bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200{% endif %}">
+                    {{ site.status }}
+                </span>
+                <span x-show="saving" x-cloak class="ml-2 text-slate-400">Saving…</span>
+                <span x-show="savedAt" x-cloak class="ml-2 text-green-600" x-text="'Saved ' + savedAt"></span>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button type="button" @click="publish()"
+                    class="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white font-medium"
+                    :disabled="publishing">
+                <span x-show="!publishing">Publish</span>
+                <span x-show="publishing" x-cloak>Publishing…</span>
+            </button>
+        </div>
+    </header>
+
+    <div x-show="publishResult" x-cloak class="mb-4 p-3 rounded bg-green-50 text-green-800 text-sm border border-green-200">
+        <strong>Published:</strong>
+        <a :href="publishResult?.url" target="_blank" class="underline" x-text="publishResult?.url"></a>
+    </div>
+    <div x-show="publishError" x-cloak class="mb-4 p-3 rounded bg-red-50 text-red-800 text-sm border border-red-200">
+        <strong>Error:</strong> <span x-text="publishError"></span>
+    </div>
+
+    <div class="grid grid-cols-12 gap-4">
+        <aside class="col-span-3">
+            <h2 class="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Widgets</h2>
+            <p class="text-xs text-slate-500 mb-3">Click to add to the last column.</p>
+            <ul class="space-y-1">
+                <template x-for="wt in widgetDefs" :key="wt.type">
+                    <li>
+                        <button type="button" @click="addWidget(wt.type)"
+                                class="w-full text-left px-3 py-2 rounded border border-slate-300 dark:border-slate-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-sm">
+                            <span x-text="wt.label"></span>
+                        </button>
+                    </li>
+                </template>
+            </ul>
+
+            <button type="button" @click="addSection()"
+                    class="mt-4 w-full px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium">
+                + Add section
+            </button>
+        </aside>
+
+        <main class="col-span-9 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+            <template x-if="tree.sections.length === 0">
+                <p class="text-center text-slate-400 italic py-12">Empty site. Add a section to start.</p>
+            </template>
+            <template x-for="(section, sIdx) in tree.sections" :key="section.id">
+                <div class="mb-6 p-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold text-slate-500 uppercase" x-text="'Section ' + (sIdx + 1)"></span>
+                        <div class="flex gap-1">
+                            <button type="button" @click="addColumn(sIdx)" class="text-xs px-2 py-0.5 rounded border border-slate-300 dark:border-slate-600">+ Col</button>
+                            <button type="button" @click="removeSection(sIdx)" class="text-xs px-2 py-0.5 rounded border border-red-300 text-red-600">Del</button>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 flex-wrap" :data-section-id="section.id">
+                        <template x-for="(col, cIdx) in section.columns" :key="col.id">
+                            <div class="flex-1 min-w-[200px] bg-white dark:bg-slate-800 rounded p-2 border border-dashed border-slate-300 dark:border-slate-600">
+                                <div class="flex items-center justify-between mb-1">
+                                    <select @change="setColumnWidth(sIdx, cIdx, $event.target.value)"
+                                            class="text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600">
+                                        <template x-for="w in [1,2,3,4,6,12]" :key="w">
+                                            <option :value="w" :selected="col.width === w" x-text="w + '/12'"></option>
+                                        </template>
+                                    </select>
+                                    <button type="button" @click="removeColumn(sIdx, cIdx)" class="text-xs text-red-600">&times;</button>
+                                </div>
+                                <div class="space-y-2 min-h-[60px]" :data-col-id="col.id">
+                                    <template x-for="(widget, wIdx) in col.widgets" :key="widget.id">
+                                        <div class="rounded border border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-900/40">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <span class="text-xs font-medium text-slate-500 uppercase" x-text="widget.type"></span>
+                                                <button type="button" @click="removeWidget(sIdx, cIdx, wIdx)" class="text-xs text-red-600">&times;</button>
+                                            </div>
+                                            <template x-if="widget.type === 'heading'">
+                                                <div class="space-y-1">
+                                                    <input type="text" :value="widget.props.text || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'text', $event.target.value)" placeholder="Heading text" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    <select :value="widget.props.level || 2" @change="updateWidget(sIdx, cIdx, wIdx, 'level', $event.target.value)" class="text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                        <template x-for="lv in [1,2,3,4,5,6]" :key="lv">
+                                                            <option :value="lv" :selected="widget.props.level == lv" x-text="'H' + lv"></option>
+                                                        </template>
+                                                    </select>
+                                                </div>
+                                            </template>
+                                            <template x-if="widget.type === 'text'">
+                                                <textarea :value="widget.props.text || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'text', $event.target.value)" placeholder="Paragraph text" rows="3" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"></textarea>
+                                            </template>
+                                            <template x-if="widget.type === 'image'">
+                                                <div class="space-y-1">
+                                                    <input type="text" :value="widget.props.src || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'src', $event.target.value)" placeholder="Image URL" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    <input type="text" :value="widget.props.alt || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'alt', $event.target.value)" placeholder="Alt text" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                </div>
+                                            </template>
+                                            <template x-if="widget.type === 'button'">
+                                                <div class="space-y-1">
+                                                    <input type="text" :value="widget.props.text || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'text', $event.target.value)" placeholder="Button label" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    <input type="text" :value="widget.props.url || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'url', $event.target.value)" placeholder="https://..." class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                </div>
+                                            </template>
+                                            <template x-if="widget.type === 'divider'">
+                                                <p class="text-xs text-slate-400 italic">Visual separator (no properties)</p>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <p x-show="col.widgets.length === 0" class="text-xs text-slate-400 italic text-center py-2">Empty column</p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js" defer></script>
+<script>
+function siteEditor() {
+    return {
+        tree: { sections: [] },
+        widgetDefs: [
+            { type: 'heading', label: 'Heading' },
+            { type: 'text', label: 'Text' },
+            { type: 'image', label: 'Image' },
+            { type: 'button', label: 'Button' },
+            { type: 'divider', label: 'Divider' },
+        ],
+        saving: false,
+        savedAt: '',
+        publishing: false,
+        publishResult: null,
+        publishError: '',
+        saveTimer: null,
+        token() { return document.cookie.split('; ').find(r => r.startsWith('pitpanel_session='))?.split('=')[1] || ''; },
+        async init() {
+            try {
+                const resp = await fetch('/site-builder/sites/{{ site.id }}/widgets', {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    this.tree = data.tree || { sections: [] };
+                }
+            } catch (e) { console.error('load failed', e); }
+            this.$nextTick(() => this.initSortables());
+            this.$watch('tree', () => { this.queueSave(); this.$nextTick(() => this.initSortables()); }, { deep: true });
+        },
+        initSortables() {
+            this.$$('[data-col-id]').forEach(el => {
+                if (el._sortable) return;
+                el._sortable = new Sortable(el, {
+                    group: 'widgets',
+                    animation: 150,
+                    handle: '.rounded.border',
+                    onEnd: () => { this.rebuildFromDOM(); },
+                });
+            });
+        },
+        rebuildFromDOM() {
+            const sections = this.$$('[data-section-id]');
+            this.tree.sections = sections.map(secEl => {
+                const secId = secEl.dataset.sectionId;
+                const sec = this.tree.sections.find(s => s.id === secId) || { id: secId, columns: [] };
+                sec.columns = secEl.querySelectorAll('[data-col-id]').length
+                    ? Array.from(secEl.querySelectorAll('[data-col-id]')).map(colEl => {
+                        const colId = colEl.dataset.colId;
+                        const col = (sec.columns || []).find(c => c.id === colId) || { id: colId, width: 12, widgets: [] };
+                        col.widgets = Array.from(colEl.querySelectorAll('[data-col-id] > .rounded')).map((wEl, idx) => {
+                            const w = this.findWidget(col, wEl);
+                            return w || { id: 'tmp-' + idx, type: 'text', props: {} };
+                        });
+                        return col;
+                    })
+                    : sec.columns;
+                return sec;
+            });
+        },
+        findWidget(col, el) {
+            const labels = el.querySelectorAll('.text-xs.font-medium');
+            for (const w of (col.widgets || [])) {
+                if (w.id === el.dataset.widgetId) return w;
+            }
+            return col.widgets[0] || null;
+        },
+        queueSave() {
+            clearTimeout(this.saveTimer);
+            this.saveTimer = setTimeout(() => this.save(), 800);
+        },
+        async save() {
+            this.saving = true;
+            try {
+                const resp = await fetch('/site-builder/sites/{{ site.id }}/widgets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tree: this.tree }),
+                });
+                if (resp.ok) {
+                    const d = await resp.json();
+                    this.savedAt = new Date().toLocaleTimeString();
+                }
+            } catch (e) { console.error('save failed', e); }
+            this.saving = false;
+        },
+        addSection() {
+            const colId = this.uid();
+            this.tree.sections.push({
+                id: this.uid(),
+                columns: [{ id: colId, width: 12, widgets: [] }],
+            });
+        },
+        addColumn(sIdx) {
+            this.tree.sections[sIdx].columns.push({ id: this.uid(), width: 12, widgets: [] });
+        },
+        removeSection(sIdx) {
+            if (!confirm('Delete this section?')) return;
+            this.tree.sections.splice(sIdx, 1);
+        },
+        removeColumn(sIdx, cIdx) {
+            if (!confirm('Delete this column?')) return;
+            this.tree.sections[sIdx].columns.splice(cIdx, 1);
+        },
+        addWidget(type) {
+            const lastSec = this.tree.sections[this.tree.sections.length - 1];
+            if (!lastSec) {
+                this.addSection();
+                return this.addWidget(type);
+            }
+            const lastCol = lastSec.columns[lastSec.columns.length - 1];
+            if (!lastCol) { this.addColumn(this.tree.sections.length - 1); return this.addWidget(type); }
+            const defaults = { heading: { level: 2, text: 'Heading' }, text: { text: 'Lorem ipsum...' }, image: { src: '', alt: '' }, button: { text: 'Click', url: '#' }, divider: {} };
+            lastCol.widgets.push({ id: this.uid(), type, props: defaults[type] || {} });
+        },
+        removeWidget(sIdx, cIdx, wIdx) {
+            this.tree.sections[sIdx].columns[cIdx].widgets.splice(wIdx, 1);
+        },
+        updateWidget(sIdx, cIdx, wIdx, key, value) {
+            const w = this.tree.sections[sIdx].columns[cIdx].widgets[wIdx];
+            w.props = { ...(w.props || {}), [key]: key === 'level' ? parseInt(value, 10) : value };
+        },
+        setColumnWidth(sIdx, cIdx, width) {
+            this.tree.sections[sIdx].columns[cIdx].width = parseInt(width, 10);
+        },
+        uid() { return Math.random().toString(36).slice(2, 10); },
+        async publish() {
+            this.publishing = true;
+            this.publishError = '';
+            this.publishResult = null;
+            try {
+                await this.save();
+                const resp = await fetch('/site-builder/sites/{{ site.id }}/publish', { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok && data.status === 'published') {
+                    this.publishResult = data;
+                } else {
+                    this.publishError = data.detail || data.error || 'Unknown error';
+                }
+            } catch (e) {
+                this.publishError = String(e);
+            }
+            this.publishing = false;
+        },
+    }
+}
+</script>
+{% endblock %}

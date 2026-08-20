@@ -165,3 +165,24 @@ class LoginAttempt(Base):
     attempted_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, server_default=func.now(), index=True
     )
+
+
+class Site(Base):
+    """A user-built site managed by the integrated site builder."""
+
+    __tablename__ = "sites"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    subdomain: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), default="draft")
+    widgets_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    published_html_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+    published_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)

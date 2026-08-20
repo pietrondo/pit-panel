@@ -106,6 +106,33 @@ class CaddyManager:
     async def remove_main_domain(self, base_domain: str) -> dict[str, Any]:
         return await self._delete_route(f"main-{base_domain}")
 
+    async def add_static_subdomain(
+        self, subdomain: str, base_domain: str, html_dir: str
+    ) -> dict[str, Any]:
+        """Serve static files from html_dir at https://{subdomain}.{base_domain}.
+
+        Used by the site builder to publish a generated index.html as a
+        Caddy-served subdomain. Uses Caddy's `file_server` handler with
+        `hide` to enforce serving only index.html at root.
+        """
+        fqdn = f"{subdomain}.{base_domain}"
+        route = {
+            "@id": f"static-{fqdn}",
+            "match": [{"host": [fqdn]}],
+            "handle": [
+                {
+                    "handler": "filesystem",
+                    "root": html_dir,
+                    "index": "index.html",
+                },
+                {"handler": "file_server", "hide": [".*"]},
+            ],
+        }
+        return await self._patch_or_create_route(route)
+
+    async def remove_static_subdomain(self, subdomain: str, base_domain: str) -> dict[str, Any]:
+        return await self._delete_route(f"static-{subdomain}.{base_domain}")
+
     async def get_certificates(self) -> list[dict[str, Any]]:
         domains = await self._get_managed_domains()
         if not domains:
