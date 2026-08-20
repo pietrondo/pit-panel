@@ -95,7 +95,15 @@ async def containers_fragment(request: Request, db: AsyncSession = Depends(get_d
 @router.get("/containers", response_class=HTMLResponse)
 async def containers_list(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
     user = await get_user(request, db)
+
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+
+            response.headers["HX-Redirect"] = "/login"
+
+            return response
+
         return RedirectResponse("/login", status_code=302)
 
     settings = get_settings()
@@ -118,7 +126,15 @@ async def container_logs(
     request: Request, sd_id: int, db: AsyncSession = Depends(get_db)
 ) -> Response:
     user = await get_user(request, db)
+
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+
+            response.headers["HX-Redirect"] = "/login"
+
+            return response
+
         return RedirectResponse("/login", status_code=302)
 
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
@@ -141,7 +157,15 @@ async def container_restart(
     request: Request, sd_id: int, db: AsyncSession = Depends(get_db)
 ) -> Response:
     user = await get_user(request, db)
+
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+
+            response.headers["HX-Redirect"] = "/login"
+
+            return response
+
         return RedirectResponse("/login", status_code=302)
 
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))

@@ -135,7 +135,15 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> Redire
 @router.get("/setup-2fa", response_class=HTMLResponse)
 async def setup_2fa_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
+
     if not user:
+        if "hx-request" in request.headers:
+            response = HTMLResponse("")
+
+            response.headers["HX-Redirect"] = "/login"
+
+            return response
+
         return RedirectResponse("/login", status_code=302)
 
     if not user.totp_secret:
