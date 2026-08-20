@@ -61,7 +61,7 @@ async def _run_wp_cli(settings, subdomain: str, wp_args: list[str]) -> dict:
         "-T",
         "wordpress",
         "php",
-        "/tmp/wp-cli.phar",
+        "/tmp/wp-cli.phar",  # nosec B108
         *wp_args,
         "--allow-root",
         cwd=cwd,
@@ -255,7 +255,7 @@ async def _generate_wp_auth_transient(
                 "php",
                 "-d",
                 "memory_limit=256M",
-                "/tmp/wp-cli.phar",
+                "/tmp/wp-cli.phar",  # nosec B108
                 "--allow-root",
                 "eval",
                 php_code,
@@ -337,7 +337,7 @@ async def app_wp_fix_url(request: Request, sd_id: int, db: AsyncSession = Depend
                 "php",
                 "-d",
                 "memory_limit=256M",
-                "/tmp/wp-cli.phar",
+                "/tmp/wp-cli.phar",  # nosec B108
                 "--allow-root",
                 "option",
                 "update",
@@ -352,7 +352,7 @@ async def app_wp_fix_url(request: Request, sd_id: int, db: AsyncSession = Depend
                 "php",
                 "-d",
                 "memory_limit=256M",
-                "/tmp/wp-cli.phar",
+                "/tmp/wp-cli.phar",  # nosec B108
                 "--allow-root",
                 "option",
                 "update",

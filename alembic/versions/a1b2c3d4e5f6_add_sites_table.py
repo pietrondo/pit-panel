@@ -5,6 +5,7 @@ Revises: eed3ced4d83f
 Create Date: 2026-08-13 12:00:00.000000
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -41,9 +42,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("published_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["owner_user_id"], ["users.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["owner_user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("subdomain"),
     )

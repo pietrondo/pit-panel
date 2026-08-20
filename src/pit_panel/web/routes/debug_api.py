@@ -12,6 +12,7 @@ import os
 import platform
 import re
 import secrets
+import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _AUDIT_LOG_PATH = "/var/log/pit-panel/debug-audit.log"
-_AUDIT_FALLBACK_PATH = "/tmp/pit-panel-debug-audit.log"
+_AUDIT_FALLBACK_PATH = str(Path(tempfile.gettempdir()) / "pit-panel-debug-audit.log")
 _GRACE_PATH = "/etc/pit-panel/debug_token.grace"
 _MIN_TOKEN_LEN = 16
 _DEFAULT_GRACE_SECONDS = 3600

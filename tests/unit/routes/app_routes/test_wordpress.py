@@ -1,4 +1,3 @@
-
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -19,9 +18,6 @@ from pit_panel.web.routes.app_routes.wordpress import (
 )
 
 """Tests for app_routes/wordpress.py — WP proxy, auto-login, cache/plugin/core."""
-
-
-
 
 
 @pytest.fixture
@@ -88,10 +84,6 @@ async def test_fix_wp_site_url_calls_docker() -> None:
     await _fix_wp_site_url(docker_mgr_mock, "testsub", "testsub.example.com")
 
     docker_mgr_mock.exec_command.assert_called_once()
-
-
-
-
 
 
 @pytest.fixture
@@ -443,8 +435,6 @@ async def test_app_wp_fix_url_exception(mock_request, mock_db, auth_mock, monkey
     resp = await app_wp_fix_url(mock_request, 1, mock_db)
     assert resp.status_code == 200
     assert b"Errore: Crash" in resp.body
-
-
 
 
 @pytest.mark.asyncio

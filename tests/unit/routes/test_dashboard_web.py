@@ -14,7 +14,9 @@ from pit_panel.web.app import create_app
 @pytest.fixture(autouse=True)
 def clear_stats_cache() -> None:
     from pit_panel.web.routes.dashboard import _STATS_CACHE
+
     _STATS_CACHE.clear()
+
 
 @pytest.fixture
 async def async_client(

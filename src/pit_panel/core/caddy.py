@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 _last_ssl_renew_check: dt.datetime | None = None
 
 
-async def ssl_auto_renew_loop():
+async def ssl_auto_renew_loop() -> None:
     global _last_ssl_renew_check
     while True:
         await asyncio.sleep(21600)
@@ -182,7 +182,13 @@ class CaddyManager:
 
                     # Parse not_after using ssl.cert_time_to_seconds
                     try:
-                        expiry_timestamp = ssl.cert_time_to_seconds(not_after)
+                        expiry_timestamp = (
+                            ssl.cert_time_to_seconds(not_after)
+                            if isinstance(not_after, str)
+                            else None
+                        )
+                        if expiry_timestamp is None:
+                            raise ValueError("Certificate expiry is not a string")
                         expiry_dt = dt.datetime.fromtimestamp(expiry_timestamp, dt.UTC)
                         days = (expiry_dt - dt.datetime.now(dt.UTC)).days
                     except Exception:

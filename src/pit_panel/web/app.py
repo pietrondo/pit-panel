@@ -54,6 +54,7 @@ async def _ip_ban_middleware(
     # This saves ~9ms of overhead for DB session allocation on cache hits
     # while still accurately rejecting banned IPs and allowing valid ones.
     from pit_panel.security.ipban import check_ip_banned_cache
+
     cached = check_ip_banned_cache(client_ip)
     if cached is True:
         return JSONResponse(

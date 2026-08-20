@@ -317,7 +317,9 @@ def test_system_upgrade_unauthorized(client: TestClient, monkeypatch):
 def test_system_upgrade_get_sha_fails(mock_get_sha, client: TestClient, monkeypatch):
     async def mock_get_admin(*args, **kwargs):
         from pit_panel.db.models import User
+
         return User(id=1, username="admin", is_admin=True)
+
     monkeypatch.setattr("pit_panel.web.routes.system.get_admin", mock_get_admin)
 
     mock_get_sha.side_effect = Exception("SHA fetch failed")
@@ -334,7 +336,9 @@ def test_system_upgrade_uv_bin_fails(
 ):
     async def mock_get_admin(*args, **kwargs):
         from pit_panel.db.models import User
+
         return User(id=1, username="admin", is_admin=True)
+
     monkeypatch.setattr("pit_panel.web.routes.system.get_admin", mock_get_admin)
 
     mock_get_sha.return_value = "mock_sha"
@@ -359,7 +363,9 @@ def test_system_upgrade_db_commit_fails(
 ):
     async def mock_get_admin(*args, **kwargs):
         from pit_panel.db.models import User
+
         return User(id=1, username="admin", is_admin=True)
+
     monkeypatch.setattr("pit_panel.web.routes.system.get_admin", mock_get_admin)
 
     class MockResult:

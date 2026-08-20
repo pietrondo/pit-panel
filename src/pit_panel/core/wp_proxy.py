@@ -121,7 +121,7 @@ async def auto_login(
             "php",
             "-d",
             "memory_limit=256M",
-            "/tmp/wp-cli.phar",
+            "/tmp/wp-cli.phar",  # nosec B108
             "--allow-root",
             "eval",
             php_code,

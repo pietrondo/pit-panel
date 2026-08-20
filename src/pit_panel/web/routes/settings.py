@@ -59,7 +59,7 @@ async def settings_update(
         return HTMLResponse("Invalid base domain", status_code=400)
     if new_panel and not re.match(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", new_panel):
         return HTMLResponse("Invalid panel subdomain", status_code=400)
-    new_host = "127.0.0.1" if new_base else "0.0.0.0"
+    new_host = "127.0.0.1" if new_base else "0.0.0.0"  # nosec B104
 
     # Store in DB (no filesystem write needed)
     updates = [

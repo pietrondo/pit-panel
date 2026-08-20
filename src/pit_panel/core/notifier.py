@@ -24,7 +24,7 @@ async def send_telegram(message: str) -> bool:
             ok = resp.status_code == 200
             if not ok:
                 logger.warning("Telegram send failed: %s", resp.text[:200])
-            return ok
+            return bool(ok)
     except Exception as e:
         logger.warning("Telegram send error: %s", e)
         return False

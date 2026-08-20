@@ -32,6 +32,7 @@ def check_ip_banned_cache(ip: str) -> bool | None:
             return is_banned
     return None
 
+
 async def is_ip_banned(db: AsyncSession, ip: str) -> bool:
     cached = check_ip_banned_cache(ip)
     if cached is not None:

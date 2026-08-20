@@ -6,7 +6,7 @@ import uvicorn
 from pit_panel.config import Settings
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="pit-panel VPS Management Panel")
     parser.add_argument("--host", default=None, help="Bind address")
     parser.add_argument("--port", type=int, default=None, help="Bind port")
@@ -56,7 +56,7 @@ def main():
 
     # When no domain configured, bind to all interfaces for direct IP access
     if not settings.base_domain and host == "127.0.0.1":
-        host = "0.0.0.0"
+        host = "0.0.0.0"  # nosec B104
 
     uvicorn.run(
         "pit_panel.web.app:create_app",

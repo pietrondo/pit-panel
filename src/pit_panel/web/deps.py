@@ -1,4 +1,4 @@
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import Settings
@@ -8,7 +8,7 @@ from pit_panel.db.session import get_db
 from pit_panel.web.auth import SESSION_COOKIE, unsign_session_token, validate_session
 
 
-def get_settings():
+def get_settings() -> Settings:
     return _get_settings()
 
 
@@ -36,9 +36,7 @@ async def get_current_user(
     return user
 
 
-def _unauthorized():
-    from fastapi import HTTPException
-
+def _unauthorized() -> HTTPException:
     return HTTPException(status_code=401, detail="Not authenticated")
 
 

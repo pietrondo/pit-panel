@@ -242,9 +242,7 @@ def test_safe_extract_tar_rejects_path_traversal(tmp_path):
         info.size = len(payload)
         archive.addfile(info, io.BytesIO(payload))
 
-    with tarfile.open(archive_path, "r:gz") as archive, pytest.raises(
-        ValueError, match="Unsafe"
-    ):
+    with tarfile.open(archive_path, "r:gz") as archive, pytest.raises(ValueError, match="Unsafe"):
         _safe_extract_tar(archive, tmp_path / "apps")
 
 

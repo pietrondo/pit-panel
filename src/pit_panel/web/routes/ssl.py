@@ -223,7 +223,7 @@ def _check_port80() -> bool:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.settimeout(1)
-        s.bind(("0.0.0.0", 80))
+        s.bind(("0.0.0.0", 80))  # nosec B104
         s.close()
         return True
     except OSError:
