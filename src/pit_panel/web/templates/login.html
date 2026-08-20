@@ -46,21 +46,21 @@
                 <input type="hidden" name="username" value="{{ username }}">
                 <div class="mb-4">
                     <label for="totp_code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">TOTP Code</label>
-                    <input id="totp_code" type="text" name="totp_code" required autofocus
+                    <input id="totp_code" type="text" name="totp_code" required autofocus autocomplete="one-time-code"
                            class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none text-center text-2xl tracking-widest"
                            placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*">
                 </div>
                 {% else %}
                 <div class="mb-4">
                     <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
-                    <input id="username" type="text" name="username" required autofocus
+                    <input id="username" type="text" name="username" required autofocus autocomplete="username"
                            class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
                            placeholder="admin">
                 </div>
                 <div class="mb-6" x-data="{ showPassword: false }">
                     <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
                     <div class="relative">
-                        <input id="password" :type="showPassword ? 'text' : 'password'" name="password" required
+                        <input id="password" :type="showPassword ? 'text' : 'password'" name="password" required autocomplete="current-password"
                                class="w-full px-3 py-2 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
                                placeholder="••••••••">
                         <button type="button" @click="showPassword = !showPassword"
