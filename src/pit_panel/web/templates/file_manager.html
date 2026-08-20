@@ -143,7 +143,7 @@
                 <textarea x-model="editFileContent" aria-label="File content editor" class="flex-1 w-full p-4 font-mono text-sm border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none min-h-[400px]"></textarea>
             </div>
             <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/80 rounded-b-xl">
-                <button @click="editorOpen = false" class="btn btn-ghost">Cancel</button>
+                <button aria-label="Cancel editing" @click="editorOpen = false" class="btn btn-ghost">Cancel</button>
                 <button @click="saveFile()" class="btn btn-primary flex items-center justify-center gap-2" :disabled="saving" :class="{'opacity-75 cursor-wait': saving}">
                 <svg x-show="saving" x-cloak class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -188,7 +188,7 @@
                 </div>
             </div>
             <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/80 rounded-b-xl">
-                <button @click="createOpen = false" class="btn btn-ghost">Cancel</button>
+                <button aria-label="Cancel creating resource" @click="createOpen = false" class="btn btn-ghost">Cancel</button>
                 <button @click="createResource()" class="btn btn-primary flex items-center justify-center gap-2" :disabled="creating" :class="{'opacity-75 cursor-wait': creating}">
                     <svg x-show="creating" x-cloak class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
