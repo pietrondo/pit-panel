@@ -86,12 +86,13 @@ async def validate_session(
     now = time.monotonic()
     cache_key = f"{session_id}:{token_hash}:{user_id}"
     if cache_key in _SESSION_CACHE:
-        cached_at, user_data = _SESSION_CACHE[cache_key]
+        cached_at, cached_is_valid = _SESSION_CACHE[cache_key]
         if now - cached_at < _SESSION_CACHE_TTL:
-            if user_data is None:
+            if not cached_is_valid:
                 return None
-            user = User(**user_data)
-            return user
+            # Fetch user quickly without joining session, since we know session is valid via cache
+            result = await db_session.execute(select(User).where(User.id == user_id))
+            return cast(User | None, result.scalar_one_or_none())
 
     result = await db_session.execute(
         select(User)
@@ -108,22 +109,7 @@ async def validate_session(
     if len(_SESSION_CACHE) >= _SESSION_CACHE_MAX_SIZE:
         _SESSION_CACHE.clear()
 
-    if user:
-        user_data = {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "password_hash": user.password_hash,
-            "totp_secret": user.totp_secret,
-            "totp_enabled": user.totp_enabled,
-            "is_admin": user.is_admin,
-            "created_at": user.created_at,
-            "last_login": user.last_login
-        }
-        _SESSION_CACHE[cache_key] = (now, user_data)
-    else:
-        _SESSION_CACHE[cache_key] = (now, None)
-
+    _SESSION_CACHE[cache_key] = (now, user is not None)
     return cast(User | None, user)
 
 
