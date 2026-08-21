@@ -7,7 +7,6 @@ import pytest
 class TestSendTelegram:
     @pytest.mark.asyncio  # type: ignore[untyped-decorator]
     async def test_send_telegram_no_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from pit_panel.core import notifier
         from pit_panel.config import Settings
 
         s = Settings(secret_key="test", telegram_bot_token="", telegram_chat_id="")
@@ -19,7 +18,6 @@ class TestSendTelegram:
 
     @pytest.mark.asyncio  # type: ignore[untyped-decorator]
     async def test_send_telegram_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from pit_panel.core import notifier
         from pit_panel.config import Settings
 
         s = Settings(
@@ -48,7 +46,6 @@ class TestSendTelegram:
 
     @pytest.mark.asyncio  # type: ignore[untyped-decorator]
     async def test_send_telegram_http_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from pit_panel.core import notifier
         from pit_panel.config import Settings
 
         s = Settings(
@@ -78,7 +75,6 @@ class TestSendTelegram:
 
     @pytest.mark.asyncio  # type: ignore[untyped-decorator]
     async def test_send_telegram_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from pit_panel.core import notifier
         from pit_panel.config import Settings
 
         s = Settings(

@@ -1,8 +1,6 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from pit_panel.main import main
 
 
@@ -10,7 +8,7 @@ def test_main_default_args():
     with (
         patch("sys.argv", ["pit-panel"]),
         patch("pit_panel.config.Settings.from_config_file") as mock_settings,
-        patch("pathlib.Path.mkdir") as mock_mkdir,
+        patch("pathlib.Path.mkdir"),
         patch("uvicorn.run") as mock_run,
     ):
         mock_setting_instance = MagicMock()
@@ -35,7 +33,7 @@ def test_main_with_domain():
     with (
         patch("sys.argv", ["pit-panel", "--host", "192.168.1.1", "--port", "9000", "--reload"]),
         patch("pit_panel.config.Settings.from_config_file") as mock_settings,
-        patch("pathlib.Path.mkdir") as mock_mkdir,
+        patch("pathlib.Path.mkdir"),
         patch("uvicorn.run") as mock_run,
     ):
         mock_setting_instance = MagicMock()
@@ -57,20 +55,19 @@ def test_main_with_domain():
 
 
 def test_dunder_main():
-    with patch("sys.argv", ["pit-panel"]):
-        with patch("pit_panel.main.main") as mock_main:
-            if "pit_panel.__main__" in sys.modules:
-                del sys.modules["pit_panel.__main__"]
-            import runpy
+    with patch("sys.argv", ["pit-panel"]), patch("pit_panel.main.main") as mock_main:
+        if "pit_panel.__main__" in sys.modules:
+            del sys.modules["pit_panel.__main__"]
+        import runpy
 
-            runpy.run_module("pit_panel.__main__", run_name="__main__")
-            mock_main.assert_called_once()
+        runpy.run_module("pit_panel.__main__", run_name="__main__")
+        mock_main.assert_called_once()
 
 
 def test_main_dunder_main_block():
     with (
         patch("sys.argv", ["pit-panel"]),
-        patch("pit_panel.config.Settings.from_config_file") as mock_settings,
+        patch("pit_panel.config.Settings.from_config_file"),
         patch("pathlib.Path.mkdir"),
         patch("uvicorn.run") as mock_run,
     ):
