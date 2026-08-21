@@ -253,7 +253,7 @@ async def debug_docker_logs(
     lines: int = 100,
     token: str = Depends(_verify_token),
 ) -> PlainTextResponse:
-    if not _CONTAINER_RE.match(container):
+    if not _CONTAINER_RE.fullmatch(container):  # Security: use fullmatch to prevent newline bypass
         raise HTTPException(status_code=400, detail="Invalid container name")
     lines = max(1, min(int(lines), 5000))
     body = await _run(
@@ -282,7 +282,7 @@ async def debug_docker_stats(
 
     cmd = ["docker", "stats", "--no-stream", "--format", "{{json .}}"]
     if container is not None:
-        if not _CONTAINER_RE.match(container):
+        if not _CONTAINER_RE.fullmatch(container):  # Security: use fullmatch to prevent newline bypass
             raise HTTPException(status_code=400, detail="Invalid container name")
         cmd.insert(2, "--no-trunc")
         cmd.append(container)
@@ -687,7 +687,7 @@ async def tail_ws(
     or service name malformed; otherwise opens the subprocess and streams
     its stdout as text frames until the client disconnects.
     """
-    if not _CONTAINER_RE.match(service):
+    if not _CONTAINER_RE.fullmatch(service):  # Security: use fullmatch to prevent newline bypass
         await websocket.close(code=1008, reason="invalid service name")
         return
 
