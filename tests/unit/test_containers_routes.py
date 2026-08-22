@@ -1,14 +1,14 @@
 import unittest.mock
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from fastapi.responses import HTMLResponse
 
-from pit_panel.web.routes.containers import router as containers_router
-from pit_panel.db.session import get_db
-from pit_panel.web.deps import get_user
+import pytest
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from fastapi.testclient import TestClient
+
 from pit_panel.db.models import Subdomain
+from pit_panel.db.session import get_db
+from pit_panel.web.routes.containers import router as containers_router
 
 
 @pytest.fixture
@@ -38,6 +38,7 @@ def client(app, mock_db, mock_user):
         mock.return_value = mock_user
         yield TestClient(app)
 
+
 @pytest.fixture
 def unauth_client(app, mock_db):
     app.dependency_overrides[get_db] = lambda: mock_db
@@ -49,7 +50,9 @@ def unauth_client(app, mock_db):
 # Mock _get_containers_data globally to avoid slow docker ops
 @pytest.fixture(autouse=True)
 def mock_get_containers_data():
-    with patch("pit_panel.web.routes.containers._get_containers_data", new_callable=AsyncMock) as mock:
+    with patch(
+        "pit_panel.web.routes.containers._get_containers_data", new_callable=AsyncMock
+    ) as mock:
         mock.return_value = ({}, {}, [])
         yield mock
 
@@ -76,6 +79,7 @@ def mock_render():
 
 # --- tests for /containers/fragment ---
 
+
 def test_containers_fragment_unauth(unauth_client):
     response = unauth_client.get("/containers/fragment")
     assert response.status_code == 200
@@ -91,6 +95,7 @@ def test_containers_fragment_auth(client, mock_render):
 
 
 # --- tests for /containers ---
+
 
 def test_containers_list_unauth_regular(unauth_client):
     response = unauth_client.get("/containers", follow_redirects=False)
@@ -111,6 +116,7 @@ def test_containers_list_auth(client):
 
 
 # --- tests for /containers/{sd_id}/logs ---
+
 
 def test_container_logs_unauth_regular(unauth_client):
     response = unauth_client.get("/containers/1/logs", follow_redirects=False)
@@ -138,7 +144,10 @@ def test_container_logs_auth_found(client, mock_db, mock_docker_manager, mock_re
     assert response.status_code == 200
     assert response.text == "rendered"
     mock_docker_manager.compose_logs.assert_called_once_with("test", tail=200)
-    mock_render.assert_called_once_with("container_logs.html", user=unittest.mock.ANY, subdomain=sd, logs="logs")
+    mock_render.assert_called_once_with(
+        "container_logs.html", user=unittest.mock.ANY, subdomain=sd, logs="logs"
+    )
+
 
 def test_container_logs_auth_found_error(client, mock_db, mock_docker_manager, mock_render):
     sd = Subdomain(id=1, subdomain="test")
@@ -147,10 +156,13 @@ def test_container_logs_auth_found_error(client, mock_db, mock_docker_manager, m
     response = client.get("/containers/1/logs")
     assert response.status_code == 200
     assert response.text == "rendered"
-    mock_render.assert_called_once_with("container_logs.html", user=unittest.mock.ANY, subdomain=sd, logs="Error fetching logs")
+    mock_render.assert_called_once_with(
+        "container_logs.html", user=unittest.mock.ANY, subdomain=sd, logs="Error fetching logs"
+    )
 
 
 # --- tests for /containers/{sd_id}/restart ---
+
 
 def test_container_restart_unauth_regular(unauth_client):
     response = unauth_client.post("/containers/1/restart", follow_redirects=False)
@@ -183,6 +195,7 @@ def test_container_restart_auth_found(client, mock_db, mock_docker_manager):
 
 # --- tests for /containers/container/{container_id}/stop ---
 
+
 def test_container_stop_invalid_id(client):
     response = client.post("/containers/container/invalid id/stop")
     assert response.status_code == 400
@@ -203,6 +216,7 @@ def test_container_stop_auth(client, mock_docker_manager):
 
 
 # --- tests for /containers/container/{container_id}/start ---
+
 
 def test_container_start_invalid_id(client):
     response = client.post("/containers/container/invalid id/start")
@@ -225,6 +239,7 @@ def test_container_start_auth(client, mock_docker_manager):
 
 # --- tests for /containers/container/{container_id}/logs ---
 
+
 def test_container_logs_live_invalid_id(client):
     response = client.get("/containers/container/invalid id/logs")
     assert response.status_code == 400
@@ -242,17 +257,31 @@ def test_container_logs_live_auth(client, mock_docker_manager, mock_render):
     assert response.status_code == 200
     assert response.text == "rendered"
     mock_docker_manager.container_logs_live.assert_called_once_with("valid-id", tail=200)
-    mock_render.assert_called_once_with("container_logs.html", user=unittest.mock.ANY, logs="live logs", subdomain=None, container_id="valid-id")
+    mock_render.assert_called_once_with(
+        "container_logs.html",
+        user=unittest.mock.ANY,
+        logs="live logs",
+        subdomain=None,
+        container_id="valid-id",
+    )
+
 
 def test_container_logs_live_auth_error(client, mock_docker_manager, mock_render):
     mock_docker_manager.container_logs_live.side_effect = Exception("error")
     response = client.get("/containers/container/valid-id/logs")
     assert response.status_code == 200
     assert response.text == "rendered"
-    mock_render.assert_called_once_with("container_logs.html", user=unittest.mock.ANY, logs="Error fetching logs", subdomain=None, container_id="valid-id")
+    mock_render.assert_called_once_with(
+        "container_logs.html",
+        user=unittest.mock.ANY,
+        logs="Error fetching logs",
+        subdomain=None,
+        container_id="valid-id",
+    )
 
 
 # --- tests for /containers/container/{container_id}/stats ---
+
 
 def test_container_stats_invalid_id(client):
     response = client.get("/containers/container/invalid id/stats")
@@ -271,7 +300,10 @@ def test_container_stats_auth(client, mock_docker_manager, mock_render):
     assert response.status_code == 200
     assert response.text == "rendered"
     mock_docker_manager.container_stats.assert_called_once_with("valid-id")
-    mock_render.assert_called_once_with("container_stats.html", stats={"cpu": "1%"}, container_id="valid-id")
+    mock_render.assert_called_once_with(
+        "container_stats.html", stats={"cpu": "1%"}, container_id="valid-id"
+    )
+
 
 def test_container_stats_auth_error(client, mock_docker_manager, mock_render):
     mock_docker_manager.container_stats.side_effect = Exception("error")
