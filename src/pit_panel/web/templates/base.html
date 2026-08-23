@@ -40,8 +40,10 @@
                 const path = link.getAttribute('data-path');
                 if (path === '/' && currentPath === '/') {
                     link.classList.add('active');
+                    link.setAttribute('aria-current', 'page');
                 } else if (path !== '/' && (currentPath === path || currentPath.startsWith(path + '/'))) {
                     link.classList.add('active');
+                    link.setAttribute('aria-current', 'page');
                 }
             });
         });
