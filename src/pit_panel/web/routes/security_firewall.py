@@ -69,7 +69,7 @@ async def security_firewall_rule_add(
             '<span class="text-red-600 text-sm">Invalid protocol</span>',
             status_code=400,
         )
-    if not re.match(r"^[a-zA-Z0-9]+$", port) and port != "any":
+    if not re.fullmatch(r"^[a-zA-Z0-9]+$", port) and port != "any":
         return HTMLResponse(
             '<span class="text-red-600 text-sm">Invalid port</span>',
             status_code=400,
