@@ -163,6 +163,7 @@ def test_deploy_from_repo_requires_login(client):
     )
     assert resp.status_code == 302
 
+
 def test_deploy_from_repo_authenticated_invalid_url(client, monkeypatch):
     from pit_panel.db.models import User
     from pit_panel.db.session import get_db
@@ -171,11 +172,16 @@ def test_deploy_from_repo_authenticated_invalid_url(client, monkeypatch):
         return User(id=1, username="admin", is_admin=True)
 
     monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_user", mock_get_user)
+
     class MockSettings:
         def __init__(self, **kwargs):
             for k, v in kwargs.items():
                 setattr(self, k, v)
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_settings", lambda: MockSettings(base_domain="example.com", apps_dir="/tmp/apps"))
+
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.main.get_settings",
+        lambda: MockSettings(base_domain="example.com", apps_dir="/tmp/apps"),
+    )
 
     # We will just patch `_resolve_subdomain` and the DB lookup to avoid full DB setup
     # actually the easiest way is to use dependency overrides and standard mocking
@@ -184,6 +190,7 @@ def test_deploy_from_repo_authenticated_invalid_url(client, monkeypatch):
             class MockResult:
                 def scalar_one_or_none(self):
                     return None
+
             return MockResult()
 
         async def close(self):
@@ -197,6 +204,7 @@ def test_deploy_from_repo_authenticated_invalid_url(client, monkeypatch):
     # Bypass is_ip_banned which needs DB
     async def mock_is_ip_banned(*args, **kwargs):
         return False
+
     monkeypatch.setattr("pit_panel.web.app.is_ip_banned", mock_is_ip_banned)
 
     try:
@@ -209,6 +217,7 @@ def test_deploy_from_repo_authenticated_invalid_url(client, monkeypatch):
     finally:
         client.app.dependency_overrides.clear()
 
+
 def test_deploy_from_repo_authenticated_command_injection(client, monkeypatch):
     from pit_panel.db.models import User
     from pit_panel.db.session import get_db
@@ -217,18 +226,25 @@ def test_deploy_from_repo_authenticated_command_injection(client, monkeypatch):
         return User(id=1, username="admin", is_admin=True)
 
     monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_user", mock_get_user)
+
     class MockSettings:
         def __init__(self, **kwargs):
             for k, v in kwargs.items():
                 setattr(self, k, v)
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_settings", lambda: MockSettings(base_domain="example.com", apps_dir="/tmp/apps"))
+
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.main.get_settings",
+        lambda: MockSettings(base_domain="example.com", apps_dir="/tmp/apps"),
+    )
 
     class MockSession:
         async def execute(self, *args, **kwargs):
             class MockResult:
                 def scalar_one_or_none(self):
                     return None
+
             return MockResult()
+
         async def close(self):
             pass
 
@@ -239,6 +255,7 @@ def test_deploy_from_repo_authenticated_command_injection(client, monkeypatch):
 
     async def mock_is_ip_banned(*args, **kwargs):
         return False
+
     monkeypatch.setattr("pit_panel.web.app.is_ip_banned", mock_is_ip_banned)
 
     try:
@@ -251,6 +268,7 @@ def test_deploy_from_repo_authenticated_command_injection(client, monkeypatch):
     finally:
         client.app.dependency_overrides.clear()
 
+
 def test_analyze_repo_invalid_url(client, monkeypatch):
     from pit_panel.db.models import User
     from pit_panel.db.session import get_db
@@ -259,18 +277,25 @@ def test_analyze_repo_invalid_url(client, monkeypatch):
         return User(id=1, username="admin", is_admin=True)
 
     monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_user", mock_get_user)
+
     class MockSettings:
         def __init__(self, **kwargs):
             for k, v in kwargs.items():
                 setattr(self, k, v)
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_settings", lambda: MockSettings(base_domain="example.com", apps_dir="/tmp/apps"))
+
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.main.get_settings",
+        lambda: MockSettings(base_domain="example.com", apps_dir="/tmp/apps"),
+    )
 
     class MockSession:
         async def execute(self, *args, **kwargs):
             class MockResult:
                 def scalar_one_or_none(self):
                     return None
+
             return MockResult()
+
         async def close(self):
             pass
 
@@ -281,6 +306,7 @@ def test_analyze_repo_invalid_url(client, monkeypatch):
 
     async def mock_is_ip_banned(*args, **kwargs):
         return False
+
     monkeypatch.setattr("pit_panel.web.app.is_ip_banned", mock_is_ip_banned)
 
     try:
@@ -293,17 +319,17 @@ def test_analyze_repo_invalid_url(client, monkeypatch):
     finally:
         client.app.dependency_overrides.clear()
 
+
 def test_app_update_all_unauthenticated(client, monkeypatch):
     async def mock_is_ip_banned(*args, **kwargs):
         return False
+
     monkeypatch.setattr("pit_panel.web.app.is_ip_banned", mock_is_ip_banned)
 
-    resp = client.post(
-        "/apps/update-all",
-        follow_redirects=False
-    )
+    resp = client.post("/apps/update-all", follow_redirects=False)
     assert resp.status_code == 302
     assert resp.headers["location"] == "/login"
+
 
 def test_app_update_all_authenticated(client, monkeypatch):
     from pit_panel.db.models import User
@@ -313,21 +339,29 @@ def test_app_update_all_authenticated(client, monkeypatch):
         return User(id=1, username="admin", is_admin=True)
 
     monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_user", mock_get_user)
+
     class MockSettings:
         def __init__(self, **kwargs):
             for k, v in kwargs.items():
                 setattr(self, k, v)
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_settings", lambda: MockSettings(base_domain="example.com", apps_dir="/tmp/apps"))
+
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.main.get_settings",
+        lambda: MockSettings(base_domain="example.com", apps_dir="/tmp/apps"),
+    )
 
     class MockSession:
         async def execute(self, *args, **kwargs):
             class MockScalars:
                 def all(self):
                     return []
+
             class MockResult:
                 def scalars(self):
                     return MockScalars()
+
             return MockResult()
+
         async def close(self):
             pass
 
@@ -338,13 +372,17 @@ def test_app_update_all_authenticated(client, monkeypatch):
 
     async def mock_is_ip_banned(*args, **kwargs):
         return False
+
     monkeypatch.setattr("pit_panel.web.app.is_ip_banned", mock_is_ip_banned)
 
     class MockDockerManager:
         async def run_compose_command(self, subdomain, cmd):
             return {"success": True}
 
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.DockerManager", lambda *args, **kwargs: MockDockerManager())
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.main.DockerManager",
+        lambda *args, **kwargs: MockDockerManager(),
+    )
 
     try:
         resp = client.post(
