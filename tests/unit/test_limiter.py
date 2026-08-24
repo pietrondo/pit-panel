@@ -51,10 +51,9 @@ def test_ratelimiter_multi_key_isolation() -> None:
 
 
 def test_ratelimiter_cleanup_removes_empty_keys() -> None:
-    limiter = RateLimiter(requests=1, window=10)
-
     with patch("time.time") as mock_time:
         mock_time.return_value = 100.0
+        limiter = RateLimiter(requests=1, window=10)
         limiter.is_allowed("key1")
         assert "key1" in limiter._cache
 
