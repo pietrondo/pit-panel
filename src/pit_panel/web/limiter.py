@@ -11,10 +11,23 @@ class RateLimiter:
         self.requests = requests
         self.window = window
         self._cache: dict[str, list[float]] = {}
+        self._last_global_cleanup: float = time.time()
 
     def is_allowed(self, key: str) -> bool:
         now = time.time()
-        self._cleanup(now)
+
+        # 1. Lazily clean up the current key (O(1) operation)
+        if key in self._cache:
+            self._cache[key] = [t for t in self._cache[key] if now - t <= self.window]
+            if not self._cache[key]:
+                del self._cache[key]
+
+        # 2. Periodically clean up the entire cache to prevent memory leaks
+        # Uses min(window, 60s) as cleanup interval
+        cleanup_interval = min(self.window, 60)
+        if now - self._last_global_cleanup > cleanup_interval or now < self._last_global_cleanup:
+            self._cleanup(now)
+            self._last_global_cleanup = now
 
         if key not in self._cache:
             self._cache[key] = []
@@ -26,7 +39,7 @@ class RateLimiter:
         return True
 
     def _cleanup(self, now: float) -> None:
-        for key in list(self._cache.keys()):
-            self._cache[key] = [t for t in self._cache[key] if now - t <= self.window]
-            if not self._cache[key]:
-                del self._cache[key]
+        for k in list(self._cache.keys()):
+            self._cache[k] = [t for t in self._cache[k] if now - t <= self.window]
+            if not self._cache[k]:
+                del self._cache[k]
