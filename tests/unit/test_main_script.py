@@ -1,9 +1,10 @@
-import sys
-from unittest.mock import patch, MagicMock
-from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import pytest
-from pit_panel.main import main
+
 from pit_panel.config import Settings
+from pit_panel.main import main
+
 
 @pytest.fixture
 def mock_settings():
@@ -18,7 +19,9 @@ def mock_settings():
 @patch("pit_panel.main.Settings.from_config_file")
 @patch("pit_panel.main.Path.mkdir")
 @patch("pit_panel.main.uvicorn.run")
-def test_main_default_args(mock_uvicorn_run, mock_mkdir, mock_from_config_file, mock_parse_args, mock_settings):
+def test_main_default_args(
+    mock_uvicorn_run, mock_mkdir, mock_from_config_file, mock_parse_args, mock_settings
+):
     # Mock CLI arguments
     mock_args = MagicMock()
     mock_args.host = None
@@ -42,8 +45,8 @@ def test_main_default_args(mock_uvicorn_run, mock_mkdir, mock_from_config_file, 
     kwargs = mock_uvicorn_run.call_args.kwargs
     assert kwargs["host"] == "0.0.0.0"  # Because base_domain is empty and host is 127.0.0.1
     assert kwargs["port"] == 8080
-    assert kwargs["reload"] == False
-    assert kwargs["factory"] == True
+    assert not kwargs["reload"]
+    assert kwargs["factory"]
     assert kwargs["log_level"] == "info"
     assert "log_config" in kwargs
 
@@ -51,7 +54,9 @@ def test_main_default_args(mock_uvicorn_run, mock_mkdir, mock_from_config_file, 
 @patch("pit_panel.main.Settings.from_config_file")
 @patch("pit_panel.main.Path.mkdir")
 @patch("pit_panel.main.uvicorn.run")
-def test_main_custom_args_and_domain(mock_uvicorn_run, mock_mkdir, mock_from_config_file, mock_parse_args, mock_settings):
+def test_main_custom_args_and_domain(
+    mock_uvicorn_run, mock_mkdir, mock_from_config_file, mock_parse_args, mock_settings
+):
     # Mock CLI arguments overrides
     mock_args = MagicMock()
     mock_args.host = "192.168.1.100"
@@ -77,8 +82,8 @@ def test_main_custom_args_and_domain(mock_uvicorn_run, mock_mkdir, mock_from_con
     kwargs = mock_uvicorn_run.call_args.kwargs
     assert kwargs["host"] == "192.168.1.100"
     assert kwargs["port"] == 9000
-    assert kwargs["reload"] == True
-    assert kwargs["factory"] == True
+    assert kwargs["reload"]
+    assert kwargs["factory"]
     assert kwargs["log_level"] == "debug"
 
 def test_main_dunder_main():
