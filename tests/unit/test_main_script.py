@@ -1,7 +1,9 @@
 import argparse
-from unittest.mock import patch, MagicMock
-from pit_panel.main import main
+from unittest.mock import MagicMock, patch
+
 from pit_panel.config import Settings
+from pit_panel.main import main
+
 
 @patch("pit_panel.main.argparse.ArgumentParser")
 @patch("pit_panel.main.Settings.from_config_file")
