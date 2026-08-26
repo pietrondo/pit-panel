@@ -16,6 +16,10 @@
             }
         }
     </script>
+    <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
 </head>
 <body class="h-full bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
     <div class="w-full max-w-md">
@@ -45,7 +49,7 @@
                 <code class="text-sm font-mono text-gray-900 dark:text-white select-all">{{ totp_secret }}</code>
             </div>
 
-            <form method="POST" action="/setup-2fa">
+            <form method="POST" action="/setup-2fa" x-data="{ isSubmitting: false }" @submit="isSubmitting = true">
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Verification Code</label>
                     <input aria-label="Code" type="text" name="code" required autofocus autocomplete="one-time-code"
@@ -53,8 +57,14 @@
                            placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*">
                 </div>
                 <button type="submit"
-                        class="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm transition-colors focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
-                    Verify & Enable 2FA
+                        :disabled="isSubmitting"
+                        class="w-full flex justify-center py-2.5 px-4 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg text-sm transition-colors focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+                    <svg x-show="isSubmitting" x-cloak class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span x-show="!isSubmitting">Verify & Enable 2FA</span>
+                    <span x-show="isSubmitting" x-cloak>Verifying...</span>
                 </button>
             </form>
         </div>
