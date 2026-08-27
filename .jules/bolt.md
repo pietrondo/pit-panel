@@ -36,3 +36,7 @@
 ## 2026-08-17 - Expensive Security Object Instantiation in Hot Paths
 **Learning:** Dynamically instantiating `itsdangerous.URLSafeTimedSerializer` on every authenticated request (via dependency injection) adds ~0.5ms overhead per request. This was happening in `get_current_user` despite a cached serializer existing in `auth.py`.
 **Action:** Always reuse security object instances (serializers, hashers, etc.) across requests, especially in authentication middleware or global dependencies. Check for existing cached singletons before instantiating inline.
+
+## 2026-08-27 - O(N) Cache Cleanup in FastAPI Rate Limiter
+**Learning:** The custom in-memory rate limiter iterated over all IP addresses in its cache on every request for cleanup, causing O(N) overhead in the hot path.
+**Action:** When implementing custom in-memory caches or rate limiters that execute per-request, avoid O(N) global garbage collection loops over all keys on every invocation. Optimize by lazily cleaning only the currently accessed key and deferring full global cleanup to periodic intervals based on timestamps.
