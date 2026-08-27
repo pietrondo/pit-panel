@@ -1,5 +1,4 @@
 import asyncio
-import re
 from types import SimpleNamespace
 from typing import Any
 
@@ -13,9 +12,6 @@ from pit_panel.web.app import create_app
 from pit_panel.web.routes.containers import _get_containers_data
 
 """Regression tests for container data task cleanup."""
-
-
-
 
 
 @pytest.mark.asyncio
@@ -92,9 +88,6 @@ async def async_client(monkeypatch, tmp_path):
         yield client
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_get_containers_data():
     class MockDB:
@@ -102,22 +95,27 @@ async def test_get_containers_data():
             class ScalarResult:
                 def scalars(self):
                     return self
+
                 def all(self):
                     return [SimpleNamespace(id=1, subdomain="test1", app_type="wordpress")]
+
             return ScalarResult()
 
     class MockDockerMgr:
         async def ps_all(self):
             return [
                 {"Names": "test-c", "Labels": "com.docker.compose.project=test1"},
-                {"Name": "orphan-c", "Labels": ""}
+                {"Name": "orphan-c", "Labels": ""},
             ]
 
-    subdomains, containers_data, orphan_containers = await _get_containers_data(MockDB(), MockDockerMgr())
+    subdomains, containers_data, orphan_containers = await _get_containers_data(
+        MockDB(), MockDockerMgr()
+    )
     assert len(subdomains) == 1
     assert 1 in containers_data
     assert len(containers_data[1]) == 1
     assert len(orphan_containers) == 1
+
 
 @pytest.mark.asyncio
 async def test_containers_list_no_user(async_client: AsyncClient):
@@ -125,23 +123,36 @@ async def test_containers_list_no_user(async_client: AsyncClient):
     assert resp.status_code == 302
     assert resp.headers["Location"] == "/login"
 
-    resp2 = await async_client.get("/containers", headers={"hx-request": "true"}, follow_redirects=False)
+    resp2 = await async_client.get(
+        "/containers", headers={"hx-request": "true"}, follow_redirects=False
+    )
     assert resp2.status_code == 200
     assert resp2.headers["HX-Redirect"] == "/login"
+
 
 @pytest.mark.asyncio
 async def test_containers_list_authenticated(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     async def mock_get_containers_data(db, docker_mgr):
-        return {"test1": SimpleNamespace(id=1, subdomain="test1")}, {1: [{"Name": "test-c"}]}, [{"Name": "orphan-c"}]
-    monkeypatch.setattr("pit_panel.web.routes.containers._get_containers_data", mock_get_containers_data)
+        return (
+            {"test1": SimpleNamespace(id=1, subdomain="test1")},
+            {1: [{"Name": "test-c"}]},
+            [{"Name": "orphan-c"}],
+        )
+
+    monkeypatch.setattr(
+        "pit_panel.web.routes.containers._get_containers_data", mock_get_containers_data
+    )
 
     resp = await async_client.get("/containers")
     assert resp.status_code == 200
+
 
 @pytest.mark.asyncio
 async def test_container_logs_no_user(async_client: AsyncClient):
@@ -149,18 +160,24 @@ async def test_container_logs_no_user(async_client: AsyncClient):
     assert resp.status_code == 302
     assert resp.headers["Location"] == "/login"
 
-    resp2 = await async_client.get("/containers/1/logs", headers={"hx-request": "true"}, follow_redirects=False)
+    resp2 = await async_client.get(
+        "/containers/1/logs", headers={"hx-request": "true"}, follow_redirects=False
+    )
     assert resp2.status_code == 200
     assert resp2.headers["HX-Redirect"] == "/login"
+
 
 @pytest.mark.asyncio
 async def test_container_logs_authenticated(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     import pit_panel.db.session
+
     sessionmaker = pit_panel.db.session._sessionmaker
     if sessionmaker is not None:
         async with sessionmaker() as db:
@@ -171,22 +188,28 @@ async def test_container_logs_authenticated(async_client: AsyncClient, monkeypat
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def compose_logs(self, subdomain, tail=200):
             return "log1\nlog2"
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.get("/containers/1/logs")
     assert resp.status_code == 200
     assert "log1" in resp.text
 
+
 @pytest.mark.asyncio
 async def test_container_logs_error(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     import pit_panel.db.session
+
     sessionmaker = pit_panel.db.session._sessionmaker
     if sessionmaker is not None:
         async with sessionmaker() as db:
@@ -197,24 +220,30 @@ async def test_container_logs_error(async_client: AsyncClient, monkeypatch: Any)
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def compose_logs(self, subdomain, tail=200):
             raise Exception("test error")
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.get("/containers/1/logs")
     assert resp.status_code == 200
     assert "Error fetching logs" in resp.text
 
+
 @pytest.mark.asyncio
 async def test_container_logs_not_found(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     resp = await async_client.get("/containers/999/logs", follow_redirects=False)
     assert resp.status_code == 302
     assert resp.headers["Location"] == "/containers"
+
 
 @pytest.mark.asyncio
 async def test_container_restart_no_user(async_client: AsyncClient):
@@ -222,18 +251,24 @@ async def test_container_restart_no_user(async_client: AsyncClient):
     assert resp.status_code == 302
     assert resp.headers["Location"] == "/login"
 
-    resp2 = await async_client.post("/containers/1/restart", headers={"hx-request": "true"}, follow_redirects=False)
+    resp2 = await async_client.post(
+        "/containers/1/restart", headers={"hx-request": "true"}, follow_redirects=False
+    )
     assert resp2.status_code == 200
     assert resp2.headers["HX-Redirect"] == "/login"
+
 
 @pytest.mark.asyncio
 async def test_container_restart_authenticated(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     import pit_panel.db.session
+
     sessionmaker = pit_panel.db.session._sessionmaker
     if sessionmaker is not None:
         async with sessionmaker() as db:
@@ -242,13 +277,16 @@ async def test_container_restart_authenticated(async_client: AsyncClient, monkey
             await db.commit()
 
     called = False
+
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def run_compose_command(self, subdomain, cmd):
             nonlocal called
             called = True
             assert cmd == ["restart"]
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.post("/containers/1/restart", follow_redirects=False)
@@ -256,11 +294,14 @@ async def test_container_restart_authenticated(async_client: AsyncClient, monkey
     assert resp.headers["Location"] == "/containers"
     assert called
 
+
 @pytest.mark.asyncio
 async def test_container_restart_not_found(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     resp = await async_client.post("/containers/999/restart", follow_redirects=False)
@@ -275,6 +316,7 @@ async def test_container_stop_start_invalid(async_client: AsyncClient):
     resp2 = await async_client.post("/containers/container/invalid id/start")
     assert resp2.status_code == 400
 
+
 @pytest.mark.asyncio
 async def test_container_stop_start_no_user(async_client: AsyncClient):
     resp = await async_client.post("/containers/container/valid-id/stop", follow_redirects=False)
@@ -285,24 +327,31 @@ async def test_container_stop_start_no_user(async_client: AsyncClient):
     assert resp2.status_code == 302
     assert resp2.headers["Location"] == "/login"
 
+
 @pytest.mark.asyncio
 async def test_container_stop_start_authenticated(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     stop_called = False
     start_called = False
+
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def container_stop(self, cid):
             nonlocal stop_called
             stop_called = True
+
         async def container_start(self, cid):
             nonlocal start_called
             start_called = True
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.post("/containers/container/valid-id/stop", follow_redirects=False)
@@ -313,41 +362,52 @@ async def test_container_stop_start_authenticated(async_client: AsyncClient, mon
     assert resp.status_code == 302
     assert start_called
 
+
 @pytest.mark.asyncio
 async def test_container_logs_live(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def container_logs_live(self, cid, tail=200):
             return "live logs"
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.get("/containers/container/valid-id/logs")
     assert resp.status_code == 200
     assert "live logs" in resp.text
 
+
 @pytest.mark.asyncio
 async def test_container_logs_live_error(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def container_logs_live(self, cid, tail=200):
             raise Exception("error live logs")
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.get("/containers/container/valid-id/logs")
     assert resp.status_code == 200
     assert "Error fetching logs" in resp.text
+
 
 @pytest.mark.asyncio
 async def test_container_logs_live_no_user_invalid(async_client: AsyncClient, monkeypatch: Any):
@@ -361,37 +421,47 @@ async def test_container_logs_live_no_user_invalid(async_client: AsyncClient, mo
 @pytest.mark.asyncio
 async def test_container_stats(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def container_stats(self, cid):
             return {"CPUPerc": "50.00%"}
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.get("/containers/container/valid-id/stats")
     assert resp.status_code == 200
     assert "50.00%" in resp.text
 
+
 @pytest.mark.asyncio
 async def test_container_stats_error(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def container_stats(self, cid):
             raise Exception("error stats")
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.get("/containers/container/valid-id/stats")
     assert resp.status_code == 200
+
 
 @pytest.mark.asyncio
 async def test_container_stats_no_user_invalid(async_client: AsyncClient, monkeypatch: Any):
@@ -405,8 +475,10 @@ async def test_container_stats_no_user_invalid(async_client: AsyncClient, monkey
 @pytest.mark.asyncio
 async def test_container_restart_no_sd(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     class MockResult:
@@ -415,17 +487,21 @@ async def test_container_restart_no_sd(async_client: AsyncClient, monkeypatch: A
 
     async def mock_execute(*args, **kwargs):
         return MockResult()
+
     monkeypatch.setattr("sqlalchemy.ext.asyncio.AsyncSession.execute", mock_execute)
 
     resp = await async_client.post("/containers/999/restart", follow_redirects=False)
     assert resp.status_code == 302
     assert resp.headers["Location"] == "/containers"
 
+
 @pytest.mark.asyncio
 async def test_container_logs_no_sd(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     class MockResult:
@@ -434,6 +510,7 @@ async def test_container_logs_no_sd(async_client: AsyncClient, monkeypatch: Any)
 
     async def mock_execute(*args, **kwargs):
         return MockResult()
+
     monkeypatch.setattr("sqlalchemy.ext.asyncio.AsyncSession.execute", mock_execute)
 
     resp = await async_client.get("/containers/999/logs", follow_redirects=False)
@@ -441,29 +518,29 @@ async def test_container_logs_no_sd(async_client: AsyncClient, monkeypatch: Any)
     assert resp.headers["Location"] == "/containers"
 
 
-
-
-
-
-
 @pytest.mark.asyncio
 async def test_containers_fragment_authenticated(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     async def mock_get_containers_data(db, docker_mgr):
-        return {"test1": SimpleNamespace(id=1, subdomain="test1")}, {1: [{"Name": "test-c"}]}, [{"Name": "orphan-c"}]
-    monkeypatch.setattr("pit_panel.web.routes.containers._get_containers_data", mock_get_containers_data)
+        return (
+            {"test1": SimpleNamespace(id=1, subdomain="test1")},
+            {1: [{"Name": "test-c"}]},
+            [{"Name": "orphan-c"}],
+        )
+
+    monkeypatch.setattr(
+        "pit_panel.web.routes.containers._get_containers_data", mock_get_containers_data
+    )
 
     resp = await async_client.get("/containers/fragment")
     assert resp.status_code == 200
     assert "test-c" in resp.text
-
-
-
-
 
 
 @pytest.mark.asyncio
@@ -473,16 +550,13 @@ async def test_containers_fragment_redirects_no_user(async_client: AsyncClient):
     assert resp.headers["HX-Redirect"] == "/login"
 
 
-
-
-
-
-
 @pytest.mark.asyncio
 async def test_container_logs_authenticated_db_mock(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     class MockRow:
@@ -502,19 +576,24 @@ async def test_container_logs_authenticated_db_mock(async_client: AsyncClient, m
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def compose_logs(self, subdomain, tail=200):
             return "log1\nlog2"
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.get("/containers/1/logs")
     assert resp.status_code == 200
     assert "log1" in resp.text
 
+
 @pytest.mark.asyncio
 async def test_container_restart_authenticated_db_mock(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     class MockRow:
@@ -532,13 +611,16 @@ async def test_container_restart_authenticated_db_mock(async_client: AsyncClient
     monkeypatch.setattr("sqlalchemy.ext.asyncio.AsyncSession.execute", mock_execute)
 
     called = False
+
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def run_compose_command(self, subdomain, cmd):
             nonlocal called
             called = True
             assert cmd == ["restart"]
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.post("/containers/1/restart", follow_redirects=False)
@@ -550,8 +632,10 @@ async def test_container_restart_authenticated_db_mock(async_client: AsyncClient
 @pytest.mark.asyncio
 async def test_container_logs_db_mock_not_found(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     class MockResult:
@@ -567,11 +651,14 @@ async def test_container_logs_db_mock_not_found(async_client: AsyncClient, monke
     assert resp.status_code == 302
     assert resp.headers["Location"] == "/containers"
 
+
 @pytest.mark.asyncio
 async def test_container_logs_db_mock_error(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
+
     monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
 
     class MockRow:
@@ -591,8 +678,10 @@ async def test_container_logs_db_mock_error(async_client: AsyncClient, monkeypat
     class MockDockerMgr:
         def __init__(self, *args, **kwargs):
             pass
+
         async def compose_logs(self, subdomain, tail=200):
             raise Exception("error fetching logs db mock")
+
     monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
 
     resp = await async_client.get("/containers/1/logs")
