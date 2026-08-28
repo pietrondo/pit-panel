@@ -31,7 +31,7 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
     form = await request.form()
     jail = str(form.get("jail", ""))
 
-    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
+    if not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<span class="text-red-600 text-xs">❌ Invalid jail name</span>', status_code=400
         )
@@ -73,7 +73,7 @@ async def security_fail2ban_jail(request: Request, jail: str, db: AsyncSession =
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
-    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
+    if not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<div class="text-xs text-red-500">Invalid jail name</div>', status_code=400
         )
@@ -113,7 +113,7 @@ async def security_fail2ban_unban(request: Request, db: AsyncSession = Depends(g
     jail = str(form.get("jail", ""))
     ip = str(form.get("ip", ""))
 
-    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
+    if not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<div class="text-xs text-red-600">❌ Invalid jail name</div>', status_code=400
         )
@@ -140,7 +140,7 @@ async def security_fail2ban_get_config(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
-    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
+    if not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse("Invalid jail name", status_code=400)
 
     cfg = await _get_jail_config(jail)
@@ -160,7 +160,7 @@ async def security_fail2ban_config(
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
 
-    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
+    if not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", jail):
         return HTMLResponse(
             '<span class="text-red-600 text-sm">Invalid jail name</span>', status_code=400
         )
