@@ -1,3 +1,4 @@
+import time
 from unittest.mock import patch
 
 from pit_panel.web.limiter import RateLimiter
@@ -60,7 +61,10 @@ def test_ratelimiter_cleanup_removes_empty_keys() -> None:
 
         # Advance time past window and trigger cleanup with another key
         mock_time.return_value = 120.0
-        limiter.is_allowed("key2")
+
+        # Advance monotonic time to trigger global cleanup
+        with patch("time.monotonic", return_value=time.monotonic() + 61):
+            limiter.is_allowed("key2")
 
         # key1 should be removed from cache entirely
         assert "key1" not in limiter._cache
