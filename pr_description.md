@@ -1,4 +1,0 @@
-💡 What: Extracted IP ban cache lookup into a synchronous fast-path function `check_ip_banned_cache` and updated `_ip_ban_middleware` to use it before establishing the database session context.
-🎯 Why: Instantiating the SQLAlchemy database session in middleware on every single HTTP request adds significant overhead (~9ms vs ~0.06ms). Skipping this entirely when an IP ban check can be satisfied by the in-memory cache dramatically speeds up processing for all cache hits.
-📊 Impact: Reduces processing time per request by roughly ~8.5ms for all non-first requests from a given IP within the cache TTL window.
-🔬 Measurement: Tested via a mock benchmark in bash confirming cache hit times dropping from 9.84ms (requiring session scope) to 0.06ms. The `pytest` test suite also confirms no breaking changes.

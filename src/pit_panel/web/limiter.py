@@ -11,10 +11,22 @@ class RateLimiter:
         self.requests = requests
         self.window = window
         self._cache: dict[str, list[float]] = {}
+        self._last_global_cleanup = time.monotonic()
 
     def is_allowed(self, key: str) -> bool:
         now = time.time()
-        self._cleanup(now)
+
+        # ⚡ Bolt Optimization: Lazy cleanup for the specific key
+        if key in self._cache:
+            self._cache[key] = [t for t in self._cache[key] if now - t <= self.window]
+            if not self._cache[key]:
+                del self._cache[key]
+
+        # Defer global O(N) cleanup to a periodic interval (e.g. every 60 seconds)
+        monotonic_now = time.monotonic()
+        if monotonic_now - getattr(self, "_last_global_cleanup", 0) > 60:
+            self._cleanup(now)
+            self._last_global_cleanup = monotonic_now
 
         if key not in self._cache:
             self._cache[key] = []
@@ -26,7 +38,7 @@ class RateLimiter:
         return True
 
     def _cleanup(self, now: float) -> None:
-        for key in list(self._cache.keys()):
-            self._cache[key] = [t for t in self._cache[key] if now - t <= self.window]
-            if not self._cache[key]:
-                del self._cache[key]
+        for k in list(self._cache.keys()):
+            self._cache[k] = [t for t in self._cache[k] if now - t <= self.window]
+            if not self._cache[k]:
+                del self._cache[k]

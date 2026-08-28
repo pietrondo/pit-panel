@@ -36,3 +36,9 @@
 ## 2026-08-17 - Expensive Security Object Instantiation in Hot Paths
 **Learning:** Dynamically instantiating `itsdangerous.URLSafeTimedSerializer` on every authenticated request (via dependency injection) adds ~0.5ms overhead per request. This was happening in `get_current_user` despite a cached serializer existing in `auth.py`.
 **Action:** Always reuse security object instances (serializers, hashers, etc.) across requests, especially in authentication middleware or global dependencies. Check for existing cached singletons before instantiating inline.
+## 2024-05-24 - Async to_thread for Synchronous I/O in Asyncio Routes
+**Learning:** In FastAPI async endpoints, removing `asyncio.to_thread` from synchronous I/O operations (like `shutil.disk_usage` or file reads) causes the event loop to block entirely while those operations run. Even if the I/O seems fast, it prevents the server from processing other concurrent requests and introduces a severe performance regression for the application as a whole.
+**Action:** In FastAPI applications, do not optimize async routes by moving synchronous I/O operations to the main thread to avoid thread pool overhead. Unlike in-memory static cache lookups, executing I/O synchronously blocks the event loop and causes severe performance regressions for concurrent requests; they must remain wrapped in `asyncio.to_thread()`.
+## 2026-08-17 - Optimize RateLimiter cleanup to avoid O(N) overhead per request
+**Learning:** Looping over all cached keys on every `is_allowed` check scales poorly as the number of active clients grows, introducing unnecessary CPU overhead for each rate-limited request.
+**Action:** When implementing in-memory caches or rate limiters that execute per-request, avoid O(N) global garbage collection loops over all keys on every invocation. Optimize by lazily cleaning only the currently accessed key and deferring full global cleanup to periodic intervals based on timestamps.
