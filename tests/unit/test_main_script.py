@@ -1,7 +1,7 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from pit_panel.main import main
+
 
 def test_main_default_args():
     with patch("sys.argv", ["pit_panel"]), \
@@ -9,7 +9,9 @@ def test_main_default_args():
          patch("pit_panel.main.Path.mkdir") as mock_mkdir, \
          patch("pit_panel.config.Settings.from_config_file") as mock_settings:
 
-        mock_settings.return_value = MagicMock(host="127.0.0.1", port=8000, debug=False, base_domain="example.com")
+        mock_settings.return_value = MagicMock(
+            host="127.0.0.1", port=8000, debug=False, base_domain="example.com"
+        )
 
         main()
 
@@ -29,7 +31,9 @@ def test_main_with_args():
          patch("pit_panel.main.Path.mkdir"), \
          patch("pit_panel.config.Settings.from_config_file") as mock_settings:
 
-        mock_settings.return_value = MagicMock(host="127.0.0.1", port=8000, debug=False, base_domain="example.com")
+        mock_settings.return_value = MagicMock(
+            host="127.0.0.1", port=8000, debug=False, base_domain="example.com"
+        )
 
         main()
 
@@ -46,7 +50,9 @@ def test_main_no_domain_bind_all():
          patch("pit_panel.config.Settings.from_config_file") as mock_settings:
 
         # Base domain is None and host is 127.0.0.1 -> should change to 0.0.0.0
-        mock_settings.return_value = MagicMock(host="127.0.0.1", port=8000, debug=True, base_domain=None)
+        mock_settings.return_value = MagicMock(
+            host="127.0.0.1", port=8000, debug=True, base_domain=None
+        )
 
         main()
 
@@ -58,4 +64,6 @@ def test_main_no_domain_bind_all():
 def test_dunder_main():
     with patch("pit_panel.main.main") as mock_main:
         import pit_panel.__main__
-        mock_main.assert_called_once()
+        import importlib
+        importlib.reload(pit_panel.__main__)
+        mock_main.assert_called()

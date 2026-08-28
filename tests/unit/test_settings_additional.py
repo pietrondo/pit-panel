@@ -1,18 +1,19 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from httpx import ASGITransport, AsyncClient
-from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi import FastAPI
-from pit_panel.web.routes.settings import router
+from httpx import ASGITransport, AsyncClient
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
 from pit_panel.db.session import get_db
-from pit_panel.web.deps import get_admin
-from pit_panel.db.models import AuditLog
+from pit_panel.web.routes.settings import router
 
 app = FastAPI()
 app.include_router(router)
 
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -66,7 +67,7 @@ async def test_settings_page_unauthorized(mock_db, mock_no_admin):
 
 @pytest.mark.asyncio
 async def test_settings_page_success(mock_db, mock_admin):
-    with patch("pit_panel.web.routes.settings.get_settings") as mock_get_settings, \
+    with patch("pit_panel.web.routes.settings.get_settings"), \
          patch("pit_panel.web.routes.settings.render") as mock_render:
 
         mock_render.return_value = "rendered html"
@@ -94,7 +95,8 @@ async def test_settings_update_invalid_domain(mock_db, mock_admin):
 @pytest.mark.asyncio
 async def test_settings_update_invalid_subdomain(mock_db, mock_admin):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        response = await ac.post("/settings/update", data={"base_domain": "test.com", "panel_subdomain": "invalid!"})
+        data = {"base_domain": "test.com", "panel_subdomain": "invalid!"}
+        response = await ac.post("/settings/update", data=data)
     assert response.status_code == 400
     assert "Invalid panel subdomain" in response.text
 
