@@ -12,3 +12,7 @@
 **Vulnerability:** The `_safe_path` function in `src/pit_panel/web/routes/debug_api.py` used `str(p).startswith(prefix)` to check if a path was within an allowed directory. This allows paths like `/opt/pit-panel-hacked/test` to bypass the check because the string starts with `/opt/pit-panel`.
 **Learning:** Using string matching like `.startswith()` for path validation is dangerous and leads to path traversal / authorization bypass vulnerabilities because it ignores directory boundaries.
 **Prevention:** Always use proper path manipulation libraries for authorization checks. In Python, use `pathlib.Path` methods like `p.is_relative_to(allowed_root)` after fully resolving both the target path and the allowed root path.
+## $(date +%Y-%m-%d) - Strict Regex Validation
+**Vulnerability:** Input validation using `re.match` is insecure because it only matches the beginning of the string, allowing for malicious trailing characters (like newlines) to bypass the validation filter if the `$ ` anchor is used instead of `\Z`.
+**Learning:** In Python's `re` module, `re.match` with `$` matches the end of the string *or just before a trailing newline*. This allows inputs like `valid_jail\n` to pass validation, potentially causing command injection or path traversal down the line.
+**Prevention:** Always use `re.fullmatch` for strict string validation, which guarantees the entire string conforms to the regex pattern without trailing characters.
