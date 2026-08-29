@@ -13,7 +13,7 @@
             <div class="mb-3 p-3 rounded bg-red-50 text-red-700 text-sm border border-red-200">{{ error }}</div>
         {% endif %}
         <form method="post" action="/site-builder/sites" class="flex gap-2">
-            <input name="name" required maxlength="128" placeholder="My landing page"
+            <input name="name" required maxlength="128" aria-label="Landing page name" placeholder="My landing page"
                    class="flex-1 px-3 py-2 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
             <button type="submit"
                     class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
