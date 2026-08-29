@@ -90,8 +90,8 @@
                                             </div>
                                             <template x-if="widget.type === 'heading'">
                                                 <div class="space-y-1">
-                                                    <input type="text" :value="widget.props.text || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'text', $event.target.value)" placeholder="Heading text" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
-                                                    <select :value="widget.props.level || 2" @change="updateWidget(sIdx, cIdx, wIdx, 'level', $event.target.value)" class="text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    <input type="text" :value="widget.props.text || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'text', $event.target.value)" aria-label="Heading text" placeholder="Heading text" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    <select :value="widget.props.level || 2" @change="updateWidget(sIdx, cIdx, wIdx, 'level', $event.target.value)" aria-label="Heading level" class="text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
                                                         <template x-for="lv in [1,2,3,4,5,6]" :key="lv">
                                                             <option :value="lv" :selected="widget.props.level == lv" x-text="'H' + lv"></option>
                                                         </template>
@@ -99,18 +99,18 @@
                                                 </div>
                                             </template>
                                             <template x-if="widget.type === 'text'">
-                                                <textarea :value="widget.props.text || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'text', $event.target.value)" placeholder="Paragraph text" rows="3" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"></textarea>
+                                                <textarea :value="widget.props.text || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'text', $event.target.value)" aria-label="Paragraph text" placeholder="Paragraph text" rows="3" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"></textarea>
                                             </template>
                                             <template x-if="widget.type === 'image'">
                                                 <div class="space-y-1">
-                                                    <input type="text" :value="widget.props.src || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'src', $event.target.value)" placeholder="Image URL" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
-                                                    <input type="text" :value="widget.props.alt || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'alt', $event.target.value)" placeholder="Alt text" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    <input type="text" :value="widget.props.src || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'src', $event.target.value)" aria-label="Image URL" placeholder="Image URL" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    <input type="text" :value="widget.props.alt || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'alt', $event.target.value)" aria-label="Alt text" placeholder="Alt text" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
                                                 </div>
                                             </template>
                                             <template x-if="widget.type === 'button'">
                                                 <div class="space-y-1">
-                                                    <input type="text" :value="widget.props.text || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'text', $event.target.value)" placeholder="Button label" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
-                                                    <input type="text" :value="widget.props.url || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'url', $event.target.value)" placeholder="https://..." class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    <input type="text" :value="widget.props.text || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'text', $event.target.value)" aria-label="Button label" placeholder="Button label" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    <input type="text" :value="widget.props.url || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'url', $event.target.value)" aria-label="Button URL" placeholder="https://..." class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
                                                 </div>
                                             </template>
                                             <template x-if="widget.type === 'divider'">
