@@ -35,9 +35,15 @@ def transport_overrides(app_with_overrides):
 
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock, return_value=None)
-async def test_containers_fragment_unauthenticated(mock_get_user, transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+async def test_containers_fragment_unauthenticated(
+    mock_get_user, transport_overrides
+):
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.get("/containers/fragment", headers={"hx-request": "true"})
             assert response.status_code == 200
             assert response.headers.get("HX-Redirect") == "/login"
@@ -45,14 +51,20 @@ async def test_containers_fragment_unauthenticated(mock_get_user, transport_over
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers._get_containers_data", new_callable=AsyncMock)
-async def test_containers_fragment_authenticated(mock_get_data, mock_get_user, transport_overrides, mock_user):
+async def test_containers_fragment_authenticated(
+    mock_get_data, mock_get_user, transport_overrides, mock_user
+):
     mock_get_user.return_value = mock_user
     mock_get_data.return_value = ({}, {}, [])
 
     with patch("pit_panel.web.routes.containers.render") as mock_render:
         mock_render.return_value = HTMLResponse(b"<div>Rendered</div>")
-        with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-            async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+        with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+            async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
                 response = await client.get("/containers/fragment")
                 assert response.status_code == 200
                 assert "hx-get=\"/containers/fragment\"" in response.text
@@ -61,50 +73,80 @@ async def test_containers_fragment_authenticated(mock_get_data, mock_get_user, t
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers._get_containers_data", new_callable=AsyncMock)
-async def test_containers_list_authenticated(mock_get_data, mock_get_user, transport_overrides, mock_user):
+async def test_containers_list_authenticated(
+    mock_get_data, mock_get_user, transport_overrides, mock_user
+):
     mock_get_user.return_value = mock_user
     mock_get_data.return_value = ({}, {}, [])
 
     with patch("pit_panel.web.routes.containers.render") as mock_render:
         mock_render.return_value = HTMLResponse(b"<div>Rendered List</div>")
-        with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-            async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+        with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+            async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
                 response = await client.get("/containers")
                 assert response.status_code == 200
                 assert "<div>Rendered List</div>" in response.text
 
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock, return_value=None)
-async def test_containers_list_unauthenticated(mock_get_user, transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+async def test_containers_list_unauthenticated(
+    mock_get_user, transport_overrides
+):
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.get("/containers")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/login"
 
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock, return_value=None)
-async def test_containers_list_unauthenticated_hx(mock_get_user, transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+async def test_containers_list_unauthenticated_hx(
+    mock_get_user, transport_overrides
+):
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.get("/containers", headers={"hx-request": "true"})
             assert response.status_code == 200
             assert response.headers.get("HX-Redirect") == "/login"
 
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock, return_value=None)
-async def test_container_logs_unauthenticated(mock_get_user, transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+async def test_container_logs_unauthenticated(
+    mock_get_user, transport_overrides
+):
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.get("/containers/1/logs")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/login"
 
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock, return_value=None)
-async def test_container_logs_unauthenticated_hx(mock_get_user, transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+async def test_container_logs_unauthenticated_hx(
+    mock_get_user, transport_overrides
+):
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.get("/containers/1/logs", headers={"hx-request": "true"})
             assert response.status_code == 200
             assert response.headers.get("HX-Redirect") == "/login"
@@ -112,7 +154,9 @@ async def test_container_logs_unauthenticated_hx(mock_get_user, transport_overri
 
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
-async def test_container_logs_authenticated_not_found(mock_get_user, transport_overrides, mock_user, app_with_overrides):
+async def test_container_logs_authenticated_not_found(
+    mock_get_user, transport_overrides, mock_user, app_with_overrides
+):
     mock_get_user.return_value = mock_user
 
     # Mock the database execute call to return none
@@ -127,8 +171,12 @@ async def test_container_logs_authenticated_not_found(mock_get_user, transport_o
         yield mock_db
     app_with_overrides.dependency_overrides[get_db] = override_get_db
 
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.get("/containers/1/logs")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/containers"
@@ -136,7 +184,9 @@ async def test_container_logs_authenticated_not_found(mock_get_user, transport_o
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers.DockerManager")
-async def test_container_logs_authenticated_found(mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user, app_with_overrides):
+async def test_container_logs_authenticated_found(
+    mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user, app_with_overrides
+):
     mock_get_user.return_value = mock_user
 
     from pit_panel.db.models import Subdomain
@@ -158,8 +208,12 @@ async def test_container_logs_authenticated_found(mock_docker_mgr_cls, mock_get_
 
     with patch("pit_panel.web.routes.containers.render") as mock_render:
         mock_render.return_value = HTMLResponse(b"<div>Logs Rendered</div>")
-        with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-            async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+        with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+            async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
                 response = await client.get("/containers/1/logs")
                 assert response.status_code == 200
                 assert "<div>Logs Rendered</div>" in response.text
@@ -168,7 +222,9 @@ async def test_container_logs_authenticated_found(mock_docker_mgr_cls, mock_get_
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers.DockerManager")
-async def test_container_logs_authenticated_found_error(mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user, app_with_overrides):
+async def test_container_logs_authenticated_found_error(
+    mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user, app_with_overrides
+):
     mock_get_user.return_value = mock_user
 
     from pit_panel.db.models import Subdomain
@@ -190,8 +246,12 @@ async def test_container_logs_authenticated_found_error(mock_docker_mgr_cls, moc
 
     with patch("pit_panel.web.routes.containers.render") as mock_render:
         mock_render.return_value = HTMLResponse(b"<div>Logs Rendered</div>")
-        with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-            async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+        with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+            async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
                 response = await client.get("/containers/1/logs")
                 assert response.status_code == 200
                 assert "<div>Logs Rendered</div>" in response.text
@@ -199,18 +259,30 @@ async def test_container_logs_authenticated_found_error(mock_docker_mgr_cls, moc
 
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock, return_value=None)
-async def test_container_restart_unauthenticated(mock_get_user, transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+async def test_container_restart_unauthenticated(
+    mock_get_user, transport_overrides
+):
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.post("/containers/1/restart")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/login"
 
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock, return_value=None)
-async def test_container_restart_unauthenticated_hx(mock_get_user, transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+async def test_container_restart_unauthenticated_hx(
+    mock_get_user, transport_overrides
+):
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.post("/containers/1/restart", headers={"hx-request": "true"})
             assert response.status_code == 200
             assert response.headers.get("HX-Redirect") == "/login"
@@ -218,7 +290,9 @@ async def test_container_restart_unauthenticated_hx(mock_get_user, transport_ove
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers.DockerManager")
-async def test_container_restart_authenticated_found(mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user, app_with_overrides):
+async def test_container_restart_authenticated_found(
+    mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user, app_with_overrides
+):
     mock_get_user.return_value = mock_user
 
     from pit_panel.db.models import Subdomain
@@ -238,8 +312,12 @@ async def test_container_restart_authenticated_found(mock_docker_mgr_cls, mock_g
     mock_docker_mgr = mock_docker_mgr_cls.return_value
     mock_docker_mgr.run_compose_command = AsyncMock()
 
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.post("/containers/1/restart")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/containers"
@@ -248,13 +326,19 @@ async def test_container_restart_authenticated_found(mock_docker_mgr_cls, mock_g
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers.DockerManager")
-async def test_container_stop_authenticated(mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user):
+async def test_container_stop_authenticated(
+    mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user
+):
     mock_get_user.return_value = mock_user
     mock_docker_mgr = mock_docker_mgr_cls.return_value
     mock_docker_mgr.container_stop = AsyncMock()
 
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.post("/containers/container/test_container/stop")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/containers"
@@ -264,16 +348,24 @@ async def test_container_stop_authenticated(mock_docker_mgr_cls, mock_get_user, 
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 async def test_container_stop_unauthenticated(mock_get_user, transport_overrides):
     mock_get_user.return_value = None
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.post("/containers/container/test_container/stop")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/login"
 
 @pytest.mark.asyncio
 async def test_container_stop_invalid_id(transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.post("/containers/container/invalid id!/stop")
             assert response.status_code == 400
             assert "Invalid container ID" in response.text
@@ -281,13 +373,19 @@ async def test_container_stop_invalid_id(transport_overrides):
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers.DockerManager")
-async def test_container_start_authenticated(mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user):
+async def test_container_start_authenticated(
+    mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user
+):
     mock_get_user.return_value = mock_user
     mock_docker_mgr = mock_docker_mgr_cls.return_value
     mock_docker_mgr.container_start = AsyncMock()
 
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.post("/containers/container/test_container/start")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/containers"
@@ -297,16 +395,24 @@ async def test_container_start_authenticated(mock_docker_mgr_cls, mock_get_user,
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 async def test_container_start_unauthenticated(mock_get_user, transport_overrides):
     mock_get_user.return_value = None
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.post("/containers/container/test_container/start")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/login"
 
 @pytest.mark.asyncio
 async def test_container_start_invalid_id(transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.post("/containers/container/invalid id!/start")
             assert response.status_code == 400
             assert "Invalid container ID" in response.text
@@ -314,51 +420,75 @@ async def test_container_start_invalid_id(transport_overrides):
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers.DockerManager")
-async def test_container_logs_live_authenticated(mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user):
+async def test_container_logs_live_authenticated(
+    mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user
+):
     mock_get_user.return_value = mock_user
     mock_docker_mgr = mock_docker_mgr_cls.return_value
     mock_docker_mgr.container_logs_live = AsyncMock(return_value="Live logs")
 
     with patch("pit_panel.web.routes.containers.render") as mock_render:
         mock_render.return_value = HTMLResponse(b"<div>Live Logs Rendered</div>")
-        with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-            async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+        with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+            async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
                 response = await client.get("/containers/container/test_container/logs")
                 assert response.status_code == 200
                 assert "<div>Live Logs Rendered</div>" in response.text
-                mock_docker_mgr.container_logs_live.assert_called_once_with("test_container", tail=200)
+                mock_docker_mgr.container_logs_live.assert_called_once_with(
+                    "test_container", tail=200
+                )
 
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers.DockerManager")
-async def test_container_logs_live_authenticated_error(mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user):
+async def test_container_logs_live_authenticated_error(
+    mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user
+):
     mock_get_user.return_value = mock_user
     mock_docker_mgr = mock_docker_mgr_cls.return_value
     mock_docker_mgr.container_logs_live = AsyncMock(side_effect=Exception("Error"))
 
     with patch("pit_panel.web.routes.containers.render") as mock_render:
         mock_render.return_value = HTMLResponse(b"<div>Error Logs Rendered</div>")
-        with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-            async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+        with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+            async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
                 response = await client.get("/containers/container/test_container/logs")
                 assert response.status_code == 200
                 assert "<div>Error Logs Rendered</div>" in response.text
-                mock_docker_mgr.container_logs_live.assert_called_once_with("test_container", tail=200)
+                mock_docker_mgr.container_logs_live.assert_called_once_with(
+                    "test_container", tail=200
+                )
 
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 async def test_container_logs_live_unauthenticated(mock_get_user, transport_overrides):
     mock_get_user.return_value = None
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.get("/containers/container/test_container/logs")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/login"
 
 @pytest.mark.asyncio
 async def test_container_logs_live_invalid_id(transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.get("/containers/container/invalid id!/logs")
             assert response.status_code == 400
             assert "Invalid container ID" in response.text
@@ -366,15 +496,21 @@ async def test_container_logs_live_invalid_id(transport_overrides):
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers.DockerManager")
-async def test_container_stats_authenticated(mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user):
+async def test_container_stats_authenticated(
+    mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user
+):
     mock_get_user.return_value = mock_user
     mock_docker_mgr = mock_docker_mgr_cls.return_value
     mock_docker_mgr.container_stats = AsyncMock(return_value={"cpu": "10%"})
 
     with patch("pit_panel.web.routes.containers.render") as mock_render:
         mock_render.return_value = HTMLResponse(b"<div>Stats Rendered</div>")
-        with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-            async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+        with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+            async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
                 response = await client.get("/containers/container/test_container/stats")
                 assert response.status_code == 200
                 assert "<div>Stats Rendered</div>" in response.text
@@ -383,15 +519,21 @@ async def test_container_stats_authenticated(mock_docker_mgr_cls, mock_get_user,
 @pytest.mark.asyncio
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 @patch("pit_panel.web.routes.containers.DockerManager")
-async def test_container_stats_authenticated_error(mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user):
+async def test_container_stats_authenticated_error(
+    mock_docker_mgr_cls, mock_get_user, transport_overrides, mock_user
+):
     mock_get_user.return_value = mock_user
     mock_docker_mgr = mock_docker_mgr_cls.return_value
     mock_docker_mgr.container_stats = AsyncMock(side_effect=Exception("Error"))
 
     with patch("pit_panel.web.routes.containers.render") as mock_render:
         mock_render.return_value = HTMLResponse(b"<div>Stats Rendered</div>")
-        with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-            async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+        with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+            async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
                 response = await client.get("/containers/container/test_container/stats")
                 assert response.status_code == 200
                 assert "<div>Stats Rendered</div>" in response.text
@@ -401,16 +543,24 @@ async def test_container_stats_authenticated_error(mock_docker_mgr_cls, mock_get
 @patch("pit_panel.web.routes.containers.get_user", new_callable=AsyncMock)
 async def test_container_stats_unauthenticated(mock_get_user, transport_overrides):
     mock_get_user.return_value = None
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.get("/containers/container/test_container/stats")
             assert response.status_code == 302
             assert response.headers.get("Location") == "/login"
 
 @pytest.mark.asyncio
 async def test_container_stats_invalid_id(transport_overrides):
-    with patch("pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False):
-        async with AsyncClient(transport=transport_overrides, base_url="http://testserver") as client:
+    with patch(
+        "pit_panel.web.app.is_ip_banned", new_callable=AsyncMock, return_value=False
+    ):
+        async with AsyncClient(
+            transport=transport_overrides, base_url="http://testserver"
+        ) as client:
             response = await client.get("/containers/container/invalid id!/stats")
             assert response.status_code == 400
             assert "Invalid container ID" in response.text
@@ -455,7 +605,9 @@ async def test_get_containers_data():
 
     mock_docker_mgr.ps_all.return_value = [container1, container2, container3, container4]
 
-    subdomains, containers_data, orphan_containers = await _get_containers_data(mock_db, mock_docker_mgr)
+    subdomains, containers_data, orphan_containers = await _get_containers_data(
+        mock_db, mock_docker_mgr
+    )
 
     assert "test1" in subdomains
     assert "test2" in subdomains
@@ -475,7 +627,7 @@ async def test_get_containers_data_exception():
     mock_docker_mgr = AsyncMock()
     mock_docker_mgr.ps_all.return_value = []
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match='DB Error'):
         await _get_containers_data(mock_db, mock_docker_mgr)
 
 
@@ -496,5 +648,5 @@ async def test_get_containers_data_exception_cancel():
 
     mock_docker_mgr.ps_all = delayed_ps_all
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match='DB Error'):
         await _get_containers_data(mock_db, mock_docker_mgr)
