@@ -1,9 +1,12 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from httpx import AsyncClient, ASGITransport
-from pit_panel.web.app import create_app
-from pit_panel.db.models import User
-from unittest.mock import patch, AsyncMock
 from fastapi.responses import HTMLResponse
+from httpx import ASGITransport, AsyncClient
+
+from pit_panel.db.models import User
+from pit_panel.web.app import create_app
+
 
 @pytest.fixture
 def mock_user():
@@ -415,8 +418,8 @@ async def test_container_stats_invalid_id(transport_overrides):
 
 @pytest.mark.asyncio
 async def test_get_containers_data():
-    from pit_panel.web.routes.containers import _get_containers_data
     from pit_panel.db.models import Subdomain
+    from pit_panel.web.routes.containers import _get_containers_data
 
     sd1 = Subdomain(id=1, subdomain="test1", app_type="docker")
     sd2 = Subdomain(id=2, subdomain="test2", app_type="docker")
@@ -478,8 +481,9 @@ async def test_get_containers_data_exception():
 
 @pytest.mark.asyncio
 async def test_get_containers_data_exception_cancel():
-    from pit_panel.web.routes.containers import _get_containers_data
     import asyncio
+
+    from pit_panel.web.routes.containers import _get_containers_data
 
     mock_db = AsyncMock()
     mock_db.execute.side_effect = Exception("DB Error")
