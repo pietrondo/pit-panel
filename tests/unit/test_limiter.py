@@ -55,11 +55,13 @@ def test_ratelimiter_cleanup_removes_empty_keys() -> None:
 
     with patch("time.time") as mock_time:
         mock_time.return_value = 100.0
+        # Re-initialize to sync _last_global_cleanup with mocked time
+        limiter = RateLimiter(requests=1, window=10)
         limiter.is_allowed("key1")
         assert "key1" in limiter._cache
 
-        # Advance time past window and trigger cleanup with another key
-        mock_time.return_value = 120.0
+        # Advance time past the global cleanup interval (max(60, 10))
+        mock_time.return_value = 165.0
         limiter.is_allowed("key2")
 
         # key1 should be removed from cache entirely
