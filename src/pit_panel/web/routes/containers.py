@@ -183,7 +183,7 @@ async def container_stop(
     request: Request, container_id: str, db: AsyncSession = Depends(get_db)
 ) -> Response:
     user = await get_user(request, db)
-    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
+    if not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
         return HTMLResponse("Invalid container ID", status_code=400)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -198,7 +198,7 @@ async def container_start(
     request: Request, container_id: str, db: AsyncSession = Depends(get_db)
 ) -> Response:
     user = await get_user(request, db)
-    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
+    if not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
         return HTMLResponse("Invalid container ID", status_code=400)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -213,7 +213,7 @@ async def container_logs_live(
     request: Request, container_id: str, db: AsyncSession = Depends(get_db)
 ) -> Response:
     user = await get_user(request, db)
-    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
+    if not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
         return HTMLResponse("Invalid container ID", status_code=400)
     if not user:
         return RedirectResponse("/login", status_code=302)
@@ -237,7 +237,7 @@ async def container_stats(
     request: Request, container_id: str, db: AsyncSession = Depends(get_db)
 ) -> Response:
     user = await get_user(request, db)
-    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
+    if not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", container_id):
         return HTMLResponse("Invalid container ID", status_code=400)
     if not user:
         return RedirectResponse("/login", status_code=302)

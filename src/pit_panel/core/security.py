@@ -49,7 +49,7 @@ async def _detect_ssh_port() -> int:
         line = line.strip()
         if line.startswith("#"):
             continue
-        m = re.match(r"^Port\s+(\d+)", line, re.IGNORECASE)
+        m = re.fullmatch(r"^Port\s+(\d+)", line, re.IGNORECASE)
         if m:
             return int(m.group(1))
     return 22
@@ -235,7 +235,7 @@ async def _ensure_fail2ban_jails() -> None:
 async def _fail2ban_jail_banned(jail: str) -> list[dict[str, str]]:
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.fullmatch(r"^[a-zA-Z0-9_-]+$", jail):
         raise ValueError("Invalid jail name")
     out = await _run_cmd(["sudo", "-n", "/usr/bin/fail2ban-client", "status", jail], timeout=10)
     ips = []
@@ -254,7 +254,7 @@ async def _fail2ban_unban(jail: str, ip: str) -> bool:
     import ipaddress
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.fullmatch(r"^[a-zA-Z0-9_-]+$", jail):
         raise ValueError("Invalid jail name")
     try:
         ipaddress.ip_address(ip)
@@ -291,7 +291,7 @@ async def unban_ip_address(db: AsyncSession, ip: str, user_id: int | None = None
 async def _get_jail_config(jail: str) -> dict[str, Any]:
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.fullmatch(r"^[a-zA-Z0-9_-]+$", jail):
         raise ValueError("Invalid jail name")
     bantime = await _run_cmd(["sudo", "-n", "fail2ban-client", "get", jail, "bantime"])
     findtime = await _run_cmd(["sudo", "-n", "fail2ban-client", "get", jail, "findtime"])
@@ -314,7 +314,7 @@ async def _get_jail_config(jail: str) -> dict[str, Any]:
 async def _save_jail_config(jail: str, bantime: Any, findtime: Any, maxretry: Any) -> bool:
     import re
 
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jail):
+    if not re.fullmatch(r"^[a-zA-Z0-9_-]+$", jail):
         raise ValueError("Invalid jail name")
     import configparser
     from io import StringIO
