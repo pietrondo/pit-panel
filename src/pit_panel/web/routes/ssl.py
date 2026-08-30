@@ -143,9 +143,9 @@ class SSLGenerateForm:
 
 def _generate_caddyfile(config: CaddyfileConfig) -> str:
     """Generate a Caddyfile string based on the provided configuration."""
-    if not re.match(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", config.domain):
+    if not re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", config.domain):
         raise ValueError("Invalid domain name")
-    if not re.match(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", config.panel_sub):
+    if not re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", config.panel_sub):
         raise ValueError("Invalid panel subdomain")
 
     email = _sanitize(config.email)
@@ -344,7 +344,7 @@ async def ssl_renew(
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    if not re.match(r"^[a-zA-Z0-9.-]+$", domain):
+    if not re.fullmatch(r"^[a-zA-Z0-9.-]+$", domain):
         return HTMLResponse("Invalid domain format", status_code=400)
 
     settings = get_settings()
