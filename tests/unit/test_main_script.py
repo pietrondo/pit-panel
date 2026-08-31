@@ -1,8 +1,7 @@
-import argparse
-from unittest.mock import patch, MagicMock
-import pytest
-from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 from pit_panel.main import main
+
 
 @patch("pit_panel.main.uvicorn.run")
 @patch("pit_panel.main.Path.mkdir")
@@ -29,8 +28,8 @@ def test_main_default_args(mock_parse_args, mock_mkdir, mock_uvicorn_run):
         assert args[0] == "pit_panel.web.app:create_app"
         assert kwargs["host"] == "0.0.0.0"
         assert kwargs["port"] == 8000
-        assert kwargs["reload"] == False
-        assert kwargs["factory"] == True
+        assert not kwargs["reload"]
+        assert kwargs["factory"]
         assert kwargs["log_level"] == "info"
 
 @patch("pit_panel.main.uvicorn.run")
@@ -58,8 +57,8 @@ def test_main_with_domain(mock_parse_args, mock_mkdir, mock_uvicorn_run):
         assert args[0] == "pit_panel.web.app:create_app"
         assert kwargs["host"] == "127.0.0.1"
         assert kwargs["port"] == 8080
-        assert kwargs["reload"] == True
-        assert kwargs["factory"] == True
+        assert kwargs["reload"]
+        assert kwargs["factory"]
         assert kwargs["log_level"] == "debug"
 
 @patch("pit_panel.main.uvicorn.run")

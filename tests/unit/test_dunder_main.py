@@ -1,5 +1,5 @@
-import pytest
 from unittest.mock import patch
+
 
 @patch("pit_panel.main.main")
 def test_dunder_main(mock_main):
