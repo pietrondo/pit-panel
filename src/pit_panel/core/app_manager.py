@@ -18,7 +18,7 @@ _SUBDOMAIN_RE = re.compile(r"^[a-z0-9_][a-z0-9_-]{0,62}$")
 
 
 def _validate_subdomain(subdomain: str) -> str:
-    if not subdomain or not _SUBDOMAIN_RE.match(subdomain):
+    if not subdomain or not _SUBDOMAIN_RE.fullmatch(subdomain):
         raise ValueError(f"Invalid subdomain: {subdomain!r}")
     return subdomain
 
