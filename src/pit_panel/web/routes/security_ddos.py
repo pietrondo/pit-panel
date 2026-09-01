@@ -347,18 +347,21 @@ async def security_ddos_block_ip(request: Request, db: AsyncSession = Depends(ge
     import ipaddress as ipmod
 
     try:
-        ipmod.ip_network(ip, strict=False)
+        ip_obj = ipmod.ip_network(ip, strict=False)
+        canonical_ip = str(ip_obj)
     except ValueError:
         return HTMLResponse(
             '<span class="text-red-600 text-xs">❌ IP non valido</span>', status_code=400
         )
 
-    ok = await _iptables(["-I", "INPUT", "1", "-s", ip, "-j", "DROP"])
+    ok = await _iptables(["-I", "INPUT", "1", "-s", canonical_ip, "-j", "DROP"])
     if ok:
         return HTMLResponse(
-            f'<span class="text-green-600 text-xs">✅ {ip} bloccato a livello kernel</span>'
+            f'<span class="text-green-600 text-xs">✅ {canonical_ip} bloccato a livello kernel</span>'  # noqa
         )
-    return HTMLResponse(f'<span class="text-red-600 text-xs">❌ Impossibile bloccare {ip}</span>')
+    return HTMLResponse(
+        f'<span class="text-red-600 text-xs">❌ Impossibile bloccare {canonical_ip}</span>'
+    )
 
 
 @router.post("/security/ddos/unblock-ip", response_class=HTMLResponse)
@@ -373,16 +376,21 @@ async def security_ddos_unblock_ip(request: Request, db: AsyncSession = Depends(
     import ipaddress as ipmod
 
     try:
-        ipmod.ip_network(ip, strict=False)
+        ip_obj = ipmod.ip_network(ip, strict=False)
+        canonical_ip = str(ip_obj)
     except ValueError:
         return HTMLResponse(
             '<span class="text-red-600 text-xs">❌ IP non valido</span>', status_code=400
         )
 
-    ok = await _iptables(["-D", "INPUT", "-s", ip, "-j", "DROP"])
+    ok = await _iptables(["-D", "INPUT", "-s", canonical_ip, "-j", "DROP"])
     if ok:
-        return HTMLResponse(f'<span class="text-green-600 text-xs">✅ {ip} sbloccato</span>')
-    return HTMLResponse(f'<span class="text-red-600 text-xs">❌ Regola non trovata per {ip}</span>')
+        return HTMLResponse(
+            f'<span class="text-green-600 text-xs">✅ {canonical_ip} sbloccato</span>'
+        )
+    return HTMLResponse(
+        f'<span class="text-red-600 text-xs">❌ Regola non trovata per {canonical_ip}</span>'
+    )
 
 
 @router.get("/security/ddos/top-connections", response_class=HTMLResponse)

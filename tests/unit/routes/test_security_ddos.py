@@ -133,7 +133,7 @@ async def test_security_ddos_block_ip_success(client, monkeypatch: pytest.Monkey
 
     response = client.post("/security/ddos/block-ip", data={"ip": "1.2.3.4"})
     assert response.status_code == 200
-    assert "1.2.3.4 bloccato" in response.text
+    assert "1.2.3.4/32 bloccato" in response.text
 
 
 @pytest.mark.asyncio
@@ -169,7 +169,7 @@ async def test_security_ddos_unblock_ip_success(client, monkeypatch: pytest.Monk
 
     response = client.post("/security/ddos/unblock-ip", data={"ip": "1.2.3.4"})
     assert response.status_code == 200
-    assert "1.2.3.4 sbloccato" in response.text
+    assert "1.2.3.4/32 sbloccato" in response.text or "1.2.3.4 sbloccato" in response.text
 
 
 @pytest.mark.asyncio

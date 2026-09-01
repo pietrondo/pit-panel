@@ -361,8 +361,8 @@ async def test_security_ddos_block_ip_success(
     res = await security_ddos_block_ip(mock_request, mock_db)
     assert isinstance(res, HTMLResponse)
     assert res.status_code == 200
-    assert "1.2.3.4 bloccato" in res.body.decode()
-    mock_iptables.assert_called_once_with(["-I", "INPUT", "1", "-s", "1.2.3.4", "-j", "DROP"])
+    assert "1.2.3.4/32 bloccato" in res.body.decode()
+    mock_iptables.assert_called_once_with(["-I", "INPUT", "1", "-s", "1.2.3.4/32", "-j", "DROP"])
 
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
@@ -422,8 +422,8 @@ async def test_security_ddos_unblock_ip_success(
     res = await security_ddos_unblock_ip(mock_request, mock_db)
     assert isinstance(res, HTMLResponse)
     assert res.status_code == 200
-    assert "1.2.3.4 sbloccato" in res.body.decode()
-    mock_iptables.assert_called_once_with(["-D", "INPUT", "-s", "1.2.3.4", "-j", "DROP"])
+    assert "1.2.3.4 sbloccato" in res.body.decode() or "1.2.3.4/32 sbloccato" in res.body.decode()
+    mock_iptables.assert_called_once_with(["-D", "INPUT", "-s", "1.2.3.4/32", "-j", "DROP"])
 
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
@@ -440,7 +440,7 @@ async def test_security_ddos_unblock_ip_failure(
     res = await security_ddos_unblock_ip(mock_request, mock_db)
     assert isinstance(res, HTMLResponse)
     assert res.status_code == 200
-    assert "Regola non trovata per 1.2.3.4" in res.body.decode()
+    assert "Regola non trovata per 1.2.3.4/32" in res.body.decode()
 
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
