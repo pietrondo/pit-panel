@@ -12,3 +12,7 @@
 **Vulnerability:** The `_safe_path` function in `src/pit_panel/web/routes/debug_api.py` used `str(p).startswith(prefix)` to check if a path was within an allowed directory. This allows paths like `/opt/pit-panel-hacked/test` to bypass the check because the string starts with `/opt/pit-panel`.
 **Learning:** Using string matching like `.startswith()` for path validation is dangerous and leads to path traversal / authorization bypass vulnerabilities because it ignores directory boundaries.
 **Prevention:** Always use proper path manipulation libraries for authorization checks. In Python, use `pathlib.Path` methods like `p.is_relative_to(allowed_root)` after fully resolving both the target path and the allowed root path.
+## 2026-09-01 - Enforce Strict Regex and IP Canonicalization
+**Vulnerability:** Input validation for fail2ban jails and container names relied on `re.match`, allowing trailing newlines to bypass checks. IP addresses for `iptables` were validated but passed as uncanonicalized strings.
+**Learning:** `re.match` only anchors the start of the string, and even with `$`, it allows trailing newlines. IP strings should be canonicalized to avoid subtle evasions in system commands.
+**Prevention:** Always use `re.fullmatch` for strict string validation. Use `ipaddress.ip_network(ip).compressed` or `str()` before passing IP values to shell tools.
