@@ -16,3 +16,8 @@
 **Vulnerability:** Input validation for fail2ban jails and container names relied on `re.match`, allowing trailing newlines to bypass checks. IP addresses for `iptables` were validated but passed as uncanonicalized strings.
 **Learning:** `re.match` only anchors the start of the string, and even with `$`, it allows trailing newlines. IP strings should be canonicalized to avoid subtle evasions in system commands.
 **Prevention:** Always use `re.fullmatch` for strict string validation. Use `ipaddress.ip_network(ip).compressed` or `str()` before passing IP values to shell tools.
+
+## 2024-05-22 - Path Traversal via re.match() Validation Bypass
+**Vulnerability:** The `_validate_subdomain` function in `src/pit_panel/core/app_manager.py` used `_SUBDOMAIN_RE.match(subdomain)` to validate subdomain inputs. In Python, `re.match` anchors only to the start of the string. Even if the regex pattern ends with `$`, it allows a trailing newline character. Thus, malicious subdomains containing a trailing newline (e.g. `valid\nmalicious`) could bypass validation and potentially exploit downstream path construction or command execution.
+**Learning:** `re.match` is insufficient for strict string validation when the input represents an atomic entity (like a hostname, path, or identifier) rather than a stream of text lines.
+**Prevention:** Always use `re.fullmatch` when performing strict string validation to enforce that the entire input matches the pattern without any hidden trailing characters.
