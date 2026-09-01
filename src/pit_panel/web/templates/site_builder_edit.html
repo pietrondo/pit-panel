@@ -79,14 +79,14 @@
                                             <option :value="w" :selected="col.width === w" x-text="w + '/12'"></option>
                                         </template>
                                     </select>
-                                    <button type="button" @click="removeColumn(sIdx, cIdx)" class="text-xs text-red-600">&times;</button>
+                                    <button type="button" @click="removeColumn(sIdx, cIdx)" aria-label="Remove column" class="text-xs text-red-600">&times;</button>
                                 </div>
                                 <div class="space-y-2 min-h-[60px]" :data-col-id="col.id">
                                     <template x-for="(widget, wIdx) in col.widgets" :key="widget.id">
                                         <div class="rounded border border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-900/40">
                                             <div class="flex items-center justify-between mb-1">
                                                 <span class="text-xs font-medium text-slate-500 uppercase" x-text="widget.type"></span>
-                                                <button type="button" @click="removeWidget(sIdx, cIdx, wIdx)" class="text-xs text-red-600">&times;</button>
+                                                <button type="button" @click="removeWidget(sIdx, cIdx, wIdx)" aria-label="Remove widget" class="text-xs text-red-600">&times;</button>
                                             </div>
                                             <template x-if="widget.type === 'heading'">
                                                 <div class="space-y-1">

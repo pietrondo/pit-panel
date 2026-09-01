@@ -1,0 +1,100 @@
+src/pit_panel/web/templates/app_detail.html:41:            <button class="btn-ghost text-sm text-yellow-700 dark:text-yellow-400 flex items-center gap-1.5"
+src/pit_panel/web/templates/app_detail.html:51:            <button class="btn-ghost text-sm text-blue-600 flex items-center gap-1.5"
+src/pit_panel/web/templates/app_detail.html:58:            <button class="btn-ghost text-sm text-emerald-600 flex items-center gap-1.5"
+src/pit_panel/web/templates/app_detail.html:170:            <button class="btn-ghost text-xs text-indigo-600"
+src/pit_panel/web/templates/app_detail.html:248:        <button class="px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px"
+src/pit_panel/web/templates/app_detail.html:254:        <button class="px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px"
+src/pit_panel/web/templates/app_detail.html:260:        <button class="px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px"
+src/pit_panel/web/templates/app_detail.html:266:        <button class="px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px"
+src/pit_panel/web/templates/app_detail.html:272:        <button class="px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px"
+src/pit_panel/web/templates/app_detail.html:278:        <button class="px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px"
+src/pit_panel/web/templates/apps.html:44:        <button class="px-4 py-2 text-sm font-medium transition-colors"
+src/pit_panel/web/templates/apps.html:49:        <button class="px-4 py-2 text-sm font-medium transition-colors"
+src/pit_panel/web/templates/apps.html:60:            <button class="btn-ghost text-sm text-emerald-600 flex items-center gap-1.5"
+src/pit_panel/web/templates/apps.html:146:                    <button class="btn-ghost text-indigo-700 dark:text-indigo-400"
+src/pit_panel/web/templates/apps.html:245:                        <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400 flex items-center gap-2">
+src/pit_panel/web/templates/base.html:287:                            <button type="submit" class="btn-ghost text-xs py-1 px-2">Logout</button>
+src/pit_panel/web/templates/dashboard.html:19:        <button class="btn-ghost text-xs text-indigo-600 dark:text-indigo-400">Add Subdomain</button>
+src/pit_panel/web/templates/file_manager.html:17:            <button @click="if(parentPath) { loadPath(parentPath); }" :disabled="!parentPath"
+src/pit_panel/web/templates/file_manager.html:45:                    <button @click="loadPath(folder.path)"
+src/pit_panel/web/templates/file_manager.html:93:                                            <button @click="createOpen = true" class="btn btn-primary text-sm">+ Create New</button>
+src/pit_panel/web/templates/file_manager.html:94:                                            <button @click="uploadOpen = true" class="btn btn-ghost border-slate-300 dark:border-slate-700 text-sm">↑ Upload File</button>
+src/pit_panel/web/templates/file_manager.html:103:                                    <button @click="item.is_dir ? loadPath(item.path) : openFile(item.path)"
+src/pit_panel/web/templates/file_manager.html:147:                <button @click="saveFile()" class="btn btn-primary flex items-center justify-center gap-2" :disabled="saving" :class="{'opacity-75 cursor-wait': saving}">
+src/pit_panel/web/templates/file_manager.html:173:                        <button type="button" @click="createType = 'file'"
+src/pit_panel/web/templates/file_manager.html:178:                        <button type="button" @click="createType = 'directory'"
+src/pit_panel/web/templates/file_manager.html:192:                <button @click="createResource()" class="btn btn-primary flex items-center justify-center gap-2" :disabled="creating" :class="{'opacity-75 cursor-wait': creating}">
+src/pit_panel/web/templates/file_manager.html:224:                <button @click="uploadOpen = false" class="btn btn-ghost">Cancel</button>
+src/pit_panel/web/templates/login.html:66:                        <button type="button" @click="showPassword = !showPassword"
+src/pit_panel/web/templates/login.html:80:                <button type="submit"
+src/pit_panel/web/templates/logs.html:23:        <button @click="tab = 'journal'"
+src/pit_panel/web/templates/logs.html:30:        <button @click="tab = 'app'"
+src/pit_panel/web/templates/logs.html:50:                <button hx-get="/logs/journal" hx-target="#journal-box" hx-swap="outerHTML" class="btn-ghost text-xs">Refresh</button>
+src/pit_panel/web/templates/logs.html:70:                <button hx-get="/logs/applog" hx-target="#applog-box" hx-swap="outerHTML" class="btn-ghost text-xs">Refresh</button>
+src/pit_panel/web/templates/security.html:43:    <button class="p-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold text-sm shadow transition-colors text-center"
+src/pit_panel/web/templates/security.html:52:    <button class="p-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm shadow transition-colors text-center"
+src/pit_panel/web/templates/security.html:62:    <button class="p-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow transition-colors text-center"
+src/pit_panel/web/templates/security.html:82:        <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+src/pit_panel/web/templates/security.html:89:        <button class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-lg transition-colors"
+src/pit_panel/web/templates/security.html:139:                            <button class="text-green-600 hover:text-green-800 font-medium">Sblocca</button>
+src/pit_panel/web/templates/security.html:168:                            <button class="text-red-600 hover:text-red-800 font-medium">Revoca</button>
+src/pit_panel/web/templates/security.html:188:            <button class="btn-ghost text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5"
+src/pit_panel/web/templates/security.html:193:            <button class="btn-ghost text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5"
+src/pit_panel/web/templates/security.html:199:            <button class="btn-ghost text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5"
+src/pit_panel/web/templates/security.html:205:            <button class="btn-ghost text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5"
+src/pit_panel/web/templates/security.html:209:            <button class="btn-ghost text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5"
+src/pit_panel/web/templates/security.html:214:            <button class="btn-ghost text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5"
+src/pit_panel/web/templates/security.html:219:            <button class="btn-ghost text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5"
+src/pit_panel/web/templates/settings.html:45:                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-lg transition-colors">Save Settings</button>
+src/pit_panel/web/templates/settings.html:77:                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-lg transition-colors">Save</button>
+src/pit_panel/web/templates/settings.html:78:                <button class="btn-ghost text-xs text-green-600"
+src/pit_panel/web/templates/setup_2fa.html:55:                <button type="submit"
+src/pit_panel/web/templates/site_builder.html:18:            <button type="submit"
+src/pit_panel/web/templates/site_builder.html:50:                                <button type="submit"
+src/pit_panel/web/templates/site_builder_edit.html:21:            <button type="button" @click="publish()"
+src/pit_panel/web/templates/site_builder_edit.html:45:                        <button type="button" @click="addWidget(wt.type)"
+src/pit_panel/web/templates/site_builder_edit.html:53:            <button type="button" @click="addSection()"
+src/pit_panel/web/templates/site_builder_edit.html:68:                            <button type="button" @click="addColumn(sIdx)" class="text-xs px-2 py-0.5 rounded border border-slate-300 dark:border-slate-600">+ Col</button>
+src/pit_panel/web/templates/site_builder_edit.html:69:                            <button type="button" @click="removeSection(sIdx)" class="text-xs px-2 py-0.5 rounded border border-red-300 text-red-600">Del</button>
+src/pit_panel/web/templates/site_builder_edit.html:82:                                    <button type="button" @click="removeColumn(sIdx, cIdx)" class="text-xs text-red-600">&times;</button>
+src/pit_panel/web/templates/site_builder_edit.html:89:                                                <button type="button" @click="removeWidget(sIdx, cIdx, wIdx)" class="text-xs text-red-600">&times;</button>
+src/pit_panel/web/templates/ssl.html:123:            <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400">Generate & Write Caddyfile</button>
+src/pit_panel/web/templates/ssl.html:196:                            <button class="btn-ghost text-xs text-orange-600">Get SSL Cert</button>
+src/pit_panel/web/templates/ssl.html:209:        <button class="btn-ghost text-sm text-indigo-600 flex items-center gap-1.5">
+src/pit_panel/web/templates/ssl.html:264:                            <button class="btn-ghost text-xs text-orange-600">Renew</button>
+src/pit_panel/web/templates/subdomains.html:48:            <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400">Add</button>
+src/pit_panel/web/templates/subdomains.html:132:                                    <button type="submit" class="btn-ghost text-xs py-1 text-indigo-700 dark:text-indigo-400">Save</button>
+src/pit_panel/web/templates/subdomains.html:134:                                <button class="btn-ghost text-xs py-1" @click="editing = false">Cancel</button>
+src/pit_panel/web/templates/system.html:52:                <button class="btn-ghost px-8 text-indigo-700 dark:text-indigo-400 flex items-center justify-center gap-2 mx-auto" :disabled="isSubmitting" :class="{'opacity-75 cursor-not-allowed': isSubmitting}">
+src/pit_panel/web/templates/system.html:66:                <button class="btn-ghost text-xs flex items-center justify-center gap-1.5 mx-auto" :disabled="isSubmitting" :class="{'opacity-75 cursor-not-allowed': isSubmitting}">
+src/pit_panel/web/templates/system_manage.html:16:            <button @click="activeTab = 'services'"
+src/pit_panel/web/templates/system_manage.html:21:            <button @click="activeTab = 'updates'"
+src/pit_panel/web/templates/system_manage.html:26:            <button @click="activeTab = 'resources'"
+src/pit_panel/web/templates/system_manage.html:31:            <button @click="activeTab = 'logs'"
+src/pit_panel/web/templates/system_manage.html:36:            <button @click="activeTab = 'docker'"
+src/pit_panel/web/templates/system_manage.html:41:            <button @click="activeTab = 'reboot'"
+src/pit_panel/web/templates/system_manage.html:55:                    <button class="btn-ghost text-xs" hx-get="/system/manage/services" hx-target="#service-list" hx-swap="innerHTML"
+src/pit_panel/web/templates/system_manage.html:80:                        <button class="btn-primary text-sm w-full justify-center" hx-post="/system/manage/action" hx-vals='{"action": "apt_update"}' hx-target="#result"
+src/pit_panel/web/templates/system_manage.html:93:                        <button class="btn-ghost text-sm w-full justify-center border border-green-300 dark:border-green-700" hx-post="/system/manage/action" hx-vals='{"action": "apt_list_upgradable"}' hx-target="#result"
+src/pit_panel/web/templates/system_manage.html:109:                            <button class="btn-primary text-sm w-full justify-center" hx-post="/system/manage/action" hx-vals='{"action": "apt_upgrade"}' hx-target="#result"
+src/pit_panel/web/templates/system_manage.html:123:                            <button class="w-full justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors" hx-post="/system/manage/action" hx-vals='{"action": "apt_dist_upgrade"}' hx-target="#result"
+src/pit_panel/web/templates/system_manage.html:157:                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "df"}' hx-target="#disk-output"
+src/pit_panel/web/templates/system_manage.html:170:                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "free"}' hx-target="#memory-output"
+src/pit_panel/web/templates/system_manage.html:183:                        <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "uptime"}' hx-target="#uptime-output"
+src/pit_panel/web/templates/system_manage.html:201:                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_panel"}' hx-target="#result"
+src/pit_panel/web/templates/system_manage.html:205:                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_caddy"}' hx-target="#result"
+src/pit_panel/web/templates/system_manage.html:209:                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_docker"}' hx-target="#result"
+src/pit_panel/web/templates/system_manage.html:213:                    <button class="btn-primary text-sm" hx-post="/system/manage/action" hx-vals='{"action": "journal_ssh"}' hx-target="#result"
+src/pit_panel/web/templates/system_manage.html:226:                    <button class="btn-ghost text-xs" hx-post="/system/manage/action" hx-vals='{"action": "docker_ps"}' hx-target="#result"
+src/pit_panel/web/templates/system_manage.html:244:                        <button type="button" @click="arm()" class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">
+src/pit_panel/web/templates/system_manage.html:254:                                <button x-show="countdown <= 0"
+src/pit_panel/web/templates/system_manage.html:261:                                <button type="button" @click="cancel()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">
+src/pit_panel/web/templates/panels/_wordpress.html:64:        <button class="btn-ghost text-sm"
+src/pit_panel/web/templates/panels/_wordpress.html:68:        <button class="btn-ghost text-sm"
+src/pit_panel/web/templates/panels/_wordpress.html:72:        <button class="btn-ghost text-sm"
+src/pit_panel/web/templates/partials/_file_content.html:13:            <button class="btn-ghost text-xs text-green-600"
+src/pit_panel/web/templates/tabs/_backup.html:4:        <button class="btn-ghost text-sm text-indigo-600 flex items-center gap-1.5"
+src/pit_panel/web/templates/tabs/_backup.html:27:                        <button class="text-xs text-orange-600 hover:text-orange-800 dark:text-orange-400">Restore</button>
+src/pit_panel/web/templates/tabs/_env.html:22:                <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400">Save Changes</button>
+src/pit_panel/web/templates/tabs/_logs.html:5:            <button class="btn-ghost text-xs text-green-600" id="live-btn" onclick="toggleLive({{ sd.id }})">▶ Live</button>
+src/pit_panel/web/templates/tabs/_logs.html:6:            <button class="btn-ghost text-xs"
