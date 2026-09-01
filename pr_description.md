@@ -1,4 +1,5 @@
-💡 What: Extracted IP ban cache lookup into a synchronous fast-path function `check_ip_banned_cache` and updated `_ip_ban_middleware` to use it before establishing the database session context.
-🎯 Why: Instantiating the SQLAlchemy database session in middleware on every single HTTP request adds significant overhead (~9ms vs ~0.06ms). Skipping this entirely when an IP ban check can be satisfied by the in-memory cache dramatically speeds up processing for all cache hits.
-📊 Impact: Reduces processing time per request by roughly ~8.5ms for all non-first requests from a given IP within the cache TTL window.
-🔬 Measurement: Tested via a mock benchmark in bash confirming cache hit times dropping from 9.84ms (requiring session scope) to 0.06ms. The `pytest` test suite also confirms no breaking changes.
+🚨 Severity: HIGH
+💡 Vulnerability: Python's `re.match` with the `$` anchor allows trailing newlines (e.g., `input\n`) to pass validation. This could potentially allow command injection or bypass of input filters if the trailing newline causes the string to be evaluated unsafely downstream in shell commands or configuration files.
+🎯 Impact: Attackers could bypass strict alphanumeric/domain validations by appending a newline to their input, leading to unauthorized actions or invalid configuration generation.
+🔧 Fix: Upgraded all security and input validation regular expressions from `re.match` to `re.fullmatch` to strictly enforce that the entire string matches the pattern, effectively blocking trailing newlines and other hidden characters.
+✅ Verification: Ran `pytest` locally to ensure no regressions were introduced.
