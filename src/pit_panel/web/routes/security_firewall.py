@@ -78,7 +78,12 @@ async def security_firewall_rule_add(
         import ipaddress
 
         try:
-            ipaddress.ip_network(source, strict=False)
+            ip_obj = ipaddress.ip_network(source, strict=False)
+            source = str(ip_obj)
+            if source.endswith("/32"):
+                source = source[:-3]
+            elif source.endswith("/128"):
+                source = source[:-4]
         except ValueError:
             return HTMLResponse(
                 '<span class="text-red-600 text-sm">Invalid source IP or network</span>',
