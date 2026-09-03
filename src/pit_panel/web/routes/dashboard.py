@@ -129,18 +129,17 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     docker_mgr = DockerManager(settings.apps_dir)
 
     # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
+    # Call fast static OS I/O methods synchronously to avoid context-switching overhead
+    disk_usage = _disk_usage()
+    cpu_usage = _cpu_usage()
+    ram_usage = _ram_usage()
+
     (
         (subdomains, row),
         (containers_total, containers_running),
-        disk_usage,
-        cpu_usage,
-        ram_usage,
     ) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
-        asyncio.to_thread(_disk_usage),
-        asyncio.to_thread(_cpu_usage),
-        asyncio.to_thread(_ram_usage),
     )
     hostname = _server_hostname()
 
@@ -200,18 +199,17 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
         return row
 
     # ⚡ Bolt: Execute I/O bound tasks and docker cmds concurrently to prevent event loop blocking
+    # Call fast static OS I/O methods synchronously to avoid context-switching overhead
+    disk_usage = _disk_usage()
+    cpu_usage = _cpu_usage()
+    ram_usage = _ram_usage()
+
     (
         row,
         (containers_total, containers_running),
-        disk_usage,
-        cpu_usage,
-        ram_usage,
     ) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
-        asyncio.to_thread(_disk_usage),
-        asyncio.to_thread(_cpu_usage),
-        asyncio.to_thread(_ram_usage),
     )
     hostname = _server_hostname()
 
