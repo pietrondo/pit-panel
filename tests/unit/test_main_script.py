@@ -97,6 +97,7 @@ def test_main_block_direct():
         patch("pit_panel.main.uvicorn.run") as mock_run,
     ):
         import pit_panel.main
+
         with patch.object(pit_panel.main, "__name__", "__main__"):
             # manually execute the block
             pit_panel.main.main()
