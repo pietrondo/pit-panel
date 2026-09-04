@@ -1,5 +1,7 @@
 """Tests for the site builder module: validation, widget rendering, static HTML output."""
 
+import pytest
+from unittest.mock import patch, MagicMock
 from pit_panel.web.routes.site_builder import (
     WIDGET_TYPES,
     _default_tree,
@@ -200,3 +202,95 @@ def test_render_site_html_escapes_title():
     out = render_site_html({"title": "<script>alert(1)</script>", "sections": []}, "Ignored")
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in out
     assert "<script>alert(1)</script>" not in out
+
+def test_safe_url_valid():
+    from pit_panel.web.routes.site_builder import _safe_url
+    assert _safe_url("http://example.com") == "http://example.com"
+    assert _safe_url("https://example.com") == "https://example.com"
+    assert _safe_url("/path/to/resource") == "/path/to/resource"
+    assert _safe_url("#anchor") == "#anchor"
+
+def test_safe_url_invalid():
+    from pit_panel.web.routes.site_builder import _safe_url
+    assert _safe_url("javascript:alert(1)", "default") == "default"
+    assert _safe_url("data:text/html,<script>alert(1)</script>", "default") == "default"
+    assert _safe_url("//example.com", "default") == "default"
+    assert _safe_url("bad-url", "default") == "default"
+
+def test_safe_url_urlsplit_value_error():
+    from pit_panel.web.routes.site_builder import _safe_url
+    with patch("pit_panel.web.routes.site_builder.urlsplit", side_effect=ValueError):
+        assert _safe_url("http://test.com", "default") == "default"
+
+def test_published_site_dir_invalid_subdomain():
+    from pit_panel.web.routes.site_builder import _published_site_dir
+    with pytest.raises(ValueError, match="Invalid site subdomain"):
+        _published_site_dir("bad subdomain!")
+
+@patch("pit_panel.web.routes.site_builder._PUBLISH_HTML_DIR")
+def test_published_site_dir_escapes_root(mock_root, tmp_path):
+    from pit_panel.web.routes.site_builder import _published_site_dir
+    mock_root.resolve.return_value = tmp_path
+
+    # Needs to bypass regex but resolve to outside root? The regex ^[a-z0-9-]+$ prevents path traversal like ../
+    # We can mock resolve to test the escape block
+    with patch("pathlib.Path.is_relative_to", return_value=False):
+        with pytest.raises(ValueError, match="Published site path escapes root"):
+            _published_site_dir("valid-subdomain")
+
+def test_bounded_int():
+    from pit_panel.web.routes.site_builder import _bounded_int
+    assert _bounded_int(5, default=1, minimum=1, maximum=10) == 5
+    assert _bounded_int(0, default=1, minimum=1, maximum=10) == 1
+    assert _bounded_int(15, default=1, minimum=1, maximum=10) == 10
+    assert _bounded_int("bad", default=2, minimum=1, maximum=10) == 2
+
+def test_validate_tree_invalid_sections():
+    from pit_panel.web.routes.site_builder import _validate_tree
+    assert _validate_tree({"sections": "not a list"}) == {"sections": []}
+
+def test_validate_tree_invalid_section_item():
+    from pit_panel.web.routes.site_builder import _validate_tree
+    assert _validate_tree({"sections": ["not a dict"]}) == {"sections": []}
+
+def test_validate_tree_invalid_columns():
+    from pit_panel.web.routes.site_builder import _validate_tree
+    assert _validate_tree({"sections": [{"columns": "not a list"}]}) == {"sections": []}
+
+def test_validate_tree_invalid_column_item():
+    from pit_panel.web.routes.site_builder import _validate_tree
+    assert _validate_tree({"sections": [{"columns": ["not a dict"]}]}) == {"sections": []}
+
+def test_validate_tree_invalid_widgets():
+    from pit_panel.web.routes.site_builder import _validate_tree
+    assert _validate_tree({"sections": [{"columns": [{"widgets": "not a list"}]}]}) == {"sections": []}
+
+def test_validate_tree_missing_ids():
+    from pit_panel.web.routes.site_builder import _validate_tree
+    tree = {
+        "sections": [
+            {
+                "columns": [
+                    {
+                        "widgets": [
+                            {"type": "heading", "props": {"text": "Hi", "level": 1}}
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    cleaned = _validate_tree(tree)
+    assert len(cleaned["sections"]) == 1
+    assert "id" in cleaned["sections"][0]
+    assert "id" in cleaned["sections"][0]["columns"][0]
+    assert "id" in cleaned["sections"][0]["columns"][0]["widgets"][0]
+
+def test_render_widget_unknown_type():
+    from pit_panel.web.routes.site_builder import _render_widget
+    assert _render_widget({"type": "unknown_widget_type"}) == ""
+
+def test_published_site_dir_returns_valid_path():
+    from pit_panel.web.routes.site_builder import _published_site_dir, _PUBLISH_HTML_DIR
+    res = _published_site_dir("valid-subdomain")
+    assert str(res) == str(_PUBLISH_HTML_DIR.resolve() / "valid-subdomain")
