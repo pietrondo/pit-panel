@@ -1,12 +1,13 @@
-import pytest
-from httpx import AsyncClient
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
+
 from pit_panel.config import Settings, init_settings
+from pit_panel.db.models import Site, User
 from pit_panel.web.app import create_app
-from pit_panel.db.models import User, Site
 from pit_panel.web.deps import get_admin, get_db
+
 
 @pytest.fixture
 def test_app(monkeypatch, tmp_path):

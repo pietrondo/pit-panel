@@ -1,7 +1,9 @@
 """Tests for the site builder module: validation, widget rendering, static HTML output."""
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from pit_panel.web.routes.site_builder import (
     WIDGET_TYPES,
     _default_tree,
@@ -291,6 +293,6 @@ def test_render_widget_unknown_type():
     assert _render_widget({"type": "unknown_widget_type"}) == ""
 
 def test_published_site_dir_returns_valid_path():
-    from pit_panel.web.routes.site_builder import _published_site_dir, _PUBLISH_HTML_DIR
+    from pit_panel.web.routes.site_builder import _PUBLISH_HTML_DIR, _published_site_dir
     res = _published_site_dir("valid-subdomain")
     assert str(res) == str(_PUBLISH_HTML_DIR.resolve() / "valid-subdomain")
