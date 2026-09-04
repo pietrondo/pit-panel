@@ -234,10 +234,9 @@ def test_published_site_dir_escapes_root(mock_root, tmp_path):
     from pit_panel.web.routes.site_builder import _published_site_dir
     mock_root.resolve.return_value = tmp_path
 
-    # Needs to bypass regex but resolve to outside root? The regex ^[a-z0-9-]+$ prevents path traversal like ../
+    # Needs to bypass regex but resolve to outside root? The regex ^[a-z0-9-]+$ prevents path traversal like ../  # noqa: E501
     # We can mock resolve to test the escape block
-    with patch("pathlib.Path.is_relative_to", return_value=False):
-        with pytest.raises(ValueError, match="Published site path escapes root"):
+    with patch("pathlib.Path.is_relative_to", return_value=False), pytest.raises(ValueError, match="Published site path escapes root"):  # noqa: E501
             _published_site_dir("valid-subdomain")
 
 def test_bounded_int():
@@ -265,7 +264,7 @@ def test_validate_tree_invalid_column_item():
 
 def test_validate_tree_invalid_widgets():
     from pit_panel.web.routes.site_builder import _validate_tree
-    assert _validate_tree({"sections": [{"columns": [{"widgets": "not a list"}]}]}) == {"sections": []}
+    assert _validate_tree({"sections": [{"columns": [{"widgets": "not a list"}]}]}) == {"sections": []}  # noqa: E501
 
 def test_validate_tree_missing_ids():
     from pit_panel.web.routes.site_builder import _validate_tree
