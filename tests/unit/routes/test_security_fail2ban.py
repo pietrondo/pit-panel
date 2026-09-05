@@ -255,3 +255,18 @@ async def test_fail2ban_config_value_error(app, mock_admin, monkeypatch):
         )
         assert resp.status_code == 400
         assert "Invalid config values" in resp.text
+
+@pytest.mark.asyncio
+async def test_fail2ban_enable_exception_with_proc(app, mock_admin, monkeypatch):
+    import asyncio
+
+    mock_proc = AsyncMock()
+    mock_proc.communicate = AsyncMock(side_effect=Exception("Communicate error"))
+    mock_proc.kill = MagicMock()
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", AsyncMock(return_value=mock_proc))
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/security/fail2ban/enable", data={"jail": "sshd"})
+        assert resp.status_code == 200
+        assert "Error: Communicate error" in resp.text
+        mock_proc.kill.assert_called_once()
