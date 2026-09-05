@@ -7,3 +7,6 @@
 ## 2026-08-30 - Global button focus accessibility
 **Learning:** In a heavily componentized application, generic `.btn` classes must explicitly define `:focus-visible` styles to ensure keyboard accessibility. Without a distinct focus ring (like `outline: 2px solid #6366f1; outline-offset: 2px;`), users navigating via keyboard cannot easily determine which element has focus.
 **Action:** Always include global `:focus-visible` outline styles for buttons or interactive elements to ensure a clear keyboard focus state, improving a11y across the entire application without needing individual component updates.
+## 2024-09-05 - Fix file upload input keyboard accessibility
+**Learning:** Using `class="hidden"` on `<input type="file">` elements removes them from the accessibility tree, making them completely inaccessible to keyboard users and screen readers, despite being clickable via a wrapping label.
+**Action:** Always use Tailwind's `.sr-only` class on the file input to visually hide it while keeping it focusable. Additionally, apply `.focus-within:ring-2` (and related focus utilities) to its wrapping `<label>` to ensure keyboard users see a visible focus state when tabbing to the input.
