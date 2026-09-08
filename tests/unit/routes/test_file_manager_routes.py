@@ -114,7 +114,7 @@ async def test_get_file_content(mock_get_admin, tmp_path):
     req.url.path = "/api/file-manager/read"
 
     res = await get_file_content(str(test_file), request=req, db=MagicMock())
-    assert type(res) == dict
+    assert isinstance(res, dict)
     assert res.get("content") == "hello world"
 
 
