@@ -1046,8 +1046,9 @@ async def test_security_lynis_report(monkeypatch) -> None:
     with unittest.mock.patch("aiofiles.open", mock_aio_open):
         response = client.get("/security/lynis/report")
         assert response.status_code == 200
-        assert "hardening_index" in response.json()
-        assert response.json()["hardening_index"] == 80
+        assert "hardening_index" in response.text
+        assert "80" in response.text
+        assert "<pre" in response.text
 
 
 @pytest.mark.asyncio

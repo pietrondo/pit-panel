@@ -29,8 +29,8 @@ async def security_lynis_audit(
     return HTMLResponse('<span class="text-green-600">System audit started in background</span>')
 
 
-@router.get("/security/lynis/report")  # type: ignore[untyped-decorator]
-async def security_lynis_report(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
+@router.get("/security/lynis/report", response_class=HTMLResponse)  # type: ignore[untyped-decorator]
+async def security_lynis_report(request: Request, db: AsyncSession = Depends(get_db)) -> HTMLResponse:
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
@@ -40,6 +40,7 @@ async def security_lynis_report(request: Request, db: AsyncSession = Depends(get
     try:
         async with aiofiles.open(cache_path, encoding="utf-8") as f:
             content = await f.read()
-            return dict(json.loads(content))
+            report_data = dict(json.loads(content))
+            return HTMLResponse(f"<pre class='text-xs text-gray-500 overflow-auto max-h-64'>{json.dumps(report_data, indent=2)}</pre>")
     except Exception as e:
-        return {"status": "error", "error": f"No audit report found: {e}"}
+        return HTMLResponse(f"<div class='text-red-500 text-sm'>No audit report found: {e}</div>")
