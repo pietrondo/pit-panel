@@ -39,3 +39,6 @@
 ## 2025-02-12 - O(1) in-memory RateLimiter cleanup fast-path
 **Learning:** The in-memory cache implementation of `RateLimiter` executed an O(N) cleanup loop across all keys on every invocation of `is_allowed`. For high-frequency requests, this global loop blocks CPU cycles unnecessary.
 **Action:** Always optimize per-request rate limiters and cache evictions by lazily cleaning only the currently accessed key during the hot path, and deferring global garbage collection over the entire cache to periodic intervals (e.g., matching the expiration window).
+## 2026-09-08 - Optimize OS-level data retrieval in FastAPI
+**Learning:** In FastAPI applications, while long-running synchronous I/O must remain in `asyncio.to_thread()`, extremely fast OS-level data retrieval operations (e.g., `shutil.disk_usage`, reading `/proc/loadavg` or `/proc/meminfo`) should be executed synchronously directly on the main thread. Offloading these microsecond-level functions to a thread pool introduces significant context-switching overhead that causes performance regressions, especially on high-frequency polling endpoints.
+**Action:** When working on FastAPI high-frequency endpoints fetching OS stats, invoke microsecond-level operations synchronously on the main thread instead of using `asyncio.to_thread`.
