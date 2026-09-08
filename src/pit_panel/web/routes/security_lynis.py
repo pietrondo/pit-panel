@@ -1,7 +1,6 @@
 """Lynis system audit routes."""
 
 import json
-from typing import Any
 
 import aiofiles
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
@@ -30,7 +29,9 @@ async def security_lynis_audit(
 
 
 @router.get("/security/lynis/report", response_class=HTMLResponse)  # type: ignore[untyped-decorator]
-async def security_lynis_report(request: Request, db: AsyncSession = Depends(get_db)) -> HTMLResponse:
+async def security_lynis_report(
+    request: Request, db: AsyncSession = Depends(get_db)
+) -> HTMLResponse:
     user = await get_admin(request, db)
     if not user:
         return HTMLResponse("Unauthorized", status_code=401)
@@ -41,6 +42,10 @@ async def security_lynis_report(request: Request, db: AsyncSession = Depends(get
         async with aiofiles.open(cache_path, encoding="utf-8") as f:
             content = await f.read()
             report_data = dict(json.loads(content))
-            return HTMLResponse(f"<pre class='text-xs text-gray-500 overflow-auto max-h-64'>{json.dumps(report_data, indent=2)}</pre>")
+            html_content = (
+                f"<pre class='text-xs text-gray-500 overflow-auto max-h-64'>"
+                f"{json.dumps(report_data, indent=2)}</pre>"
+            )
+            return HTMLResponse(html_content)
     except Exception as e:
         return HTMLResponse(f"<div class='text-red-500 text-sm'>No audit report found: {e}</div>")
