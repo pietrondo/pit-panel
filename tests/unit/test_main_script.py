@@ -23,6 +23,11 @@ def test_main_default_args():
         mock_run.assert_called_once()
         # host should be 0.0.0.0 because of the check
         assert mock_run.call_args[1]["host"] == "0.0.0.0"
+        assert mock_run.call_args[0] == ("pit_panel.web.app:create_app",)
+        assert mock_run.call_args[1]["port"] == 8000
+        assert mock_run.call_args[1]["reload"] is False
+        assert mock_run.call_args[1]["factory"] is True
+        assert mock_run.call_args[1]["log_level"] == "info"
 
 
 def test_main_custom_args():
@@ -96,8 +101,5 @@ def test_main_block_direct():
         patch("pit_panel.main.Path.mkdir"),
         patch("pit_panel.main.uvicorn.run") as mock_run,
     ):
-        import pit_panel.main
-        with patch.object(pit_panel.main, "__name__", "__main__"):
-            # manually execute the block
-            pit_panel.main.main()
-            mock_run.assert_called_once()
+        runpy.run_path("src/pit_panel/main.py", run_name="__main__")
+        mock_run.assert_called_once()

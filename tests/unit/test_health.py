@@ -98,3 +98,30 @@ async def test_docker_health_monitor_loop_exception() -> None:
             with contextlib.suppress(Exception):
                 await docker_health_monitor_loop()
             assert mock_manager.ps_all.call_count == 2
+
+@pytest.mark.asyncio
+async def test_docker_health_monitor_loop_restart_failed() -> None:
+    with patch("pit_panel.core.docker_ops.DockerManager") as mock_manager_class:
+        mock_manager = AsyncMock()
+        mock_manager_class.return_value = mock_manager
+
+        mock_manager.ps_all.return_value = [
+            {"ID": "2", "Names": "crashed-app", "State": "exited", "Status": "Exited (1)"},
+        ]
+
+        async def mock_start(cid: str) -> dict[str, Any]:
+            return {"success": False, "error": "unknown error"}
+
+        mock_manager.container_start.side_effect = mock_start
+
+        with patch("pit_panel.core.notifier.notify_system_alarm") as mock_notify:
+            mock_notify.return_value = None
+            with (
+                patch("asyncio.sleep", new_callable=AsyncMock, side_effect=asyncio.CancelledError),
+                contextlib.suppress(asyncio.CancelledError),
+            ):
+                await docker_health_monitor_loop()
+
+            assert mock_manager.container_start.call_count == 1
+            assert mock_notify.call_count == 1
+            mock_notify.assert_any_call("Container Restart Failed", ANY)
