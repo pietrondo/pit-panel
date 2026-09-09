@@ -53,5 +53,5 @@ def test_lynis_report_file_not_found(client, monkeypatch):
     with unittest.mock.patch("aiofiles.open", mock_aio_open):
         response = client.get("/security/lynis/report")
         assert response.status_code == 200
-        assert "error" in response.json()
-        assert "File not found" in response.json()["error"]
+        assert "No audit report found" in response.text
+        assert "File not found" in response.text
