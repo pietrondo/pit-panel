@@ -103,9 +103,7 @@ class TestGetCurrentUser:
     async def test_invalid_session(self, mock_request, mock_db, settings, monkeypatch):
         mock_request.cookies = {SESSION_COOKIE: "valid"}
 
-        monkeypatch.setattr(
-            "pit_panel.web.deps.unsign_session_token", lambda s, c: {"uid": 1}
-        )
+        monkeypatch.setattr("pit_panel.web.deps.unsign_session_token", lambda s, c: {"uid": 1})
 
         async def mock_validate(*args, **kwargs):
             return None
@@ -119,9 +117,7 @@ class TestGetCurrentUser:
     async def test_valid_session(self, mock_request, mock_db, settings, monkeypatch):
         mock_request.cookies = {SESSION_COOKIE: "valid"}
 
-        monkeypatch.setattr(
-            "pit_panel.web.deps.unsign_session_token", lambda s, c: {"uid": 1}
-        )
+        monkeypatch.setattr("pit_panel.web.deps.unsign_session_token", lambda s, c: {"uid": 1})
 
         expected_user = User(id=1, username="test")
 
