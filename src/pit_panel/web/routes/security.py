@@ -176,7 +176,12 @@ async def security_unban(
     result = None
     if ip:
         try:
-            ipaddress.ip_network(ip, strict=False)
+            ip_obj = ipaddress.ip_network(ip, strict=False)
+            ip = str(ip_obj)
+            if ip.endswith("/32"):
+                ip = ip[:-3]
+            elif ip.endswith("/128"):
+                ip = ip[:-4]
         except ValueError:
             return HTMLResponse(
                 "<span class='text-red-500 text-xs'>Invalid IP address</span>", status_code=400
@@ -223,7 +228,12 @@ async def security_ban_ip(
     result = None
     if ip:
         try:
-            ipaddress.ip_network(ip, strict=False)
+            ip_obj = ipaddress.ip_network(ip, strict=False)
+            ip = str(ip_obj)
+            if ip.endswith("/32"):
+                ip = ip[:-3]
+            elif ip.endswith("/128"):
+                ip = ip[:-4]
         except ValueError:
             return HTMLResponse(
                 "<span class='text-red-500 text-xs'>Invalid IP address</span>", status_code=400
