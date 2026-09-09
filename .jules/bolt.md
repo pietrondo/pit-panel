@@ -39,3 +39,7 @@
 ## 2025-02-12 - O(1) in-memory RateLimiter cleanup fast-path
 **Learning:** The in-memory cache implementation of `RateLimiter` executed an O(N) cleanup loop across all keys on every invocation of `is_allowed`. For high-frequency requests, this global loop blocks CPU cycles unnecessary.
 **Action:** Always optimize per-request rate limiters and cache evictions by lazily cleaning only the currently accessed key during the hot path, and deferring global garbage collection over the entire cache to periodic intervals (e.g., matching the expiration window).
+
+## 2026-09-09 - Avoid asyncio.to_thread for fast OS-level stats
+**Learning:** Extremely fast OS-level data retrieval operations (e.g., shutil.disk_usage, reading /proc/loadavg or /proc/meminfo) execute in ~0.09ms synchronously. Offloading these microsecond-level functions to asyncio.to_thread() introduces significant context-switching overhead (~1.2ms), causing performance regressions, especially on high-frequency polling endpoints like the dashboard stats.
+**Action:** Execute extremely fast microsecond-level operations (like parsing small /proc files) synchronously directly on the main thread instead of offloading them to a thread pool.
