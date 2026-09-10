@@ -490,8 +490,7 @@ async def app_deploy_from_repo(
     if not repo_url or repo_url.startswith("-") or "ext::" in repo_url:
         return HTMLResponse('<p class="text-red-500">Invalid repository URL</p>', status_code=400)
 
-    valid_url = repo_url.startswith(("http://", "https://", "git@"))
-    if not valid_url:
+    if not re.fullmatch(r"^(https?://|git://|git@[a-zA-Z0-9.-]+:)[a-zA-Z0-9.-]+(?:/[a-zA-Z0-9._-]+)*\/?$", repo_url):
         return HTMLResponse(
             '<p class="text-red-500">Invalid repository URL scheme</p>', status_code=400
         )
