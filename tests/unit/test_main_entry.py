@@ -106,6 +106,7 @@ def test_main_no_domain_binding(mock_mkdir, mock_from_config, mock_parse_args, m
 def test_main_if_name_main(mock_run):
     with patch.object(sys, "argv", ["pit-panel"]):
         import pathlib
+
         with patch.object(pathlib.Path, "mkdir"), patch("pit_panel.main.Path") as mock_path:
             mock_path.return_value.mkdir = MagicMock()
             mock_path.return_value.__truediv__.return_value = "/tmp/app.log"
@@ -119,6 +120,7 @@ def test_dunder_main():
         patch.object(sys, "argv", ["pit-panel"]),
     ):
         import pathlib
+
         with patch.object(pathlib.Path, "mkdir"), patch("pit_panel.main.Path") as mock_path:
             mock_path.return_value.mkdir = MagicMock()
             mock_path.return_value.__truediv__.return_value = "/tmp/app.log"
