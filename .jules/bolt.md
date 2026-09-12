@@ -39,3 +39,6 @@
 ## 2025-02-12 - O(1) in-memory RateLimiter cleanup fast-path
 **Learning:** The in-memory cache implementation of `RateLimiter` executed an O(N) cleanup loop across all keys on every invocation of `is_allowed`. For high-frequency requests, this global loop blocks CPU cycles unnecessary.
 **Action:** Always optimize per-request rate limiters and cache evictions by lazily cleaning only the currently accessed key during the hot path, and deferring global garbage collection over the entire cache to periodic intervals (e.g., matching the expiration window).
+## 2026-11-20 - Cache user objects on request state
+**Learning:** Resolving the current user via `get_user()` requires unsigning a token and querying the database. In routes that utilize multiple dependencies or middleware requiring the user (or admin) object, calling `get_user()` repeatedly introduces redundant overhead (~0.5ms per call).
+**Action:** Implement request-level caching by storing the resolved user object in `request.state.user` during the first call, and returning it immediately on subsequent calls within the same request lifecycle.

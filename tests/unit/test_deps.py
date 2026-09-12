@@ -12,6 +12,11 @@ from pit_panel.web.deps import get_admin, get_current_user, get_user
 def mock_request():
     request = MagicMock(spec=Request)
     request.cookies = {}
+
+    # Needs state mock
+    class State:
+        pass
+    request.state = State()
     return request
 
 
