@@ -27,36 +27,47 @@ def test_app(monkeypatch, tmp_path):
     app.middleware_stack = app.build_middleware_stack()
     return app
 
+
 @pytest.fixture
 def client(test_app):
     return TestClient(test_app)
+
 
 @pytest.fixture
 def mock_admin():
     return User(id=1, username="admin")
 
+
 class MockResult:
     def __init__(self, data):
         self.data = data
+
     def scalars(self):
         outer_data = self.data
+
         class MockScalars:
             def all(self):
                 return outer_data
+
         return MockScalars()
+
 
 def test_site_builder_create_authenticated_valid(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_db.add = MagicMock()
     mock_db.execute.return_value = MockResult([])
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
         test_app.dependency_overrides[get_db] = lambda: mock_db
 
-        response = client.post("/site-builder/sites", data={"name": "New Site"}, follow_redirects=False)  # noqa: E501
+        response = client.post(
+            "/site-builder/sites", data={"name": "New Site"}, follow_redirects=False
+        )  # noqa: E501
         assert response.status_code == 302
         assert response.headers["location"].startswith("/site-builder/sites/")
 
@@ -66,12 +77,15 @@ def test_site_builder_create_authenticated_valid(test_app, client, mock_admin):
 
         test_app.dependency_overrides.clear()
 
+
 def test_site_builder_create_authenticated_invalid_name(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_db.add = MagicMock()
     mock_db.execute.return_value = MockResult([])
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -83,16 +97,20 @@ def test_site_builder_create_authenticated_invalid_name(test_app, client, mock_a
 
         test_app.dependency_overrides.clear()
 
+
 def test_site_builder_edit_unauthenticated(client):
     response = client.get("/site-builder/sites/1/edit", follow_redirects=False)
     assert response.status_code == 302
     assert response.headers["location"] == "/login"
 
+
 def test_site_builder_edit_authenticated_not_found(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_db.get.return_value = None
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -102,13 +120,16 @@ def test_site_builder_edit_authenticated_not_found(test_app, client, mock_admin)
         assert response.status_code == 404
 
         test_app.dependency_overrides.clear()
+
 
 def test_site_builder_edit_authenticated_wrong_owner(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_site = Site(id=1, owner_user_id=2, name="Test Site", status="draft")
     mock_db.get.return_value = mock_site
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -119,12 +140,15 @@ def test_site_builder_edit_authenticated_wrong_owner(test_app, client, mock_admi
 
         test_app.dependency_overrides.clear()
 
+
 def test_site_builder_edit_authenticated_valid(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_site = Site(id=1, owner_user_id=1, name="Test Site", status="draft")
     mock_db.get.return_value = mock_site
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -136,16 +160,20 @@ def test_site_builder_edit_authenticated_valid(test_app, client, mock_admin):
 
         test_app.dependency_overrides.clear()
 
+
 def test_site_builder_save_widgets_unauthenticated(client):
     response = client.post("/site-builder/sites/1/widgets", json={"tree": {}})
     assert response.status_code == 401
     assert response.json()["error"] == "unauthorized"
 
+
 def test_site_builder_save_widgets_not_found(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_db.get.return_value = None
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -157,30 +185,40 @@ def test_site_builder_save_widgets_not_found(test_app, client, mock_admin):
 
         test_app.dependency_overrides.clear()
 
+
 def test_site_builder_save_widgets_invalid_json(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_site = Site(id=1, owner_user_id=1, name="Test Site")
     mock_db.get.return_value = mock_site
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
         test_app.dependency_overrides[get_db] = lambda: mock_db
 
         # TestClient automatically encodes to json with json kwarg, we need raw data to trigger json parsing error  # noqa: E501
-        response = client.post("/site-builder/sites/1/widgets", content=b"invalid json", headers={"Content-Type": "application/json"})  # noqa: E501
+        response = client.post(
+            "/site-builder/sites/1/widgets",
+            content=b"invalid json",
+            headers={"Content-Type": "application/json"},
+        )  # noqa: E501
         assert response.status_code == 400
         assert response.json()["error"] == "invalid_json"
 
         test_app.dependency_overrides.clear()
+
 
 def test_site_builder_save_widgets_valid(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_site = Site(id=1, owner_user_id=1, name="Test Site")
     mock_db.get.return_value = mock_site
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -194,15 +232,19 @@ def test_site_builder_save_widgets_valid(test_app, client, mock_admin):
 
         test_app.dependency_overrides.clear()
 
+
 def test_site_builder_publish_unauthenticated(client):
     response = client.post("/site-builder/sites/1/publish")
     assert response.status_code == 401
+
 
 def test_site_builder_publish_not_found(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_db.get.return_value = None
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -213,17 +255,22 @@ def test_site_builder_publish_not_found(test_app, client, mock_admin):
 
         test_app.dependency_overrides.clear()
 
+
 @patch("pit_panel.web.routes.site_builder._published_site_dir")
 def test_site_builder_publish_write_failed(mock_pub_dir, test_app, client, mock_admin):
     mock_db = AsyncMock()
-    mock_site = Site(id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []})  # noqa: E501
+    mock_site = Site(
+        id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []}
+    )  # noqa: E501
     mock_db.get.return_value = mock_site
 
     mock_path = MagicMock()
     mock_path.mkdir.side_effect = OSError("Disk full")
     mock_pub_dir.return_value = mock_path
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -235,27 +282,35 @@ def test_site_builder_publish_write_failed(mock_pub_dir, test_app, client, mock_
 
         test_app.dependency_overrides.clear()
 
+
 @patch("pit_panel.web.routes.site_builder._published_site_dir")
 @patch("pit_panel.web.routes.site_builder.CaddyManager")
-def test_site_builder_publish_success_caddy(mock_caddy_cls, mock_pub_dir, test_app, client, mock_admin):  # noqa: E501
+def test_site_builder_publish_success_caddy(
+    mock_caddy_cls, mock_pub_dir, test_app, client, mock_admin
+):  # noqa: E501
     mock_db = AsyncMock()
-    mock_site = Site(id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []})  # noqa: E501
+    mock_site = Site(
+        id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []}
+    )  # noqa: E501
     mock_db.get.return_value = mock_site
 
     mock_path = MagicMock()
     mock_pub_dir.return_value = mock_path
-    mock_path.__truediv__.return_value = mock_path # Handle pub_dir / "index.html"
+    mock_path.__truediv__.return_value = mock_path  # Handle pub_dir / "index.html"
 
     mock_caddy = AsyncMock()
     mock_caddy_cls.return_value = mock_caddy
 
     # Monkeypatch settings
     from pit_panel.config import get_settings
+
     s = get_settings()
     s.base_domain = "example.com"
     s.caddy_admin_url = "http://caddy:2019"
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -271,11 +326,16 @@ def test_site_builder_publish_success_caddy(mock_caddy_cls, mock_pub_dir, test_a
 
         test_app.dependency_overrides.clear()
 
+
 @patch("pit_panel.web.routes.site_builder._published_site_dir")
 @patch("pit_panel.web.routes.site_builder.CaddyManager")
-def test_site_builder_publish_success_no_caddy(mock_caddy_cls, mock_pub_dir, test_app, client, mock_admin):  # noqa: E501
+def test_site_builder_publish_success_no_caddy(
+    mock_caddy_cls, mock_pub_dir, test_app, client, mock_admin
+):  # noqa: E501
     mock_db = AsyncMock()
-    mock_site = Site(id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []})  # noqa: E501
+    mock_site = Site(
+        id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []}
+    )  # noqa: E501
     mock_db.get.return_value = mock_site
 
     mock_path = MagicMock()
@@ -284,10 +344,13 @@ def test_site_builder_publish_success_no_caddy(mock_caddy_cls, mock_pub_dir, tes
 
     # Monkeypatch settings
     from pit_panel.config import get_settings
+
     s = get_settings()
     s.base_domain = None
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -303,15 +366,19 @@ def test_site_builder_publish_success_no_caddy(mock_caddy_cls, mock_pub_dir, tes
 
         test_app.dependency_overrides.clear()
 
+
 def test_site_builder_delete_unauthenticated(client):
     response = client.post("/site-builder/sites/1/delete")
     assert response.status_code == 401
+
 
 def test_site_builder_delete_not_found(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_db.get.return_value = None
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -322,13 +389,22 @@ def test_site_builder_delete_not_found(test_app, client, mock_admin):
 
         test_app.dependency_overrides.clear()
 
+
 @patch("pit_panel.web.routes.site_builder._published_site_dir")
 @patch("pit_panel.web.routes.site_builder.CaddyManager")
 @patch("shutil.rmtree")
-def test_site_builder_delete_success(mock_rmtree, mock_caddy_cls, mock_pub_dir, test_app, client, mock_admin, tmp_path):  # noqa: E501
+def test_site_builder_delete_success(
+    mock_rmtree, mock_caddy_cls, mock_pub_dir, test_app, client, mock_admin, tmp_path
+):  # noqa: E501
     mock_db = AsyncMock()
 
-    mock_site = Site(id=1, owner_user_id=1, name="Test Site", subdomain="test", published_html_path=str(tmp_path / "index.html"))  # noqa: E501
+    mock_site = Site(
+        id=1,
+        owner_user_id=1,
+        name="Test Site",
+        subdomain="test",
+        published_html_path=str(tmp_path / "index.html"),
+    )  # noqa: E501
     mock_db.get.return_value = mock_site
 
     mock_pub_dir.return_value = tmp_path
@@ -337,10 +413,13 @@ def test_site_builder_delete_success(mock_rmtree, mock_caddy_cls, mock_pub_dir, 
     mock_caddy_cls.return_value = mock_caddy
 
     from pit_panel.config import get_settings
+
     s = get_settings()
     s.base_domain = "example.com"
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -358,10 +437,13 @@ def test_site_builder_delete_success(mock_rmtree, mock_caddy_cls, mock_pub_dir, 
 
         test_app.dependency_overrides.clear()
 
+
 def test_site_builder_index_authenticated_with_redirect(test_app, client):
     mock_db = AsyncMock()
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = None
 
         test_app.dependency_overrides[get_admin] = lambda: None
@@ -373,10 +455,13 @@ def test_site_builder_index_authenticated_with_redirect(test_app, client):
 
         test_app.dependency_overrides.clear()
 
+
 def test_site_builder_create_authenticated_with_redirect(test_app, client):
     mock_db = AsyncMock()
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = None
 
         test_app.dependency_overrides[get_admin] = lambda: None
@@ -388,10 +473,13 @@ def test_site_builder_create_authenticated_with_redirect(test_app, client):
 
         test_app.dependency_overrides.clear()
 
+
 def test_site_builder_edit_authenticated_with_redirect(test_app, client):
     mock_db = AsyncMock()
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = None
 
         test_app.dependency_overrides[get_admin] = lambda: None
@@ -402,12 +490,23 @@ def test_site_builder_edit_authenticated_with_redirect(test_app, client):
         assert response.headers["location"] == "/login"
 
         test_app.dependency_overrides.clear()
+
+
 def test_site_builder_index_authenticated_with_sites(test_app, client, mock_admin):
     mock_db = AsyncMock()
-    mock_site = Site(id=1, owner_user_id=1, name="Test Site", updated_at="2023-01-01", status="draft", widgets_json={})  # noqa: E501
+    mock_site = Site(
+        id=1,
+        owner_user_id=1,
+        name="Test Site",
+        updated_at="2023-01-01",
+        status="draft",
+        widgets_json={},
+    )  # noqa: E501
     mock_db.execute.return_value = MockResult([mock_site])
 
-    with patch("pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
 
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
@@ -418,31 +517,39 @@ def test_site_builder_index_authenticated_with_sites(test_app, client, mock_admi
 
         test_app.dependency_overrides.clear()
 
-@patch('pit_panel.web.routes.site_builder.CaddyManager')
-@patch('pit_panel.web.routes.site_builder._published_site_dir')
-def test_site_builder_publish_caddy_exception(mock_pub_dir, mock_caddy_cls, test_app, client, mock_admin):  # noqa: E501
+
+@patch("pit_panel.web.routes.site_builder.CaddyManager")
+@patch("pit_panel.web.routes.site_builder._published_site_dir")
+def test_site_builder_publish_caddy_exception(
+    mock_pub_dir, mock_caddy_cls, test_app, client, mock_admin
+):  # noqa: E501
     mock_db = AsyncMock()
-    mock_site = Site(id=1, owner_user_id=1, name='Test Site', subdomain='test', widgets_json={'sections': []})  # noqa: E501
+    mock_site = Site(
+        id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []}
+    )  # noqa: E501
     mock_db.get.return_value = mock_site
     mock_path = MagicMock()
     mock_pub_dir.return_value = mock_path
     mock_path.__truediv__.return_value = mock_path
 
     from pit_panel.config import get_settings
+
     s = get_settings()
-    s.base_domain = 'example.com'
-    s.caddy_admin_url = 'http://caddy:2019'
+    s.base_domain = "example.com"
+    s.caddy_admin_url = "http://caddy:2019"
 
     mock_caddy = AsyncMock()
-    mock_caddy.add_static_subdomain.side_effect = Exception('Caddy failure')
+    mock_caddy.add_static_subdomain.side_effect = Exception("Caddy failure")
     mock_caddy_cls.return_value = mock_caddy
 
-    with patch('pit_panel.web.routes.site_builder.get_admin', new_callable=AsyncMock) as mock_get_admin:  # noqa: E501
+    with patch(
+        "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
+    ) as mock_get_admin:  # noqa: E501
         mock_get_admin.return_value = mock_admin
         test_app.dependency_overrides[get_admin] = lambda: mock_admin
         test_app.dependency_overrides[get_db] = lambda: mock_db
 
-        response = client.post('/site-builder/sites/1/publish')
+        response = client.post("/site-builder/sites/1/publish")
         assert response.status_code == 200
-        assert 'Caddy route not configured' in response.json()['note']
+        assert "Caddy route not configured" in response.json()["note"]
         test_app.dependency_overrides.clear()
