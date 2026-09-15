@@ -125,11 +125,22 @@ async def _csrf_middleware(
     # No session cookie => no CSRF risk (attacker has no auth to abuse).
     if SESSION_COOKIE not in request.cookies:
         return await call_next(request)
-    expected_origin = f"{request.url.scheme}://{request.url.netloc}"
+    from urllib.parse import urlparse
+
+    expected_scheme = request.url.scheme
+    expected_netloc = request.url.netloc
+
     origin = request.headers.get("origin") or ""
+    if origin:
+        parsed_origin = urlparse(origin)
+        if parsed_origin.scheme == expected_scheme and parsed_origin.netloc == expected_netloc:
+            return await call_next(request)
+
     referer = request.headers.get("referer") or ""
-    if origin == expected_origin or referer.startswith(expected_origin):
-        return await call_next(request)
+    if referer:
+        parsed_referer = urlparse(referer)
+        if parsed_referer.scheme == expected_scheme and parsed_referer.netloc == expected_netloc:
+            return await call_next(request)
     logger.warning(
         "CSRF check failed: method=%s path=%s origin=%r referer=%r",
         request.method,

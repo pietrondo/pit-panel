@@ -99,6 +99,7 @@ async def test_docker_health_monitor_loop_exception() -> None:
                 await docker_health_monitor_loop()
             assert mock_manager.ps_all.call_count == 2
 
+
 @pytest.mark.asyncio
 async def test_docker_health_monitor_loop_restart_failed() -> None:
     with patch("pit_panel.core.docker_ops.DockerManager") as mock_manager_class:

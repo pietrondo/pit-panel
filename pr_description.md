@@ -1,5 +1,5 @@
 🚨 Severity: HIGH
-💡 Vulnerability: Python's `re.match` with the `$` anchor allows trailing newlines (e.g., `input\n`) to pass validation. This could potentially allow command injection or bypass of input filters if the trailing newline causes the string to be evaluated unsafely downstream in shell commands or configuration files.
-🎯 Impact: Attackers could bypass strict alphanumeric/domain validations by appending a newline to their input, leading to unauthorized actions or invalid configuration generation.
-🔧 Fix: Upgraded all security and input validation regular expressions from `re.match` to `re.fullmatch` to strictly enforce that the entire string matches the pattern, effectively blocking trailing newlines and other hidden characters.
-✅ Verification: Ran `pytest` locally to ensure no regressions were introduced.
+💡 Vulnerability: The `_csrf_middleware` in `src/pit_panel/web/app.py` previously checked if the `Referer` header started with the expected origin using string matching (`referer.startswith(expected_origin)`). This means an attacker could bypass CSRF protection by hosting a malicious site on a subdomain that starts with the same string (e.g., `https://example.com.malicious.com`).
+🎯 Impact: This vulnerability allows attackers to bypass CSRF protections, enabling them to execute unauthorized actions on behalf of authenticated users if the user visits the attacker's specially crafted site.
+🔧 Fix: Replaced the string-based `.startswith()` check with strict URL parsing using `urllib.parse.urlparse`. The new logic explicitly extracts and verifies that both the `scheme` and `netloc` (domain) of the `Origin` and `Referer` headers match the expected application origin.
+✅ Verification: Ran the full global test suite via `uv run pytest` to confirm that the changes did not introduce regressions and that valid requests are still processed correctly.
