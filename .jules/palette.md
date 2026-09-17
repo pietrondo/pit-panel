@@ -7,3 +7,6 @@
 ## 2026-08-30 - Global button focus accessibility
 **Learning:** In a heavily componentized application, generic `.btn` classes must explicitly define `:focus-visible` styles to ensure keyboard accessibility. Without a distinct focus ring (like `outline: 2px solid #6366f1; outline-offset: 2px;`), users navigating via keyboard cannot easily determine which element has focus.
 **Action:** Always include global `:focus-visible` outline styles for buttons or interactive elements to ensure a clear keyboard focus state, improving a11y across the entire application without needing individual component updates.
+## 2024-11-20 - Screen Reader Accessibility for Site Builder Controls
+**Learning:** Icon-only buttons (like `&times;` and `Del` buttons) inside dynamic components like Site Builder are read as "multiply" or unhelpful text by screen readers, creating accessibility barriers for users managing their sites.
+**Action:** Always ensure that icon-only action buttons use descriptive `aria-label` attributes to clarify their purpose to assistive technologies (e.g. `aria-label="Remove widget"`).
