@@ -39,3 +39,6 @@
 ## 2025-02-12 - O(1) in-memory RateLimiter cleanup fast-path
 **Learning:** The in-memory cache implementation of `RateLimiter` executed an O(N) cleanup loop across all keys on every invocation of `is_allowed`. For high-frequency requests, this global loop blocks CPU cycles unnecessary.
 **Action:** Always optimize per-request rate limiters and cache evictions by lazily cleaning only the currently accessed key during the hot path, and deferring global garbage collection over the entire cache to periodic intervals (e.g., matching the expiration window).
+## 2025-02-12 - Remove asyncio.to_thread for fast memory checks
+**Learning:** Using `asyncio.to_thread` for fast I/O calls to `/proc/meminfo` introduces unnecessary context-switching overhead that outweighs any benefits. This is a known anti-pattern but was spotted in `get_host_memory_gb`.
+**Action:** Always call fast synchronous OS file reads like `/proc/meminfo` directly without `asyncio.to_thread`.
