@@ -162,12 +162,12 @@ class CaddyManager:
         import ssl
 
         certs = []
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_REQUIRED
+
         for domain in domains:
             try:
-                context = ssl.create_default_context()
-                context.check_hostname = False
-                context.verify_mode = ssl.CERT_REQUIRED
-
                 with (
                     socket.create_connection(("127.0.0.1", 443), timeout=5) as sock,
                     context.wrap_socket(sock, server_hostname=domain) as ssock,
