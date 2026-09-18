@@ -1,22 +1,27 @@
-import pytest
 from unittest.mock import AsyncMock
-import asyncio
+
+import pytest
 from fastapi.testclient import TestClient
+
 
 @pytest.fixture
 def client(settings):
     from pit_panel.web.app import create_app
+
     app = create_app(settings)
     return TestClient(app)
+
 
 @pytest.fixture
 def settings():
     from pit_panel.config import Settings
+
     return Settings(secret_key="test", base_domain="example.com")
 
+
 def _setup_session(client, monkeypatch, mock_sd=None):
+    from pit_panel.db.models import Subdomain, User
     from pit_panel.db.session import get_db
-    from pit_panel.db.models import User, Subdomain
 
     async def mock_get_user(*args, **kwargs):
         return User(id=1, username="admin", is_admin=True)
@@ -27,14 +32,17 @@ def _setup_session(client, monkeypatch, mock_sd=None):
     class MockScalars:
         def all(self):
             return [mock_sd]
+
         def first(self):
             return mock_sd
+
         def one_or_none(self):
             return mock_sd
 
     class MockResult:
         def scalars(self):
             return MockScalars()
+
         def scalar_one_or_none(self):
             return mock_sd
 
@@ -50,11 +58,11 @@ def _setup_session(client, monkeypatch, mock_sd=None):
     client.app.dependency_overrides[get_db] = lambda: mock_db
 
     import pit_panel.web.deps as deps
+
     monkeypatch.setattr(deps, "get_current_user", mock_get_user)
     if hasattr(deps, "get_current_user_ws"):
         monkeypatch.setattr(deps, "get_current_user_ws", mock_get_user)
     else:
-        import pit_panel.web.routes.app_routes.ops as ops
 
         async def mock_get_current_user_ws(*args, **kwargs):
             return User(id=1, username="admin", is_admin=True)
@@ -63,9 +71,10 @@ def _setup_session(client, monkeypatch, mock_sd=None):
 
     return mock_sd
 
+
 def test_terminal_ws_authenticated(client, monkeypatch, tmp_path):
-    from pit_panel.config import Settings
     import pit_panel.web.routes.app_routes.ops as ops
+    from pit_panel.config import Settings
 
     sd = _setup_session(client, monkeypatch)
     app_dir = tmp_path / "apps" / sd.subdomain
@@ -96,8 +105,10 @@ def test_terminal_ws_authenticated(client, monkeypatch, tmp_path):
 
     mock_proc_err = AsyncMock()
     mock_proc_err.stdout.read = AsyncMock(side_effect=[b"hello", b""])
+
     async def mock_create_subprocess_exec_err(*args, **kwargs):
         raise OSError("Failed to run")
+
     monkeypatch.setattr("asyncio.create_subprocess_exec", mock_create_subprocess_exec_err)
 
     with client.websocket_connect("/apps/1/terminal/ws") as websocket:
@@ -108,6 +119,7 @@ def test_terminal_ws_authenticated(client, monkeypatch, tmp_path):
         class MockResultNone:
             def scalar_one_or_none(self):
                 return None
+
         return MockResultNone()
 
     mock_db = client.app.dependency_overrides[ops.get_db]()
@@ -117,9 +129,9 @@ def test_terminal_ws_authenticated(client, monkeypatch, tmp_path):
         data = websocket.receive_text()
         assert "ERROR: App not found" in data
 
+
 def test_logs_ws_authenticated(client, monkeypatch, tmp_path):
     from pit_panel.config import Settings
-    import pit_panel.web.routes.app_routes.ops as ops
 
     sd = _setup_session(client, monkeypatch)
     app_dir = tmp_path / "apps" / sd.subdomain
@@ -149,8 +161,10 @@ def test_logs_ws_authenticated(client, monkeypatch, tmp_path):
 
     mock_proc_err = AsyncMock()
     mock_proc_err.stdout.read = AsyncMock(side_effect=[b"hello", b""])
+
     async def mock_create_subprocess_exec_err(*args, **kwargs):
         raise OSError("Failed to run logs")
+
     monkeypatch.setattr("asyncio.create_subprocess_exec", mock_create_subprocess_exec_err)
 
     with client.websocket_connect("/apps/1/logs/ws") as websocket:
