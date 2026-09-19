@@ -256,6 +256,7 @@ async def test_fail2ban_config_value_error(app, mock_admin, monkeypatch):
         assert resp.status_code == 400
         assert "Invalid config values" in resp.text
 
+
 @pytest.mark.asyncio
 async def test_fail2ban_enable_exception_with_proc(app, mock_admin, monkeypatch):
     import asyncio
