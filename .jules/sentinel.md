@@ -21,3 +21,8 @@
 **Vulnerability:** The `_validate_subdomain` function in `src/pit_panel/core/app_manager.py` used `_SUBDOMAIN_RE.match(subdomain)` to validate subdomain inputs. In Python, `re.match` anchors only to the start of the string. Even if the regex pattern ends with `$`, it allows a trailing newline character. Thus, malicious subdomains containing a trailing newline (e.g. `valid\nmalicious`) could bypass validation and potentially exploit downstream path construction or command execution.
 **Learning:** `re.match` is insufficient for strict string validation when the input represents an atomic entity (like a hostname, path, or identifier) rather than a stream of text lines.
 **Prevention:** Always use `re.fullmatch` when performing strict string validation to enforce that the entire input matches the pattern without any hidden trailing characters.
+
+## 2024-10-18 - CSRF Bypass via Referer startswith
+**Vulnerability:** CSRF protection in `csrf_middleware` used `referer.startswith(expected_origin)`. This allows an attacker to bypass the protection by hosting a malicious site at `https://your-panel.com.attacker.com`.
+**Learning:** Never use string matching like `.startswith()` for validating URLs in security contexts. Subdomains can easily mimic the start of a string.
+**Prevention:** Always use proper URL parsing (like `urllib.parse.urlparse`) to extract and strictly compare the `scheme` and `netloc`.
