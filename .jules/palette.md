@@ -13,3 +13,9 @@
 ## 2024-11-20 - Screen Reader Accessibility for Site Builder Controls
 **Learning:** Icon-only buttons (like `&times;` and `Del` buttons) inside dynamic components like Site Builder are read as "multiply" or unhelpful text by screen readers, creating accessibility barriers for users managing their sites.
 **Action:** Always ensure that icon-only action buttons use descriptive `aria-label` attributes to clarify their purpose to assistive technologies (e.g. `aria-label="Remove widget"`).
+## 2024-05-19 - [Adding Loading States to Forms]
+**Learning:** Found multiple places in the app where forms are submitted synchronously or asynchronously without giving visual feedback to the user, like a loading spinner or text change.
+**Action:** Enhance user experience by adopting a standardized pattern for submitting states in forms using Alpine.js or HTMX to toggle a loading spinner and disable the submit button.
+## 2024-05-19 - [Third-Party CDN on Sensitive Pages]
+**Learning:** Adding a third-party CDN dependency like Alpine.js to highly sensitive pages such as TOTP 2FA setup might be rejected for security reasons, even if it simplifies state management.
+**Action:** When implementing UX improvements on sensitive security forms, prefer using native Javascript submit handlers or existing local libraries over introducing new external dependencies.
