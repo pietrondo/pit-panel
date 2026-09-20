@@ -39,3 +39,6 @@
 ## 2025-02-12 - O(1) in-memory RateLimiter cleanup fast-path
 **Learning:** The in-memory cache implementation of `RateLimiter` executed an O(N) cleanup loop across all keys on every invocation of `is_allowed`. For high-frequency requests, this global loop blocks CPU cycles unnecessary.
 **Action:** Always optimize per-request rate limiters and cache evictions by lazily cleaning only the currently accessed key during the hot path, and deferring global garbage collection over the entire cache to periodic intervals (e.g., matching the expiration window).
+## 2025-02-12 - Reusing SSL Contexts in Loops
+**Learning:** Re-instantiating `ssl.create_default_context()` inside a loop incurs significant overhead (~40ms per call) because it loads CA certificates from the filesystem each time.
+**Action:** Always hoist `ssl.create_default_context()` outside of loops and reuse the thread-safe `SSLContext` instance to optimize performance when making multiple connections or checking multiple domains.
