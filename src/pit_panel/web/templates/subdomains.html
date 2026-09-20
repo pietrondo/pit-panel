@@ -32,7 +32,7 @@
     <div class="p-6">
         <form method="POST" action="/subdomains/add" class="flex items-end gap-4">
             <div class="flex-1">
-                <label class="label">Subdomain name</label>
+                <label class="label">Subdomain name <span class="text-red-500">*</span></label>
                 <input aria-label="Subdomain" type="text" name="subdomain" required placeholder="myapp"
                        class="input"
                        pattern="[a-z0-9-]+" title="Only lowercase letters, numbers, hyphens">
