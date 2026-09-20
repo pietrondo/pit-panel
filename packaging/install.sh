@@ -85,8 +85,10 @@ fi
 usermod -a -G systemd-journal pit-panel 2>/dev/null || true
 usermod -a -G docker pit-panel 2>/dev/null || true
 
-# Allow pit-panel to run upgrade + restart without password
-cat > /etc/sudoers.d/pit-panel <<'SUDOERS'
+# Allow pit-panel to run upgrade + restart without password.
+# Write to a dot-prefixed temp file: @includedir ignores dot-prefixed names,
+# so a broken file can never be parsed before it is validated.
+cat > /etc/sudoers.d/.pit-panel.tmp <<'SUDOERS'
 pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload
 pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl restart --no-block pit-panel.service
 pit-panel ALL=(root) NOPASSWD: /usr/bin/systemctl reload caddy
@@ -115,7 +117,6 @@ pit-panel ALL=(root) NOPASSWD: /usr/sbin/iptables *
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/ss *
 pit-panel ALL=(root) NOPASSWD: /usr/bin/ss *
 pit-panel ALL=(root) NOPASSWD: /usr/bin/fail2ban-client start *
-pit-panel ALL=(root) NOPASSWD: /usr/bin/tee -a /etc/sudoers.d/pit-panel
 pit-panel ALL=(root) NOPASSWD: /usr/bin/tee /etc/fail2ban/jail.local
 pit-panel ALL=(root) NOPASSWD: /usr/bin/tee /etc/fail2ban/jail.d/*.local
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw reload
@@ -139,7 +140,13 @@ pit-panel ALL=(root) PASSWD: /usr/bin/df -h
 pit-panel ALL=(root) PASSWD: /usr/bin/free -m
 pit-panel ALL=(root) PASSWD: /usr/bin/docker ps *
 SUDOERS
-chmod 440 /etc/sudoers.d/pit-panel
+if ! visudo -c -f /etc/sudoers.d/.pit-panel.tmp; then
+    echo "ERROR: generated sudoers file is invalid, aborting." >&2
+    rm -f /etc/sudoers.d/.pit-panel.tmp
+    exit 1
+fi
+chmod 440 /etc/sudoers.d/.pit-panel.tmp
+mv -f /etc/sudoers.d/.pit-panel.tmp /etc/sudoers.d/pit-panel
 
 # Setup directories + fix permissions (venv created as root, service runs as pit-panel)
 mkdir -p /etc/pit-panel /var/lib/pit-panel /opt/pit-panel/apps /var/log/pit-panel

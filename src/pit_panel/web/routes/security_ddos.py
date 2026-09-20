@@ -15,51 +15,10 @@ router = APIRouter()
 
 DDOS_CHAIN = "PIT_DDOS_SHIELD"
 
-_SUDOERS_LINES = [
-    "pit-panel ALL=(root) NOPASSWD: /usr/sbin/iptables *",
-    "pit-panel ALL=(root) NOPASSWD: /usr/sbin/ss *",
-    "pit-panel ALL=(root) NOPASSWD: /usr/bin/ss *",
-    "pit-panel ALL=(root) NOPASSWD: /usr/bin/fail2ban-client start *",
-]
-
-_SUDOERS_FIX_CMD = (
-    "sudo tee -a /etc/sudoers.d/pit-panel <<'EOF'\n" + "\n".join(_SUDOERS_LINES) + "\nEOF"
-)
+_SUDOERS_FIX_CMD = "sudo bash /opt/pit-panel/packaging/install.sh"
 
 
 async def _ensure_sudoers() -> bool:
-    res = await run_cmd(["sudo", "-n", "iptables", "-L", "-n"], timeout=5)
-    if res.returncode == 0:
-        return True
-
-    from pit_panel.config import get_settings
-
-    settings = get_settings()
-    sudo_password = settings.sudo_password.strip() if settings.sudo_password else None
-    if not sudo_password:
-        return False
-
-    import asyncio
-
-    payload = "\n".join(_SUDOERS_LINES) + "\n"
-    input_data = (sudo_password + "\n" + payload).encode()
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "sudo",
-            "-S",
-            "-p",
-            "",
-            "tee",
-            "-a",
-            "/etc/sudoers.d/pit-panel",
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        await asyncio.wait_for(proc.communicate(input_data), timeout=10)
-    except Exception:
-        return False
-
     res = await run_cmd(["sudo", "-n", "iptables", "-L", "-n"], timeout=5)
     return res.returncode == 0
 

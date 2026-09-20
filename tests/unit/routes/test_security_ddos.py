@@ -333,51 +333,6 @@ async def test_internal_ensure_sudoers_no_password(monkeypatch: pytest.MonkeyPat
 
 
 @pytest.mark.asyncio
-async def test_internal_ensure_sudoers_with_password(monkeypatch: pytest.MonkeyPatch) -> None:
-    import asyncio
-
-    from pit_panel.web.routes.security_ddos import _ensure_sudoers
-
-    mock_res_fail = MagicMock(returncode=1)
-    mock_res_success = MagicMock(returncode=0)
-    mock_run_cmd = AsyncMock(side_effect=[mock_res_fail, mock_res_success])
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
-
-    mock_settings = MagicMock()
-    mock_settings.sudo_password = "password"
-    monkeypatch.setattr("pit_panel.config.get_settings", lambda: mock_settings)
-
-    mock_proc = MagicMock()
-    mock_proc.communicate = AsyncMock(return_value=(b"", b""))
-    mock_create_exec = AsyncMock(return_value=mock_proc)
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", mock_create_exec)
-
-    res = await _ensure_sudoers()
-    assert res is True
-
-
-@pytest.mark.asyncio
-async def test_internal_ensure_sudoers_with_password_fail(monkeypatch: pytest.MonkeyPatch) -> None:
-    import asyncio
-
-    from pit_panel.web.routes.security_ddos import _ensure_sudoers
-
-    mock_res_fail = MagicMock(returncode=1)
-    mock_run_cmd = AsyncMock(return_value=mock_res_fail)
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
-
-    mock_settings = MagicMock()
-    mock_settings.sudo_password = "password"
-    monkeypatch.setattr("pit_panel.config.get_settings", lambda: mock_settings)
-
-    mock_create_exec = AsyncMock(side_effect=Exception("Failed"))
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", mock_create_exec)
-
-    res = await _ensure_sudoers()
-    assert res is False
-
-
-@pytest.mark.asyncio
 async def test_internal_iptables(monkeypatch: pytest.MonkeyPatch) -> None:
     from pit_panel.web.routes.security_ddos import _iptables
 

@@ -52,50 +52,6 @@ async def test_ensure_sudoers_no_password(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 @pytest.mark.asyncio  # type: ignore[untyped-decorator]
-async def test_ensure_sudoers_with_password(monkeypatch: pytest.MonkeyPatch) -> None:
-    mock_run_cmd = AsyncMock()
-    mock_run_cmd.side_effect = [MagicMock(returncode=1), MagicMock(returncode=0)]
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
-
-    mock_get_settings = MagicMock()
-    mock_settings = MagicMock()
-    mock_settings.sudo_password = "password123"
-    mock_get_settings.return_value = mock_settings
-    monkeypatch.setattr("pit_panel.config.get_settings", mock_get_settings)
-
-    mock_proc = AsyncMock()
-    mock_proc.communicate.return_value = (b"", b"")
-    mock_create_subprocess_exec = AsyncMock(return_value=mock_proc)
-    monkeypatch.setattr("asyncio.create_subprocess_exec", mock_create_subprocess_exec)
-
-    result = await _ensure_sudoers()
-    assert result is True
-    assert mock_run_cmd.call_count == 2
-    mock_create_subprocess_exec.assert_called_once()
-
-
-@pytest.mark.asyncio  # type: ignore[untyped-decorator]
-async def test_ensure_sudoers_with_password_exception(monkeypatch: pytest.MonkeyPatch) -> None:
-    mock_run_cmd = AsyncMock()
-    mock_run_cmd.side_effect = [MagicMock(returncode=1), MagicMock(returncode=0)]
-    monkeypatch.setattr("pit_panel.web.routes.security_ddos.run_cmd", mock_run_cmd)
-
-    mock_get_settings = MagicMock()
-    mock_settings = MagicMock()
-    mock_settings.sudo_password = "password123"
-    mock_get_settings.return_value = mock_settings
-    monkeypatch.setattr("pit_panel.config.get_settings", mock_get_settings)
-
-    mock_create_subprocess_exec = AsyncMock(side_effect=Exception("Test Error"))
-    monkeypatch.setattr("asyncio.create_subprocess_exec", mock_create_subprocess_exec)
-
-    result = await _ensure_sudoers()
-    assert result is False
-    assert mock_run_cmd.call_count == 1
-    mock_create_subprocess_exec.assert_called_once()
-
-
-@pytest.mark.asyncio  # type: ignore[untyped-decorator]
 async def test_iptables(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_run_cmd = AsyncMock()
     mock_run_cmd.return_value.returncode = 0
