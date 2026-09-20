@@ -48,3 +48,6 @@
 ## 2026-11-20 - Cache user objects on request state
 **Learning:** Resolving the current user via `get_user()` requires unsigning a token and querying the database. In routes that utilize multiple dependencies or middleware requiring the user (or admin) object, calling `get_user()` repeatedly introduces redundant overhead (~0.5ms per call).
 **Action:** Implement request-level caching by storing the resolved user object in `request.state.user` during the first call, and returning it immediately on subsequent calls within the same request lifecycle.
+## 2026-08-19 - Session Validation JOIN Bypass
+**Learning:** High-frequency HTMX polling routes trigger `validate_session` continuously, incurring an expensive `User` joined with `Session` database query on every request.
+**Action:** Implement a short-lived in-memory cache mapping session tokens to verified `user_id`s, reducing the DB lookup to a fast, direct table read on cache hits.
