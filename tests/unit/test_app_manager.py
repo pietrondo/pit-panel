@@ -77,6 +77,7 @@ def test_deploy_template_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert (result / "static.txt").exists()
     assert (result / "static.txt").read_text() == "static content"
 
+
 def test_deploy_template_wordpress_stack(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
     templates_dir.mkdir()
@@ -84,7 +85,10 @@ def test_deploy_template_wordpress_stack(tmp_path: Path, monkeypatch: pytest.Mon
     stack_dir.mkdir()
 
     (stack_dir / "meta.json").write_text('{"name": "wordpress"}')
-    (stack_dir / "docker-compose.yml.tpl").write_text("port: $PORT\ntitle: $WP_TITLE\nadmin: $WP_ADMIN_USER\nlocale: $WP_LOCALE\nsubdomain: $subdomain\nadmin_email: $WP_ADMIN_EMAIL")
+    (stack_dir / "docker-compose.yml.tpl").write_text(
+        "port: $PORT\ntitle: $WP_TITLE\nadmin: $WP_ADMIN_USER\n"
+        "locale: $WP_LOCALE\nsubdomain: $subdomain\nadmin_email: $WP_ADMIN_EMAIL"
+    )
 
     monkeypatch.setattr(app_manager_module, "TEMPLATES_DIR", templates_dir)
 
@@ -99,6 +103,7 @@ def test_deploy_template_wordpress_stack(tmp_path: Path, monkeypatch: pytest.Mon
     assert "locale: it_IT" in content
     assert "subdomain: mywp" in content
     assert "admin_email: admin@localhost" in content
+
 
 def test_apply_mem_limits_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
@@ -117,6 +122,7 @@ def test_apply_mem_limits_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     compose_content = (result / "docker-compose.yml").read_text()
     assert "mem_limit: 512m" in compose_content
 
+
 def test_apply_mem_limits_no_compose(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
     templates_dir.mkdir()
@@ -131,13 +137,14 @@ def test_apply_mem_limits_no_compose(tmp_path: Path, monkeypatch: pytest.MonkeyP
     result = manager.deploy_template("myapp", "mystack")
     assert not (result / "docker-compose.yml").exists()
 
+
 def test_apply_mem_limits_invalid_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
     templates_dir.mkdir()
     stack_dir = templates_dir / "mystack"
     stack_dir.mkdir()
 
-    (stack_dir / "meta.json").write_text('{invalid_json}')
+    (stack_dir / "meta.json").write_text("{invalid_json}")
     (stack_dir / "docker-compose.yml.tpl").write_text("services:\n  web:\n    image: nginx")
 
     monkeypatch.setattr(app_manager_module, "TEMPLATES_DIR", templates_dir)
@@ -146,6 +153,7 @@ def test_apply_mem_limits_invalid_json(tmp_path: Path, monkeypatch: pytest.Monke
     result = manager.deploy_template("myapp", "mystack")
     compose_content = (result / "docker-compose.yml").read_text()
     assert "mem_limit" not in compose_content
+
 
 def test_apply_mem_limits_no_mem_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
@@ -163,6 +171,7 @@ def test_apply_mem_limits_no_mem_limit(tmp_path: Path, monkeypatch: pytest.Monke
     compose_content = (result / "docker-compose.yml").read_text()
     assert "mem_limit" not in compose_content
 
+
 def test_apply_mem_limits_invalid_yaml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
     templates_dir.mkdir()
@@ -175,7 +184,8 @@ def test_apply_mem_limits_invalid_yaml(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.setattr(app_manager_module, "TEMPLATES_DIR", templates_dir)
     manager = AppManager(apps_dir=str(tmp_path / "apps"))
 
-    result = manager.deploy_template("myapp", "mystack")
+    manager.deploy_template("myapp", "mystack")
+
 
 def test_apply_mem_limits_not_dict_compose(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
@@ -193,7 +203,8 @@ def test_apply_mem_limits_not_dict_compose(tmp_path: Path, monkeypatch: pytest.M
     compose_content = (result / "docker-compose.yml").read_text()
     assert "mem_limit" not in compose_content
 
-def test_apply_mem_limits_not_dict_services(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+
+def test_apply_mem_limits_not_dict_svc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
     templates_dir.mkdir()
     stack_dir = templates_dir / "mystack"
@@ -209,9 +220,11 @@ def test_apply_mem_limits_not_dict_services(tmp_path: Path, monkeypatch: pytest.
     compose_content = (result / "docker-compose.yml").read_text()
     assert "mem_limit" not in compose_content
 
+
 def test_delete_app_not_exists(tmp_path: Path) -> None:
     manager = AppManager(apps_dir=str(tmp_path / "apps"))
     assert manager.delete_app("notexist") is False
+
 
 def test_delete_app_not_dir(tmp_path: Path) -> None:
     apps_dir = tmp_path / "apps"
@@ -222,12 +235,13 @@ def test_delete_app_not_dir(tmp_path: Path) -> None:
     manager = AppManager(apps_dir=str(apps_dir))
     assert manager.delete_app("notdir") is False
 
+
 def test_list_templates_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
     templates_dir.mkdir()
     stack1 = templates_dir / "stack1"
     stack1.mkdir()
-    (stack1 / "meta.json").write_text('{}')
+    (stack1 / "meta.json").write_text("{}")
 
     stack2 = templates_dir / "stack2"
     stack2.mkdir()
@@ -241,12 +255,14 @@ def test_list_templates_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     templates = manager.list_templates()
     assert templates == ["stack1"]
 
+
 def test_list_templates_no_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
     monkeypatch.setattr(app_manager_module, "TEMPLATES_DIR", templates_dir)
     manager = AppManager(apps_dir=str(tmp_path / "apps"))
 
     assert manager.list_templates() == []
+
 
 def test_delete_app_success(tmp_path: Path) -> None:
     apps_dir = tmp_path / "apps"
@@ -257,6 +273,7 @@ def test_delete_app_success(tmp_path: Path) -> None:
 
     assert manager.delete_app("myapp") is True
     assert not target_dir.exists()
+
 
 def test_apply_mem_limits_service_not_dict(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
@@ -273,6 +290,7 @@ def test_apply_mem_limits_service_not_dict(tmp_path: Path, monkeypatch: pytest.M
     result = manager.deploy_template("myapp", "mystack")
     compose_content = (result / "docker-compose.yml").read_text()
     assert "mem_limit" not in compose_content
+
 
 def test_apply_mem_limits_meta_not_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     templates_dir = tmp_path / "templates"
