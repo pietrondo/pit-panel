@@ -42,3 +42,6 @@
 ## 2025-02-12 - Reusing SSL Contexts in Loops
 **Learning:** Re-instantiating `ssl.create_default_context()` inside a loop incurs significant overhead (~40ms per call) because it loads CA certificates from the filesystem each time.
 **Action:** Always hoist `ssl.create_default_context()` outside of loops and reuse the thread-safe `SSLContext` instance to optimize performance when making multiple connections or checking multiple domains.
+## 2025-02-13 - Optimize SSL Context Creation
+**Learning:** Re-creating `ssl.create_default_context()` inside a loop for multiple domains introduces significant overhead (~40ms per iteration).
+**Action:** Always hoist `ssl.create_default_context()` and its configuration outside of loops when verifying or connecting to multiple domains to reuse the context instance.
