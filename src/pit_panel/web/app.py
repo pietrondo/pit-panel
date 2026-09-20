@@ -7,6 +7,7 @@ from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
@@ -125,11 +126,20 @@ async def _csrf_middleware(
     # No session cookie => no CSRF risk (attacker has no auth to abuse).
     if SESSION_COOKIE not in request.cookies:
         return await call_next(request)
-    expected_origin = f"{request.url.scheme}://{request.url.netloc}"
+    expected_scheme = request.url.scheme
+    expected_netloc = request.url.netloc
+
     origin = request.headers.get("origin") or ""
+    if origin:
+        origin_parsed = urlparse(origin)
+        if origin_parsed.scheme == expected_scheme and origin_parsed.netloc == expected_netloc:
+            return await call_next(request)
+
     referer = request.headers.get("referer") or ""
-    if origin == expected_origin or referer.startswith(expected_origin):
-        return await call_next(request)
+    if referer:
+        referer_parsed = urlparse(referer)
+        if referer_parsed.scheme == expected_scheme and referer_parsed.netloc == expected_netloc:
+            return await call_next(request)
     logger.warning(
         "CSRF check failed: method=%s path=%s origin=%r referer=%r",
         request.method,
