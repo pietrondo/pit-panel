@@ -10,3 +10,6 @@
 ## 2025-02-14 - Icon Buttons Missing Focus States
 **Learning:** Custom icon-only buttons that don't use the design system's primary `.btn` class often lack keyboard focus indicators, making them invisible to keyboard navigation.
 **Action:** Always manually add `focus:outline-none focus-visible:ring-2` to custom icon buttons (like modal close buttons or header toggles) to ensure consistent keyboard accessibility.
+## 2024-11-20 - Screen Reader Accessibility for Site Builder Controls
+**Learning:** Icon-only buttons (like `&times;` and `Del` buttons) inside dynamic components like Site Builder are read as "multiply" or unhelpful text by screen readers, creating accessibility barriers for users managing their sites.
+**Action:** Always ensure that icon-only action buttons use descriptive `aria-label` attributes to clarify their purpose to assistive technologies (e.g. `aria-label="Remove widget"`).
