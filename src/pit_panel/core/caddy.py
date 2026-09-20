@@ -169,9 +169,6 @@ class CaddyManager:
         context.verify_mode = ssl.CERT_REQUIRED
 
         certs = []
-        context = ssl.create_default_context()
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_REQUIRED
 
         for domain in domains:
             try:
