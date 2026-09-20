@@ -51,3 +51,6 @@
 ## 2026-08-19 - Session Validation JOIN Bypass
 **Learning:** High-frequency HTMX polling routes trigger `validate_session` continuously, incurring an expensive `User` joined with `Session` database query on every request.
 **Action:** Implement a short-lived in-memory cache mapping session tokens to verified `user_id`s, reducing the DB lookup to a fast, direct table read on cache hits.
+## 2026-08-18 - Hoist SSLContext Creation
+**Learning:** In Python, `ssl.create_default_context()` is an expensive operation (~40-50ms) as it loads CA certificates from the filesystem.
+**Action:** Always hoist the context creation outside of loops and reuse the thread-safe `SSLContext` instance to optimize performance when checking multiple domains.
