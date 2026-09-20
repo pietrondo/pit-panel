@@ -161,13 +161,16 @@ class CaddyManager:
         import socket
         import ssl
 
+        # ⚡ Bolt: Hoist expensive SSLContext creation outside the loop.
+        # ssl.create_default_context() loads CA certs from disk and takes ~40-50ms.
+        # Reusing the context object significantly speeds up multi-domain checks.
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_REQUIRED
+
         certs = []
         for domain in domains:
             try:
-                context = ssl.create_default_context()
-                context.check_hostname = False
-                context.verify_mode = ssl.CERT_REQUIRED
-
                 with (
                     socket.create_connection(("127.0.0.1", 443), timeout=5) as sock,
                     context.wrap_socket(sock, server_hostname=domain) as ssock,

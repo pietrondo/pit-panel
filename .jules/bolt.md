@@ -39,3 +39,6 @@
 ## 2025-02-12 - O(1) in-memory RateLimiter cleanup fast-path
 **Learning:** The in-memory cache implementation of `RateLimiter` executed an O(N) cleanup loop across all keys on every invocation of `is_allowed`. For high-frequency requests, this global loop blocks CPU cycles unnecessary.
 **Action:** Always optimize per-request rate limiters and cache evictions by lazily cleaning only the currently accessed key during the hot path, and deferring global garbage collection over the entire cache to periodic intervals (e.g., matching the expiration window).
+## 2026-08-18 - Hoist SSLContext Creation
+**Learning:** In Python, `ssl.create_default_context()` is an expensive operation (~40-50ms) as it loads CA certificates from the filesystem.
+**Action:** Always hoist the context creation outside of loops and reuse the thread-safe `SSLContext` instance to optimize performance when checking multiple domains.
