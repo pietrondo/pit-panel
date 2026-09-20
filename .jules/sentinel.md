@@ -34,3 +34,7 @@
 **Vulnerability:** Weak input validation caused by `re.match()` which only matches at the beginning of the string, allowing arbitrary input (including newlines and malicious payloads) if appended after a valid prefix.
 **Learning:** Python's `re.match()` does not force a full string match unless anchored properly (`\A`, `\Z`, or `^`, `$`). However, using `^` and `$` with `re.match()` is vulnerable to newline injection. `re.fullmatch()` is explicitly designed for this and requires the entire string to match the pattern.
 **Prevention:** Always use `re.fullmatch()` when strictly validating system inputs, container names, and parameters passed to backend system commands in Python to prevent shell injection and evasion via newlines.
+## 2026-08-30 - Fix Regex Validation to prevent Trailing Newline Bypass
+**Vulnerability:** Use of `re.match()` with `^` and `$` anchors for strict backend input validation.
+**Learning:** In Python, the `$` anchor matches the end of the string *or just before a trailing newline*. This allows an attacker to bypass strict input validation filters (like domain names or jail names) by appending a single newline character to a malicious payload.
+**Prevention:** Always use `re.fullmatch()` instead of `re.match()` when performing strict string validation to ensure the entire input string conforms to the regex pattern without allowing trailing characters like newlines.
