@@ -45,3 +45,6 @@
 ## 2025-02-13 - Optimize SSL Context Creation
 **Learning:** Re-creating `ssl.create_default_context()` inside a loop for multiple domains introduces significant overhead (~40ms per iteration).
 **Action:** Always hoist `ssl.create_default_context()` and its configuration outside of loops when verifying or connecting to multiple domains to reuse the context instance.
+## 2026-11-20 - Cache user objects on request state
+**Learning:** Resolving the current user via `get_user()` requires unsigning a token and querying the database. In routes that utilize multiple dependencies or middleware requiring the user (or admin) object, calling `get_user()` repeatedly introduces redundant overhead (~0.5ms per call).
+**Action:** Implement request-level caching by storing the resolved user object in `request.state.user` during the first call, and returning it immediately on subsequent calls within the same request lifecycle.

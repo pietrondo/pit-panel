@@ -42,17 +42,26 @@ def _unauthorized() -> HTTPException:
 
 
 async def get_user(request: Request, db: AsyncSession) -> User | None:
+    if hasattr(request.state, "user"):
+        return request.state.user
+
     settings = get_settings()
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:
+        request.state.user = None
         return None
     data = unsign_session_token(settings, cookie)
     if not data:
+        request.state.user = None
         return None
     uid = data.get("uid")
     if uid is None:
+        request.state.user = None
         return None
-    return await validate_session(db, cookie, settings, uid, data=data)
+
+    user = await validate_session(db, cookie, settings, uid, data=data)
+    request.state.user = user
+    return user
 
 
 async def get_admin(request: Request, db: AsyncSession) -> User | None:
