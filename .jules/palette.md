@@ -7,3 +7,6 @@
 ## 2026-08-30 - Global button focus accessibility
 **Learning:** In a heavily componentized application, generic `.btn` classes must explicitly define `:focus-visible` styles to ensure keyboard accessibility. Without a distinct focus ring (like `outline: 2px solid #6366f1; outline-offset: 2px;`), users navigating via keyboard cannot easily determine which element has focus.
 **Action:** Always include global `:focus-visible` outline styles for buttons or interactive elements to ensure a clear keyboard focus state, improving a11y across the entire application without needing individual component updates.
+## 2025-02-14 - Icon Buttons Missing Focus States
+**Learning:** Custom icon-only buttons that don't use the design system's primary `.btn` class often lack keyboard focus indicators, making them invisible to keyboard navigation.
+**Action:** Always manually add `focus:outline-none focus-visible:ring-2` to custom icon buttons (like modal close buttons or header toggles) to ensure consistent keyboard accessibility.
