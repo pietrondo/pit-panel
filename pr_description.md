@@ -1,5 +1,3 @@
-🚨 Severity: HIGH
-💡 Vulnerability: Python's `re.match` with the `$` anchor allows trailing newlines (e.g., `input\n`) to pass validation. This could potentially allow command injection or bypass of input filters if the trailing newline causes the string to be evaluated unsafely downstream in shell commands or configuration files.
-🎯 Impact: Attackers could bypass strict alphanumeric/domain validations by appending a newline to their input, leading to unauthorized actions or invalid configuration generation.
-🔧 Fix: Upgraded all security and input validation regular expressions from `re.match` to `re.fullmatch` to strictly enforce that the entire string matches the pattern, effectively blocking trailing newlines and other hidden characters.
-✅ Verification: Ran `pytest` locally to ensure no regressions were introduced.
+💡 What: Added `aria-live="polite"` to the loading state message on the system upgrade button.
+🎯 Why: Without `aria-live`, screen readers would not proactively announce the text change to "Upgrading..." when the user clicks the button. This ensures that users relying on screen readers receive immediate feedback that the long-running upgrade process has started.
+♿ Accessibility: Ensures the dynamic loading text update is announced by screen readers.
