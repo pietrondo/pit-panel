@@ -49,7 +49,7 @@ async def _detect_ssh_port() -> int:
         line = line.strip()
         if line.startswith("#"):
             continue
-        m = re.match(r"^Port\s+(\d+)", line, re.IGNORECASE)
+        m = re.fullmatch(r"^Port\s+(\d+)", line, re.IGNORECASE)
         if m:
             return int(m.group(1))
     return 22

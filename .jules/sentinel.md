@@ -26,3 +26,7 @@
 **Vulnerability:** The CSRF middleware validated the `Referer` header using `referer.startswith(expected_origin)`. This allows an attacker on `https://example.com.malicious.com` to bypass the CSRF check since the string starts with `https://example.com`.
 **Learning:** Using string matching like `.startswith()` for URL validation is dangerous and can lead to SSRF or CSRF bypasses because it ignores URI boundaries like the end of the domain name.
 **Prevention:** Always use proper URL parsing libraries like `urllib.parse.urlparse` to extract and strictly compare the `scheme` and `netloc` components when validating origins and referers.
+## 2024-08-30 - Incomplete String Validation via Regex match()
+**Vulnerability:** Various backend routes and core functions used `re.match()` with the `$` anchor to validate input strings (like container names, domains, app names). However, Python's `re.match()` with a `$` anchor only ensures the match extends to the end of the string *or just before a trailing newline*. This meant malicious input with a trailing newline (e.g., `container_name\n`) could bypass the validation, potentially leading to command injection when the string was later passed to subprocesses without proper sanitization.
+**Learning:** Using `re.match(r"^...$", ...)` is insufficient for strict string validation in Python, as it allows trailing newlines to slip through.
+**Prevention:** Always use `re.fullmatch(r"^...$", ...)` to ensure the entire input string perfectly conforms to the regular expression without any trailing characters.
