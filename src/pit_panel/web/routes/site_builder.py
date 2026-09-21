@@ -115,7 +115,7 @@ def _safe_css_value(value: Any) -> str:
     if not text or len(text) > 64:
         return ""
     lowered = text.lower()
-    bad_tokens = ("url(", "expression", "javascript:", "\"", "'", "<", ">", ";")
+    bad_tokens = ("url(", "expression", "javascript:", '"', "'", "<", ">", ";")
     if any(bad in lowered for bad in bad_tokens):
         return ""
     if not _CSS_VALUE_RE.fullmatch(text):
@@ -261,9 +261,7 @@ def _render_widget(w: dict[str, Any]) -> str:
         alt = html.escape(str(props.get("alt", "")), quote=True)
         if not src:
             return ""
-        return (
-            f'<img src="{html.escape(src, quote=True)}" alt="{alt}" loading="lazy"{style}>'
-        )
+        return f'<img src="{html.escape(src, quote=True)}" alt="{alt}" loading="lazy"{style}>'
     if wtype == "button":
         text = html.escape(str(props.get("text", "Click")))
         url = html.escape(_safe_url(props.get("url"), "#"), quote=True)
@@ -282,9 +280,7 @@ def _render_column(col: dict[str, Any]) -> str:
     )
 
 
-def render_site_html(
-    tree: dict[str, Any], site_name: str, base_url: str = ""
-) -> str:
+def render_site_html(tree: dict[str, Any], site_name: str, base_url: str = "") -> str:
     """Render the full static HTML page from a widget tree.
 
     `base_url` is prepended to root-relative asset URLs so the same tree renders

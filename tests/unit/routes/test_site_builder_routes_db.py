@@ -145,15 +145,15 @@ class TestSafeStyle:
 class TestRenderStyleMerging:
     def test_widget_styles_appear_inline(self):
         out = render_site_html(SAMPLE_TREE, "Demo")
-        assert 'color: #ff0000' in out
-        assert 'text-align: center' in out
-        assert 'font-size: 3rem' in out
-        assert 'font-weight: bold' in out
+        assert "color: #ff0000" in out
+        assert "text-align: center" in out
+        assert "font-size: 3rem" in out
+        assert "font-weight: bold" in out
 
     def test_section_style_applied(self):
         out = render_site_html(SAMPLE_TREE, "Demo")
-        assert 'background-color: #f8fafc' in out
-        assert 'padding: 3rem 1rem' in out
+        assert "background-color: #f8fafc" in out
+        assert "padding: 3rem 1rem" in out
 
     def test_malicious_style_is_stripped_from_output(self):
         tree = {
@@ -211,7 +211,11 @@ class TestRenderStyleMerging:
                         {
                             "id": "c",
                             "widgets": [
-                                {"id": "w", "type": "image", "props": {"src": "https://cdn.test/a.png"}}
+                                {
+                                    "id": "w",
+                                    "type": "image",
+                                    "props": {"src": "https://cdn.test/a.png"},
+                                }
                             ],
                         }
                     ],
