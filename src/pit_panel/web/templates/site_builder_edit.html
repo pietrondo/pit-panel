@@ -18,6 +18,14 @@
             </div>
         </div>
         <div class="flex gap-2">
+            <div class="flex rounded border border-slate-300 dark:border-slate-600 overflow-hidden">
+                <button type="button" @click="view='edit'" :class="view==='edit' ? 'bg-slate-200 dark:bg-slate-700' : ''" class="px-3 py-2 text-sm">Edit</button>
+                <button type="button" @click="view='preview'; refreshPreview()" :class="view==='preview' ? 'bg-slate-200 dark:bg-slate-700' : ''" class="px-3 py-2 text-sm">Preview</button>
+            </div>
+            <button type="button" @click="settingsOpen=!settingsOpen"
+                    class="px-3 py-2 rounded border border-slate-300 dark:border-slate-600 text-sm">
+                Settings
+            </button>
             <button type="button" @click="publish()"
                     class="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white font-medium"
                     :disabled="publishing">
@@ -27,6 +35,20 @@
         </div>
     </header>
 
+    <div x-show="settingsOpen" x-cloak class="mb-4 p-4 rounded bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 space-y-3">
+        <div>
+            <label class="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-300" for="sb-title">Page title</label>
+            <input id="sb-title" type="text" x-model="tree.title" placeholder="{{ site.name }}"
+                   class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+        </div>
+        <div>
+            <label class="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-300" for="sb-css">Custom CSS</label>
+            <textarea id="sb-css" x-model="tree.custom_css" rows="4" placeholder=".sb-button { background: #0f172a; }"
+                      class="w-full text-sm font-mono px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"></textarea>
+        </div>
+        <p class="text-xs text-slate-500">Styles are saved with the site and applied on publish.</p>
+    </div>
+
     <div x-show="publishResult" x-cloak class="mb-4 p-3 rounded bg-green-50 text-green-800 text-sm border border-green-200">
         <strong>Published:</strong>
         <a :href="publishResult?.url" target="_blank" class="underline" x-text="publishResult?.url"></a>
@@ -35,7 +57,13 @@
         <strong>Error:</strong> <span x-text="publishError"></span>
     </div>
 
-    <div class="grid grid-cols-12 gap-4">
+    <div x-show="view === 'preview'" x-cloak
+         class="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-white">
+        <iframe :src="previewSrc" x-ref="preview" title="Site preview"
+                class="w-full" style="height: 70vh; border: 0;"></iframe>
+    </div>
+
+    <div x-show="view === 'edit'" class="grid grid-cols-12 gap-4">
         <aside class="col-span-3">
             <h2 class="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Widgets</h2>
             <p class="text-xs text-slate-500 mb-3">Click to add to the last column.</p>
@@ -69,6 +97,18 @@
                             <button type="button" @click="removeSection(sIdx)" aria-label="Remove section" class="text-xs px-2 py-0.5 rounded border border-red-300 text-red-600">Del</button>
                         </div>
                     </div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <label class="text-xs text-slate-500">
+                            Section background
+                            <input type="text" :value="section.style?.bg || ''" @input="updateSectionStyle(sIdx, 'bg', $event.target.value)"
+                                   placeholder="#f8fafc" class="ml-1 text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                        </label>
+                        <label class="text-xs text-slate-500">
+                            Padding
+                            <input type="text" :value="section.style?.padding || ''" @input="updateSectionStyle(sIdx, 'padding', $event.target.value)"
+                                   placeholder="2rem 1rem" class="ml-1 text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                        </label>
+                    </div>
                     <div class="flex gap-2 flex-wrap" :data-section-id="section.id">
                         <template x-for="(col, cIdx) in section.columns" :key="col.id">
                             <div class="flex-1 min-w-[200px] bg-white dark:bg-slate-800 rounded p-2 border border-dashed border-slate-300 dark:border-slate-600">
@@ -83,9 +123,9 @@
                                 </div>
                                 <div class="space-y-2 min-h-[60px]" :data-col-id="col.id">
                                     <template x-for="(widget, wIdx) in col.widgets" :key="widget.id">
-                                        <div class="rounded border border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-900/40">
+                                        <div class="rounded border border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-900/40" :data-widget-id="widget.id">
                                             <div class="flex items-center justify-between mb-1">
-                                                <span class="text-xs font-medium text-slate-500 uppercase" x-text="widget.type"></span>
+                                                <span class="text-xs font-medium text-slate-500 uppercase cursor-move" x-text="widget.type"></span>
                                                 <button type="button" @click="removeWidget(sIdx, cIdx, wIdx)" aria-label="Remove widget" class="text-xs text-red-600">&times;</button>
                                             </div>
                                             <template x-if="widget.type === 'heading'">
@@ -105,6 +145,12 @@
                                                 <div class="space-y-1">
                                                     <input type="text" :value="widget.props.src || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'src', $event.target.value)" aria-label="Image URL" placeholder="Image URL" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
                                                     <input type="text" :value="widget.props.alt || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'alt', $event.target.value)" aria-label="Alt text" placeholder="Alt text" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    <div class="flex items-center gap-2">
+                                                        <input type="file" accept="image/*" :id="'up-' + widget.id"
+                                                               @change="uploadImage(sIdx, cIdx, wIdx, $event.target.files[0], $event.target)"
+                                                               class="text-xs">
+                                                        <span x-show="uploading === widget.id" class="text-xs text-slate-400">Uploading…</span>
+                                                    </div>
                                                 </div>
                                             </template>
                                             <template x-if="widget.type === 'button'">
@@ -116,6 +162,60 @@
                                             <template x-if="widget.type === 'divider'">
                                                 <p class="text-xs text-slate-400 italic">Visual separator (no properties)</p>
                                             </template>
+                                            <details class="mt-2">
+                                                <summary class="text-xs text-slate-500 cursor-pointer select-none">Style</summary>
+                                                <div class="mt-2 grid grid-cols-2 gap-2">
+                                                    <label class="text-xs text-slate-500">
+                                                        Align
+                                                        <select :value="widget.style?.align || ''" @change="updateStyle(sIdx, cIdx, wIdx, 'align', $event.target.value)"
+                                                                class="w-full text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                            <option value="">default</option>
+                                                            <option value="left">left</option>
+                                                            <option value="center">center</option>
+                                                            <option value="right">right</option>
+                                                        </select>
+                                                    </label>
+                                                    <label class="text-xs text-slate-500">
+                                                        Text color
+                                                        <input type="text" :value="widget.style?.color || ''" @input="updateStyle(sIdx, cIdx, wIdx, 'color', $event.target.value)"
+                                                               placeholder="#1e293b" class="w-full text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    </label>
+                                                    <label class="text-xs text-slate-500">
+                                                        Background
+                                                        <input type="text" :value="widget.style?.bg || ''" @input="updateStyle(sIdx, cIdx, wIdx, 'bg', $event.target.value)"
+                                                               placeholder="#ffffff" class="w-full text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    </label>
+                                                    <label class="text-xs text-slate-500">
+                                                        Font size
+                                                        <input type="text" :value="widget.style?.size || ''" @input="updateStyle(sIdx, cIdx, wIdx, 'size', $event.target.value)"
+                                                               placeholder="1rem" class="w-full text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    </label>
+                                                    <label class="text-xs text-slate-500">
+                                                        Weight
+                                                        <select :value="widget.style?.weight || ''" @change="updateStyle(sIdx, cIdx, wIdx, 'weight', $event.target.value)"
+                                                                class="w-full text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                            <option value="">default</option>
+                                                            <option value="normal">normal</option>
+                                                            <option value="bold">bold</option>
+                                                        </select>
+                                                    </label>
+                                                    <label class="text-xs text-slate-500">
+                                                        Padding
+                                                        <input type="text" :value="widget.style?.padding || ''" @input="updateStyle(sIdx, cIdx, wIdx, 'padding', $event.target.value)"
+                                                               placeholder="1rem" class="w-full text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    </label>
+                                                    <label class="text-xs text-slate-500">
+                                                        Margin
+                                                        <input type="text" :value="widget.style?.margin || ''" @input="updateStyle(sIdx, cIdx, wIdx, 'margin', $event.target.value)"
+                                                               placeholder="0 0 1rem" class="w-full text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    </label>
+                                                    <label class="text-xs text-slate-500">
+                                                        Radius
+                                                        <input type="text" :value="widget.style?.radius || ''" @input="updateStyle(sIdx, cIdx, wIdx, 'radius', $event.target.value)"
+                                                               placeholder="0.5rem" class="w-full text-xs px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                                    </label>
+                                                </div>
+                                            </details>
                                         </div>
                                     </template>
                                     <p x-show="col.widgets.length === 0" class="text-xs text-slate-400 italic text-center py-2">Empty column</p>
@@ -147,6 +247,11 @@ function siteEditor() {
         publishResult: null,
         publishError: '',
         saveTimer: null,
+        view: 'edit',
+        settingsOpen: false,
+        uploading: '',
+        previewSrc: '/site-builder/sites/{{ site.id }}/preview',
+        refreshPreview() { this.previewSrc = '/site-builder/sites/{{ site.id }}/preview?t=' + Date.now(); },
         token() { return document.cookie.split('; ').find(r => r.startsWith('pitpanel_session='))?.split('=')[1] || ''; },
         async init() {
             try {
@@ -168,7 +273,8 @@ function siteEditor() {
                 el._sortable = new Sortable(el, {
                     group: 'widgets',
                     animation: 150,
-                    handle: '.rounded.border',
+                    handle: '.cursor-move',
+                    draggable: '[data-widget-id]',
                     onEnd: () => { this.rebuildFromDOM(); },
                 });
             });
@@ -182,8 +288,10 @@ function siteEditor() {
                     ? Array.from(secEl.querySelectorAll('[data-col-id]')).map(colEl => {
                         const colId = colEl.dataset.colId;
                         const col = (sec.columns || []).find(c => c.id === colId) || { id: colId, width: 12, widgets: [] };
-                        col.widgets = Array.from(colEl.querySelectorAll('[data-col-id] > .rounded')).map((wEl, idx) => {
-                            const w = this.findWidget(col, wEl);
+                        const byId = {};
+                        (col.widgets || []).forEach(w => { byId[w.id] = w; });
+                        col.widgets = Array.from(colEl.querySelectorAll(':scope > [data-widget-id]')).map((wEl, idx) => {
+                            const w = byId[wEl.dataset.widgetId];
                             return w || { id: 'tmp-' + idx, type: 'text', props: {} };
                         });
                         return col;
@@ -193,7 +301,6 @@ function siteEditor() {
             });
         },
         findWidget(col, el) {
-            const labels = el.querySelectorAll('.text-xs.font-medium');
             for (const w of (col.widgets || [])) {
                 if (w.id === el.dataset.widgetId) return w;
             }
@@ -214,6 +321,7 @@ function siteEditor() {
                 if (resp.ok) {
                     const d = await resp.json();
                     this.savedAt = new Date().toLocaleTimeString();
+                    if (this.view === 'preview') this.refreshPreview();
                 }
             } catch (e) { console.error('save failed', e); }
             this.saving = false;
@@ -250,9 +358,43 @@ function siteEditor() {
         removeWidget(sIdx, cIdx, wIdx) {
             this.tree.sections[sIdx].columns[cIdx].widgets.splice(wIdx, 1);
         },
-        updateWidget(sIdx, cIdx, wIdx, key, value) {
+updateWidget(sIdx, cIdx, wIdx, key, value) {
             const w = this.tree.sections[sIdx].columns[cIdx].widgets[wIdx];
             w.props = { ...(w.props || {}), [key]: key === 'level' ? parseInt(value, 10) : value };
+        },
+        updateStyle(sIdx, cIdx, wIdx, key, value) {
+            const w = this.tree.sections[sIdx].columns[cIdx].widgets[wIdx];
+            const style = { ...(w.style || {}) };
+            if (value === '') { delete style[key]; } else { style[key] = value; }
+            w.style = style;
+        },
+        updateSectionStyle(sIdx, key, value) {
+            const sec = this.tree.sections[sIdx];
+            const style = { ...(sec.style || {}) };
+            if (value === '') { delete style[key]; } else { style[key] = value; }
+            sec.style = style;
+        },
+        async uploadImage(sIdx, cIdx, wIdx, file, inputEl) {
+            if (!file) return;
+            const w = this.tree.sections[sIdx].columns[cIdx].widgets[wIdx];
+            this.uploading = w.id;
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                const resp = await fetch('/site-builder/sites/{{ site.id }}/upload', {
+                    method: 'POST', body: fd,
+                });
+                const data = await resp.json();
+                if (resp.ok && data.url) {
+                    this.updateWidget(sIdx, cIdx, wIdx, 'src', data.url);
+                } else {
+                    alert('Upload failed: ' + (data.detail || data.error || 'unknown error'));
+                }
+            } catch (e) {
+                alert('Upload failed: ' + e);
+            }
+            this.uploading = '';
+            if (inputEl) inputEl.value = '';
         },
         setColumnWidth(sIdx, cIdx, width) {
             this.tree.sections[sIdx].columns[cIdx].width = parseInt(width, 10);

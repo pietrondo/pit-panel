@@ -1,7 +1,8 @@
 """Site builder routes — drag&drop visual editor for static sites.
 
-Bare-bones MVP: single-page sites with sections/columns/widgets (heading, text,
-image, button, divider). No responsive preview, no style panel, no templates.
+Single-page sites with sections/columns/widgets (heading, text, image, button,
+divider). Per-widget style props (colors, alignment, spacing, typography) are
+merged into the rendered HTML, and the editor supports live preview via iframe.
 Output: static HTML served by an nginx container (per subdomain, like other
 pit-panel apps).
 """
@@ -13,10 +14,10 @@ import re
 import secrets
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +34,32 @@ router = APIRouter()
 
 WIDGET_TYPES = {"heading", "text", "image", "button", "divider"}
 _PUBLISH_HTML_DIR = Path("/var/lib/pit-panel/published-sites")
+_UPLOAD_DIR = Path("/var/lib/pit-panel/site-assets")
 _SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+_ALLOWED_IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif"}
+
+# Style props accepted per widget type, coerced through a bounded whitelist.
+# True = free-form value still filtered by _safe_css_value; a set = enum values.
+_STYLE_KEYS: dict[str, Literal[True] | set[str]] = {
+    "align": {"left", "center", "right"},
+    "color": True,
+    "bg": True,
+    "size": True,
+    "weight": {"normal", "bold"},
+    "padding": True,
+    "margin": True,
+    "radius": True,
+}
+_SECTION_STYLE_KEYS: set[str] = {"bg", "padding", "color", "align"}
+
+
+def _style_value_allowed(key: str, value: Any) -> bool:
+    constraint = _STYLE_KEYS.get(key)
+    if constraint is True:
+        return True
+    if isinstance(constraint, set):
+        return str(value).lower() in constraint
+    return False
 
 
 def _to_subdomain(name: str) -> str:
@@ -80,6 +106,67 @@ def _bounded_int(value: Any, default: int, minimum: int, maximum: int) -> int:
         return default
 
 
+_CSS_VALUE_RE = re.compile(r"^[#a-zA-Z0-9\s,.%\-/()]+$")
+
+
+def _safe_css_value(value: Any) -> str:
+    """Allow only simple CSS values; block url(), expressions, quotes, markup."""
+    text = str(value or "").strip()
+    if not text or len(text) > 64:
+        return ""
+    lowered = text.lower()
+    bad_tokens = ("url(", "expression", "javascript:", "\"", "'", "<", ">", ";")
+    if any(bad in lowered for bad in bad_tokens):
+        return ""
+    if not _CSS_VALUE_RE.fullmatch(text):
+        return ""
+    return text
+
+
+def _safe_style(props: Any, allowed: dict[str, Any] | set[str]) -> str:
+    """Build a safe inline `style` attribute from whitelisted style props.
+
+    `allowed` may be a mapping of key -> constraint (True = free-form value that
+    still goes through `_safe_css_value`, a set = allowed enum values), or a
+    plain set of keys treated as free-form.
+    """
+    if not isinstance(props, dict):
+        return ""
+    rules: dict[str, Literal[True] | set[str]] = (
+        dict.fromkeys(allowed, True) if isinstance(allowed, set) else allowed
+    )
+    decls: list[str] = []
+    for key, constraint in rules.items():
+        raw = props.get(key)
+        if raw is None:
+            continue
+        if constraint is True:
+            value = _safe_css_value(raw)
+        else:
+            value = str(raw).strip().lower()
+            if value not in constraint:
+                continue
+        if not value:
+            continue
+        if key == "align":
+            decls.append(f"text-align: {value}")
+        elif key == "color":
+            decls.append(f"color: {value}")
+        elif key == "bg":
+            decls.append(f"background-color: {value}")
+        elif key == "size":
+            decls.append(f"font-size: {value}")
+        elif key == "weight":
+            decls.append(f"font-weight: {value}")
+        elif key == "padding":
+            decls.append(f"padding: {value}")
+        elif key == "margin":
+            decls.append(f"margin: {value}")
+        elif key == "radius":
+            decls.append(f"border-radius: {value}")
+    return f' style="{"; ".join(decls)}"' if decls else ""
+
+
 def _validate_tree(tree: Any) -> dict[str, Any]:
     """Coerce/validate the widget tree; reject unknown widget types."""
     if not isinstance(tree, dict):
@@ -87,7 +174,14 @@ def _validate_tree(tree: Any) -> dict[str, Any]:
     sections = tree.get("sections")
     if not isinstance(sections, list):
         return _default_tree()
-    cleaned: list[dict[str, Any]] = []
+    result: dict[str, Any] = {"sections": []}
+    title = tree.get("title")
+    if isinstance(title, str) and title.strip():
+        result["title"] = title.strip()[:200]
+    custom_css = tree.get("custom_css")
+    if isinstance(custom_css, str) and custom_css.strip():
+        result["custom_css"] = custom_css[:10000]
+    cleaned = result["sections"]
     for sec in sections:
         if not isinstance(sec, dict):
             continue
@@ -109,11 +203,21 @@ def _validate_tree(tree: Any) -> dict[str, Any]:
                 if wtype not in WIDGET_TYPES:
                     continue
                 props = w.get("props")
+                style = w.get("style")
                 clean_widgets.append(
                     {
                         "id": str(w.get("id") or secrets.token_hex(6)),
                         "type": wtype,
                         "props": props if isinstance(props, dict) else {},
+                        "style": {
+                            k: v
+                            for k, v in (style or {}).items()
+                            if k in _STYLE_KEYS
+                            and isinstance(v, (str, int, float))
+                            and _style_value_allowed(k, v)
+                        }
+                        if isinstance(style, dict)
+                        else {},
                     }
                 )
             clean_cols.append(
@@ -124,34 +228,48 @@ def _validate_tree(tree: Any) -> dict[str, Any]:
                 }
             )
         if clean_cols:
+            sec_style = sec.get("style")
             cleaned.append(
-                {"id": str(sec.get("id") or secrets.token_hex(6)), "columns": clean_cols}
+                {
+                    "id": str(sec.get("id") or secrets.token_hex(6)),
+                    "columns": clean_cols,
+                    "style": {
+                        k: v
+                        for k, v in (sec_style or {}).items()
+                        if k in _SECTION_STYLE_KEYS and isinstance(v, (str, int, float))
+                    }
+                    if isinstance(sec_style, dict)
+                    else {},
+                }
             )
-    return {"sections": cleaned}
+    return result
 
 
 def _render_widget(w: dict[str, Any]) -> str:
     props = w.get("props") or {}
     wtype = w.get("type")
+    style = _safe_style(w.get("style"), _STYLE_KEYS)
     if wtype == "heading":
         level = _bounded_int(props.get("level", 2), 2, 1, 6)
         text = html.escape(str(props.get("text", "")))
-        return f"<h{level}>{text}</h{level}>"
+        return f"<h{level}{style}>{text}</h{level}>"
     if wtype == "text":
         text = html.escape(str(props.get("text", ""))).replace("\n", "<br>")
-        return f"<p>{text}</p>"
+        return f"<p{style}>{text}</p>"
     if wtype == "image":
         src = _safe_url(props.get("src"))
         alt = html.escape(str(props.get("alt", "")), quote=True)
         if not src:
             return ""
-        return f'<img src="{html.escape(src, quote=True)}" alt="{alt}" loading="lazy">'
+        return (
+            f'<img src="{html.escape(src, quote=True)}" alt="{alt}" loading="lazy"{style}>'
+        )
     if wtype == "button":
         text = html.escape(str(props.get("text", "Click")))
         url = html.escape(_safe_url(props.get("url"), "#"), quote=True)
-        return f'<a href="{url}" class="sb-button">{text}</a>'
+        return f'<a href="{url}" class="sb-button"{style}>{text}</a>'
     if wtype == "divider":
-        return '<hr class="sb-divider">'
+        return f'<hr class="sb-divider"{style}>'
     return ""
 
 
@@ -164,16 +282,29 @@ def _render_column(col: dict[str, Any]) -> str:
     )
 
 
-def render_site_html(tree: dict[str, Any], site_name: str) -> str:
-    """Render the full static HTML page from a widget tree."""
+def render_site_html(
+    tree: dict[str, Any], site_name: str, base_url: str = ""
+) -> str:
+    """Render the full static HTML page from a widget tree.
+
+    `base_url` is prepended to root-relative asset URLs so the same tree renders
+    correctly both in the editor preview (served from /site-builder/... ) and on
+    the published subdomain.
+    """
     sections_html: list[str] = []
     for sec in tree.get("sections", []):
         cols_html = "\n".join(_render_column(c) for c in sec.get("columns", []))
+        sec_style = _safe_style(sec.get("style"), _SECTION_STYLE_KEYS)
         sections_html.append(
-            f'<section class="sb-section"><div class="sb-row">\n{cols_html}\n</div></section>'
+            f'<section class="sb-section"{sec_style}>'
+            f'<div class="sb-row">\n{cols_html}\n</div></section>'
         )
     body = "\n".join(sections_html) if sections_html else '<p class="sb-empty">Empty site</p>'
     title = html.escape(str(tree.get("title") or site_name))
+    custom_css = str(tree.get("custom_css") or "")[:10000]
+    css_block = f"<style>{custom_css}</style>" if custom_css else ""
+    if base_url:
+        body = re.sub(r'(src|href)="/(?!/)', rf'\1="{base_url}/', body)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -194,6 +325,7 @@ body {{ font-family: system-ui, sans-serif; margin: 0; color: #1e293b; }}
 .sb-divider {{ border: none; border-top: 1px solid #e2e8f0; margin: 1.5rem 0; }}
 .sb-empty {{ text-align: center; padding: 4rem 1rem; color: #94a3b8; }}
 </style>
+{css_block}
 </head>
 <body>
 {body}
@@ -263,6 +395,91 @@ async def site_builder_edit(site_id: int, request: Request, db: AsyncSession = D
         raise HTTPException(status_code=404, detail="Site not found")
 
     return render("site_builder_edit.html", user=user, site=site)
+
+
+@router.get("/site-builder/sites/{site_id}/widgets")
+async def site_builder_get_widgets(
+    site_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_admin(request, db)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    site = await db.get(Site, site_id)
+    if not site or site.owner_user_id != user.id:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    return JSONResponse({"tree": _validate_tree(site.widgets_json)})
+
+
+@router.get("/site-builder/sites/{site_id}/preview", response_class=HTMLResponse)
+async def site_builder_preview(site_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_admin(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    site = await db.get(Site, site_id)
+    if not site or site.owner_user_id != user.id:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    return HTMLResponse(render_site_html(site.widgets_json, site.name, base_url="/site-builder"))
+
+
+@router.get("/site-builder/assets/{site_id}/{filename}")
+async def site_builder_asset(
+    site_id: int, filename: str, request: Request, db: AsyncSession = Depends(get_db)
+):
+    user = await get_admin(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    site = await db.get(Site, site_id)
+    if not site or site.owner_user_id != user.id:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    from fastapi.responses import FileResponse
+
+    assets_root = (_UPLOAD_DIR / str(site_id)).resolve()
+    target = (assets_root / Path(filename).name).resolve()
+    if not target.is_relative_to(assets_root) or not target.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(target)
+
+
+@router.post("/site-builder/sites/{site_id}/upload")
+async def site_builder_upload(
+    site_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_admin(request, db)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    site = await db.get(Site, site_id)
+    if not site or site.owner_user_id != user.id:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _ALLOWED_IMAGE_EXT:
+        return JSONResponse({"error": "unsupported_type"}, status_code=400)
+
+    assets_dir = _UPLOAD_DIR / str(site_id)
+    try:
+        assets_dir.mkdir(parents=True, exist_ok=True)
+        name = f"{secrets.token_hex(8)}{ext}"
+        target = assets_dir / name
+        with target.open("wb") as fh:
+            while chunk := await file.read(1024 * 1024):
+                fh.write(chunk)
+    except OSError as e:
+        logger.exception("Site asset upload failed for site %s", site_id)
+        return JSONResponse({"error": "write_failed", "detail": str(e)}, status_code=500)
+
+    return JSONResponse({"status": "ok", "url": f"/site-builder/assets/{site_id}/{name}"})
 
 
 @router.post("/site-builder/sites/{site_id}/widgets")
