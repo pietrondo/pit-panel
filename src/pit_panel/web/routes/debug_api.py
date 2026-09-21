@@ -159,7 +159,7 @@ async def debug_system(
     s = get_settings()
 
     disk_free_gb, uptime, memory = await asyncio.gather(
-        _run(["df", "-h", "/", "--output=avail", "--no-headers"]),
+        _run(["df", "-h", "/"]),
         _run(["uptime", "-p"]),
         _run(["free", "-h"]),
     )
@@ -376,7 +376,7 @@ async def debug_doctor(
     s = get_settings()
 
     disk_free_gb, uptime_str, memory_str, last_errors = await asyncio.gather(
-        _run(["df", "-h", "/", "--output=avail", "--no-headers"]),
+        _run(["df", "-h", "/"]),
         _run(["uptime", "-p"]),
         _run(["free", "-h"]),
         _run(
