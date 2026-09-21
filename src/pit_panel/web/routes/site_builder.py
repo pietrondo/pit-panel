@@ -106,10 +106,7 @@ def _published_filename(slug: str) -> str:
     return "index.html" if slug == HOME_SLUG else f"{slug}.html"
 
 
-def _page_href(slug: str, base_url: str = "") -> str:
-    """Public link to a page, relative to the published site (or preview)."""
-    prefix = f"{base_url}/" if base_url else ""
-    return f"{prefix}sites/{slug}" if base_url else _published_filename(slug)
+
 
 
 async def _site_pages(db: AsyncSession, site: Site) -> list[Page]:
@@ -540,7 +537,11 @@ async def site_builder_preview(
     tree = _validate_tree(current.widgets_json)
     tree["nav_current"] = current.slug
     nav = [
-        {"slug": p.slug, "title": p.title, "href": _page_href(p.slug, base_url="/site-builder")}
+        {
+            "slug": p.slug,
+            "title": p.title,
+            "href": f"/site-builder/sites/{site.id}/preview?page={p.slug}",
+        }
         for p in pages
     ]
     return HTMLResponse(

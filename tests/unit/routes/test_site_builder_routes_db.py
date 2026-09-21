@@ -305,12 +305,39 @@ class TestWidgetsGetRoute:
         assert client.get(f"/site-builder/sites/{site_id}/widgets").status_code == 404
 
 
+async def _seed_pages(site_id, slugs):
+    from pit_panel.db.models import Page
+    from pit_panel.db.session import get_sessionmaker
+
+    async with get_sessionmaker()() as db:
+        for i, slug in enumerate(slugs):
+            db.add(
+                Page(
+                    site_id=site_id,
+                    slug=slug,
+                    title=slug.title(),
+                    widgets_json=SAMPLE_TREE,
+                    sort_order=i,
+                )
+            )
+        await db.commit()
+
+
 class TestPreviewRoute:
     def test_preview_renders_saved_styles(self, client, auth_user):
         site_id = asyncio.run(_seed_site(SAMPLE_TREE))
         resp = client.get(f"/site-builder/sites/{site_id}/preview")
         assert resp.status_code == 200
         assert "color: #ff0000" in resp.text
+
+    def test_preview_nav_links_point_to_preview(self, client, auth_user):
+        site_id = asyncio.run(_seed_site(SAMPLE_TREE))
+        asyncio.run(_seed_pages(site_id, ["home", "about"]))
+        resp = client.get(f"/site-builder/sites/{site_id}/preview")
+        assert resp.status_code == 200
+        assert f'href="/site-builder/sites/{site_id}/preview?page=home"' in resp.text
+        assert f'href="/site-builder/sites/{site_id}/preview?page=about"' in resp.text
+        assert "/site-builder/sites/home" not in resp.text
 
     def test_preview_missing_site_404(self, client, auth_user):
         assert client.get("/site-builder/sites/999/preview").status_code == 404
