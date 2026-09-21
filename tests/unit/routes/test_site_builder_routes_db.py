@@ -342,6 +342,14 @@ class TestPreviewRoute:
     def test_preview_missing_site_404(self, client, auth_user):
         assert client.get("/site-builder/sites/999/preview").status_code == 404
 
+    def test_preview_frame_header_allows_same_origin(self, client, auth_user):
+        site_id = asyncio.run(_seed_site(SAMPLE_TREE))
+        resp = client.get(f"/site-builder/sites/{site_id}/preview")
+        assert resp.headers["x-frame-options"] == "SAMEORIGIN"
+
+    def test_non_preview_frame_header_denies(self, client, auth_user):
+        assert client.get("/login").headers["x-frame-options"] == "DENY"
+
 
 class TestUploadRoute:
     def test_rejects_non_image_extension(self, client, auth_user):
