@@ -1,7 +1,7 @@
 import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -186,3 +186,29 @@ class Site(Base):
         DateTime, server_default=func.now(), onupdate=func.now()
     )
     published_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+
+    pages: Mapped[list["Page"]] = relationship(
+        back_populates="site", cascade="all, delete", order_by="Page.sort_order"
+    )
+
+
+class Page(Base):
+    """A single page of a user-built site. The slug `home` is the site root."""
+
+    __tablename__ = "pages"
+    __table_args__ = (UniqueConstraint("site_id", "slug", name="uq_pages_site_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("sites.id", ondelete="CASCADE"), index=True
+    )
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    widgets_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    site: Mapped["Site"] = relationship(back_populates="pages")

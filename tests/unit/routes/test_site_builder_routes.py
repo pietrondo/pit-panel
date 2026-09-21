@@ -145,6 +145,7 @@ def test_site_builder_edit_authenticated_valid(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_site = Site(id=1, owner_user_id=1, name="Test Site", status="draft")
     mock_db.get.return_value = mock_site
+    mock_db.execute.return_value = MockResult([])
 
     with patch(
         "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
@@ -215,6 +216,7 @@ def test_site_builder_save_widgets_valid(test_app, client, mock_admin):
     mock_db = AsyncMock()
     mock_site = Site(id=1, owner_user_id=1, name="Test Site")
     mock_db.get.return_value = mock_site
+    mock_db.execute.return_value = MockResult([])
 
     with patch(
         "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
@@ -228,7 +230,7 @@ def test_site_builder_save_widgets_valid(test_app, client, mock_admin):
         response = client.post("/site-builder/sites/1/widgets", json=payload)
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
-        mock_db.commit.assert_awaited_once()
+        mock_db.commit.assert_awaited()
 
         test_app.dependency_overrides.clear()
 
@@ -263,6 +265,7 @@ def test_site_builder_publish_write_failed(mock_pub_dir, test_app, client, mock_
         id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []}
     )  # noqa: E501
     mock_db.get.return_value = mock_site
+    mock_db.execute.return_value = MockResult([])
 
     mock_path = MagicMock()
     mock_path.mkdir.side_effect = OSError("Disk full")
@@ -293,6 +296,7 @@ def test_site_builder_publish_success_caddy(
         id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []}
     )  # noqa: E501
     mock_db.get.return_value = mock_site
+    mock_db.execute.return_value = MockResult([])
 
     mock_path = MagicMock()
     mock_pub_dir.return_value = mock_path
@@ -322,7 +326,7 @@ def test_site_builder_publish_success_caddy(
         assert response.json()["url"] == "https://test.example.com"
 
         mock_caddy.add_static_subdomain.assert_awaited_once()
-        mock_db.commit.assert_awaited_once()
+        mock_db.commit.assert_awaited()
 
         test_app.dependency_overrides.clear()
 
@@ -337,6 +341,7 @@ def test_site_builder_publish_success_no_caddy(
         id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []}
     )  # noqa: E501
     mock_db.get.return_value = mock_site
+    mock_db.execute.return_value = MockResult([])
 
     mock_path = MagicMock()
     mock_pub_dir.return_value = mock_path
@@ -361,7 +366,7 @@ def test_site_builder_publish_success_no_caddy(
         assert response.json()["status"] == "published"
         assert response.json()["url"].startswith("file://")
 
-        mock_db.commit.assert_awaited_once()
+        mock_db.commit.assert_awaited()
         mock_caddy_cls.assert_not_called()
 
         test_app.dependency_overrides.clear()
@@ -528,6 +533,7 @@ def test_site_builder_publish_caddy_exception(
         id=1, owner_user_id=1, name="Test Site", subdomain="test", widgets_json={"sections": []}
     )  # noqa: E501
     mock_db.get.return_value = mock_site
+    mock_db.execute.return_value = MockResult([])
     mock_path = MagicMock()
     mock_pub_dir.return_value = mock_path
     mock_path.__truediv__.return_value = mock_path
