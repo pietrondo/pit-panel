@@ -16,6 +16,7 @@ def mock_request():
     # Needs state mock
     class State:
         pass
+
     request.state = State()
     return request
 

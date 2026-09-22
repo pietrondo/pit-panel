@@ -293,6 +293,7 @@ async def test_scheduled_backup_loop_exception(mock_sleep, mock_get_settings, mo
 
     assert mock_sleep.called
 
+
 @pytest.mark.asyncio
 @patch("pit_panel.core.backup.notify_app_backup")
 @patch("pit_panel.core.backup.DockerManager")
@@ -309,23 +310,23 @@ async def test_perform_app_backup_cleanup_on_error(mock_get_db, mock_docker, moc
     app_dir = tmp_path / "apps" / "testapp"
     app_dir.mkdir(parents=True, exist_ok=True)
 
-    with patch("pit_panel.core.backup.tarfile.open", side_effect=Exception("Failed")):
-        with patch("pit_panel.core.backup.Path.exists", return_value=True):
-            with patch("pit_panel.core.backup.Path.unlink") as mock_unlink:
-                result = await perform_app_backup(mock_subdomain, mock_db, mock_settings)
+    with (
+        patch("pit_panel.core.backup.tarfile.open", side_effect=Exception("Failed")),
+        patch("pit_panel.core.backup.Path.exists", return_value=True),
+        patch("pit_panel.core.backup.Path.unlink") as mock_unlink,
+    ):
+        result = await perform_app_backup(mock_subdomain, mock_db, mock_settings)
 
-                assert result["success"] is False
-                assert mock_unlink.called
+        assert result["success"] is False
+        assert mock_unlink.called
+
 
 @pytest.mark.asyncio
 @patch("pit_panel.config.get_settings")
 @patch("pit_panel.db.session.get_sessionmaker")
 @patch("asyncio.sleep")
 async def test_scheduled_backup_loop_unlink_exception(
-    mock_sleep,
-    mock_get_sessionmaker,
-    mock_get_settings,
-    tmp_path
+    mock_sleep, mock_get_sessionmaker, mock_get_settings, tmp_path
 ):
     mock_settings = MagicMock()
     mock_settings.backup_enabled = True
@@ -355,31 +356,36 @@ async def test_scheduled_backup_loop_unlink_exception(
 
     import os
     import time
+
     now = time.time()
     os.utime(old_backup, (now - 10 * 86400, now - 10 * 86400))
 
     mock_sleep.side_effect = asyncio.CancelledError()
 
-    with patch("pit_panel.core.backup.perform_app_backup", new_callable=AsyncMock):
-        with patch("pathlib.Path.unlink", side_effect=Exception("Unlink failed")):
-            with pytest.raises(asyncio.CancelledError):
-                await scheduled_backup_loop()
+    with (
+        patch("pit_panel.core.backup.perform_app_backup", new_callable=AsyncMock),
+        patch("pathlib.Path.unlink", side_effect=Exception("Unlink failed")),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await scheduled_backup_loop()
 
     assert old_backup.exists()
+
 
 def test_get_db_service_info_resolve_conditions(tmp_path):
     compose_path = tmp_path / "docker-compose.yml"
     env_path = tmp_path / ".env"
 
     import yaml
+
     compose_data = {
         "services": {
             "db": {
                 "image": "mysql:8",
                 "environment": {
                     "MYSQL_ROOT_PASSWORD": "${MISSING_ENV_VAR}",
-                    "MYSQL_DATABASE": "mydb"
-                }
+                    "MYSQL_DATABASE": "mydb",
+                },
             }
         }
     }
