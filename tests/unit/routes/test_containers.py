@@ -587,7 +587,8 @@ async def test_get_containers_data():
 
 @pytest.mark.asyncio
 async def test_get_containers_data_exception():
-    from pit_panel.web.routes.containers import _get_containers_data
+    from pit_panel.web.routes.containers import _CONTAINERS_CACHE, _get_containers_data
+    _CONTAINERS_CACHE.clear()
 
     mock_db = AsyncMock()
     mock_db.execute.side_effect = Exception("DB Error")
@@ -603,7 +604,8 @@ async def test_get_containers_data_exception():
 async def test_get_containers_data_exception_cancel():
     import asyncio
 
-    from pit_panel.web.routes.containers import _get_containers_data
+    from pit_panel.web.routes.containers import _CONTAINERS_CACHE, _get_containers_data
+    _CONTAINERS_CACHE.clear()
 
     mock_db = AsyncMock()
     mock_db.execute.side_effect = Exception("DB Error")
