@@ -106,9 +106,6 @@ def _published_filename(slug: str) -> str:
     return "index.html" if slug == HOME_SLUG else f"{slug}.html"
 
 
-
-
-
 async def _site_pages(db: AsyncSession, site: Site) -> list[Page]:
     """Return the site's pages, seeding `home` from legacy widgets_json once.
 
@@ -173,7 +170,7 @@ def _safe_css_value(value: Any) -> str:
     if not text or len(text) > 64:
         return ""
     lowered = text.lower()
-    bad_tokens = ("url(", "expression", "javascript:", "\"", "'", "<", ">", ";")
+    bad_tokens = ("url(", "expression", "javascript:", '"', "'", "<", ">", ";")
     if any(bad in lowered for bad in bad_tokens):
         return ""
     if not _CSS_VALUE_RE.fullmatch(text):
@@ -319,9 +316,7 @@ def _render_widget(w: dict[str, Any]) -> str:
         alt = html.escape(str(props.get("alt", "")), quote=True)
         if not src:
             return ""
-        return (
-            f'<img src="{html.escape(src, quote=True)}" alt="{alt}" loading="lazy"{style}>'
-        )
+        return f'<img src="{html.escape(src, quote=True)}" alt="{alt}" loading="lazy"{style}>'
     if wtype == "button":
         text = html.escape(str(props.get("text", "Click")))
         url = html.escape(_safe_url(props.get("url"), "#"), quote=True)
@@ -544,9 +539,7 @@ async def site_builder_preview(
         }
         for p in pages
     ]
-    return HTMLResponse(
-        render_site_html(tree, site.name, base_url="/site-builder", nav_pages=nav)
-    )
+    return HTMLResponse(render_site_html(tree, site.name, base_url="/site-builder", nav_pages=nav))
 
 
 @router.get("/site-builder/assets/{site_id}/{filename}")
@@ -641,9 +634,7 @@ async def site_builder_save_widgets(
             if requested not in taken:
                 current.slug = requested
     await db.commit()
-    return JSONResponse(
-        {"status": "ok", "sections": len(tree["sections"]), "slug": current.slug}
-    )
+    return JSONResponse({"status": "ok", "sections": len(tree["sections"]), "slug": current.slug})
 
 
 @router.post("/site-builder/sites/{site_id}/pages")
@@ -730,9 +721,7 @@ async def site_builder_publish(
 
     pages = await _site_pages(db, site)
     pub_dir = _published_site_dir(site.subdomain)
-    nav = [
-        {"slug": p.slug, "title": p.title, "href": _published_filename(p.slug)} for p in pages
-    ]
+    nav = [{"slug": p.slug, "title": p.title, "href": _published_filename(p.slug)} for p in pages]
     written: list[str] = []
     try:
         pub_dir.mkdir(parents=True, exist_ok=True)

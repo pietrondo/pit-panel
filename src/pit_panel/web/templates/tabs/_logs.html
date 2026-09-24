@@ -2,8 +2,8 @@
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Logs</h2>
         <div class="flex items-center gap-2">
-            <button class="btn-ghost text-xs text-green-600" id="live-btn" onclick="toggleLive({{ sd.id }})">▶ Live</button>
-            <button class="btn-ghost text-xs"
+            <button class="btn-ghost text-xs text-green-600" id="live-btn" onclick="toggleLive({{ sd.id }})" aria-label="Toggle Live Logs">▶ Live</button>
+            <button class="btn-ghost text-xs" aria-label="Refresh Logs"
                     hx-get="/apps/{{ sd.id }}/logs"
                     hx-target="closest .card"
                     hx-swap="outerHTML">Refresh</button>

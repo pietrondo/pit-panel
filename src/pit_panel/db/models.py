@@ -199,9 +199,7 @@ class Page(Base):
     __table_args__ = (UniqueConstraint("site_id", "slug", name="uq_pages_site_slug"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    site_id: Mapped[int] = mapped_column(
-        ForeignKey("sites.id", ondelete="CASCADE"), index=True
-    )
+    site_id: Mapped[int] = mapped_column(ForeignKey("sites.id", ondelete="CASCADE"), index=True)
     slug: Mapped[str] = mapped_column(String(64), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     widgets_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)

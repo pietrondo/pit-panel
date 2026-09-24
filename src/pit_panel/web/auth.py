@@ -56,6 +56,7 @@ _SESSION_CACHE: dict[str, tuple[float, int]] = {}
 MAX_SESSION_CACHE_SIZE = 1000
 SESSION_CACHE_TTL_SECONDS = 15.0
 
+
 def unsign_session_token(settings: Settings, cookie_value: str) -> dict[str, Any] | None:
     serializer = get_serializer(settings)
     try:
