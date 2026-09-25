@@ -303,3 +303,18 @@ def test_apply_mem_limits_meta_not_exists(tmp_path: Path, monkeypatch: pytest.Mo
     target_dir.mkdir(parents=True)
 
     manager._apply_mem_limits(target_dir, stack_dir)
+
+
+def test_static_nginx_template_denies_dotfiles(tmp_path: Path) -> None:
+    # Regression for pietr-05qr: cloned repos ship a .git directory that
+    # nginx:alpine served publicly. The template must deny dotfiles and mount
+    # the config that does it.
+    manager = AppManager(apps_dir=str(tmp_path / "apps"))
+    result = manager.deploy_template("static_site", "static-nginx")
+
+    nginx_conf = (result / "nginx.conf").read_text()
+    assert "location ~ /\\." in nginx_conf
+    assert "deny all;" in nginx_conf
+
+    compose = (result / "docker-compose.yml").read_text()
+    assert "./nginx.conf:/etc/nginx/conf.d/default.conf" in compose
