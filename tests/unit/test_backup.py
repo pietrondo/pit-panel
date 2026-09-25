@@ -292,3 +292,106 @@ async def test_scheduled_backup_loop_exception(mock_sleep, mock_get_settings, mo
         await scheduled_backup_loop()
 
     assert mock_sleep.called
+
+
+@pytest.mark.asyncio
+@patch("pit_panel.core.backup.notify_app_backup")
+@patch("pit_panel.core.backup.DockerManager")
+@patch("pit_panel.core.backup._get_db_service_info")
+async def test_perform_app_backup_cleanup_on_error(mock_get_db, mock_docker, mock_notify, tmp_path):
+    mock_subdomain = MagicMock()
+    mock_subdomain.subdomain = "testapp"
+    mock_db = AsyncMock()
+
+    mock_settings = MagicMock()
+    mock_settings.apps_dir = str(tmp_path / "apps")
+    mock_settings.data_dir = str(tmp_path / "data")
+
+    app_dir = tmp_path / "apps" / "testapp"
+    app_dir.mkdir(parents=True, exist_ok=True)
+
+    with (
+        patch("pit_panel.core.backup.tarfile.open", side_effect=Exception("Failed")),
+        patch("pit_panel.core.backup.Path.exists", return_value=True),
+        patch("pit_panel.core.backup.Path.unlink") as mock_unlink,
+    ):
+        result = await perform_app_backup(mock_subdomain, mock_db, mock_settings)
+
+        assert result["success"] is False
+        assert mock_unlink.called
+
+
+@pytest.mark.asyncio
+@patch("pit_panel.config.get_settings")
+@patch("pit_panel.db.session.get_sessionmaker")
+@patch("asyncio.sleep")
+async def test_scheduled_backup_loop_unlink_exception(
+    mock_sleep, mock_get_sessionmaker, mock_get_settings, tmp_path
+):
+    mock_settings = MagicMock()
+    mock_settings.backup_enabled = True
+    mock_settings.backup_retention_days = 7
+    mock_settings.data_dir = str(tmp_path / "data")
+    mock_get_settings.return_value = mock_settings
+
+    mock_db_session = AsyncMock()
+    mock_db_session_cm = AsyncMock()
+    mock_db_session_cm.__aenter__.return_value = mock_db_session
+
+    mock_sessionmaker = MagicMock(return_value=mock_db_session_cm)
+    mock_get_sessionmaker.return_value = mock_sessionmaker
+
+    mock_subdomain = MagicMock()
+    mock_subdomain.subdomain = "testapp"
+
+    mock_result = MagicMock()
+    mock_result.scalars().all.return_value = [mock_subdomain]
+    mock_db_session.execute.return_value = mock_result
+
+    backup_dir = tmp_path / "data" / "backups" / "testapp"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    old_backup = backup_dir / "old.tar.gz"
+    old_backup.touch()
+
+    import os
+    import time
+
+    now = time.time()
+    os.utime(old_backup, (now - 10 * 86400, now - 10 * 86400))
+
+    mock_sleep.side_effect = asyncio.CancelledError()
+
+    with (
+        patch("pit_panel.core.backup.perform_app_backup", new_callable=AsyncMock),
+        patch("pathlib.Path.unlink", side_effect=Exception("Unlink failed")),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await scheduled_backup_loop()
+
+    assert old_backup.exists()
+
+
+def test_get_db_service_info_resolve_conditions(tmp_path):
+    compose_path = tmp_path / "docker-compose.yml"
+    env_path = tmp_path / ".env"
+
+    import yaml
+
+    compose_data = {
+        "services": {
+            "db": {
+                "image": "mysql:8",
+                "environment": {
+                    "MYSQL_ROOT_PASSWORD": "${MISSING_ENV_VAR}",
+                    "MYSQL_DATABASE": "mydb",
+                },
+            }
+        }
+    }
+    with open(compose_path, "w") as f:
+        yaml.dump(compose_data, f)
+
+    result = _get_db_service_info(compose_path, env_path)
+
+    assert result == ("db", "mysql", "root", "${MISSING_ENV_VAR}", "mydb")
