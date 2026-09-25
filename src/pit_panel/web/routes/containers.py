@@ -2,6 +2,7 @@
 
 import asyncio
 import re
+import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -19,9 +20,19 @@ from pit_panel.web.render import render
 router = APIRouter()
 
 
+_CONTAINERS_CACHE: dict[str, tuple[float, Any]] = {}
+MAX_CACHE_SIZE = 100
+
+
 async def _get_containers_data(
     db: AsyncSession, docker_mgr: DockerManager
 ) -> tuple[dict[str, Subdomain], dict[int, list[dict[str, Any]]], list[dict[str, Any]]]:
+    now = time.monotonic()
+    if "containers_data" in _CONTAINERS_CACHE:
+        cached_at, value = _CONTAINERS_CACHE["containers_data"]
+        if now - cached_at < 5.0:
+            return value
+
     async def _fetch_subdomains():
         result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
         return result.scalars().all()
@@ -62,7 +73,13 @@ async def _get_containers_data(
         else:
             orphan_containers.append(c)
 
-    return subdomains, containers_data, orphan_containers
+    res = (subdomains, containers_data, orphan_containers)
+
+    if len(_CONTAINERS_CACHE) >= MAX_CACHE_SIZE:
+        _CONTAINERS_CACHE.clear()
+
+    _CONTAINERS_CACHE["containers_data"] = (now, res)
+    return res
 
 
 @router.get("/containers/fragment", response_class=HTMLResponse)
