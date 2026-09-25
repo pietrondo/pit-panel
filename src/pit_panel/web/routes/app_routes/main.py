@@ -174,6 +174,10 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
         <input type="hidden" name="repo_url" value="{repo_url}">
         <input type="hidden" name="stack_type" value="{detected.stack_type}">
         <input type="hidden" name="port" value="{port}">
+        <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="is_main_domain" value="true">
+            <span>Deploy on main domain <code>{settings.base_domain or '—'}</code></span>
+        </label>
         <div class="flex gap-2">
             <select name="subdomain_id" class="input text-sm">
                 <option value="-1">New: {name_from_repo}.{settings.base_domain}</option>
@@ -472,6 +476,7 @@ async def app_deploy_from_repo(
     port: int = Form(8000),
     subdomain_id: int = Form(-1),
     new_subdomain: str = Form(""),
+    is_main_domain: bool = Form(False),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_user(request, db)
@@ -499,8 +504,27 @@ async def app_deploy_from_repo(
 
     sd: Subdomain | None = None
 
+    # Main domain: reuse the `_main_` subdomain, allowing redeploy of the same
+    # stack from this repo (unlike /apps/deploy, which always creates a new app).
+    if is_main_domain:
+        existing_main = await db.execute(
+            select(Subdomain).where(
+                Subdomain.is_main_domain,
+                Subdomain.base_domain == settings.base_domain,
+            )
+        )
+        sd = existing_main.scalar_one_or_none()
+        if sd and sd.app_type and sd.app_type != stack_type:
+            return HTMLResponse('<p class="text-red-500">Main domain app already deployed</p>')
+        if not sd:
+            sd, error = await _resolve_subdomain(db, user.id, settings, True, -1, "")
+            if error or not sd:
+                return HTMLResponse(
+                    f'<p class="text-red-500">{error or "Main domain unavailable"}</p>'
+                )
+
     # Try resolving by existing subdomain ID first
-    if subdomain_id > 0:
+    if not sd and subdomain_id > 0:
         result = await db.execute(select(Subdomain).where(Subdomain.id == subdomain_id))
         sd = result.scalar_one_or_none()
         if sd and sd.app_type:
@@ -605,9 +629,12 @@ async def app_deploy_from_repo(
     if settings.base_domain:
         try:
             caddy = CaddyManager(settings.caddy_admin_url)
-            await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
-            fqdn = f"{sd.subdomain}.{settings.base_domain}"
-            await caddy.renew_certificate(fqdn)
+            if sd.is_main_domain:
+                await caddy.add_main_domain(settings.base_domain, port=port)
+            else:
+                await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
+                fqdn = f"{sd.subdomain}.{settings.base_domain}"
+                await caddy.renew_certificate(fqdn)
         except Exception as e:
             logger.error(f"Caddy route error for {sd.subdomain}: {e}")
 
@@ -654,9 +681,9 @@ async def app_deploy_from_repo(
     from pit_panel.core.notifier import notify_app_deploy
 
     base_domain = sd.base_domain or settings.base_domain
-    await notify_app_deploy(sd.subdomain, stack_type, f"{sd.subdomain}.{base_domain}")
+    fqdn = base_domain if sd.is_main_domain else f"{sd.subdomain}.{base_domain}"
+    await notify_app_deploy(sd.subdomain, stack_type, fqdn)
 
-    fqdn = f"{sd.subdomain}.{sd.base_domain or settings.base_domain}"
     return HTMLResponse(
         '<div class="mt-3 p-4 rounded-lg border border-green-200 dark:border-green-800'
         ' bg-green-50 dark:bg-green-900/20">'

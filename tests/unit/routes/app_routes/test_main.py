@@ -269,6 +269,135 @@ def test_deploy_from_repo_authenticated_command_injection(client, monkeypatch):
         client.app.dependency_overrides.clear()
 
 
+def test_deploy_from_repo_main_domain(client, monkeypatch, tmp_path):
+    from pit_panel.config import Settings
+    from pit_panel.db.models import User
+    from pit_panel.db.session import get_db
+    from pit_panel.web.routes.app_routes import main as app_main
+
+    settings = Settings(
+        secret_key="test-secret-key-32chars!!",
+        base_domain="example.com",
+        apps_dir=str(tmp_path / "apps"),
+    )
+    monkeypatch.setattr(app_main, "get_settings", lambda: settings)
+
+    async def mock_get_user(*args, **kwargs):
+        return User(id=1, username="admin", is_admin=True)
+
+    monkeypatch.setattr(app_main, "get_user", mock_get_user)
+
+    async def mock_resolve(db, user_id, settings, is_main, sd_id, new_sd):
+        assert is_main is True
+
+        class SD:
+            id = 1
+            subdomain = "_main_"
+            base_domain = "example.com"
+            is_main_domain = True
+            app_type = None
+            last_deployed = None
+
+        return SD(), None
+
+    monkeypatch.setattr(app_main, "_resolve_subdomain", mock_resolve)
+
+    class FakeMgr:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def deploy_template(self, *args, **kwargs):
+            return tmp_path
+
+    monkeypatch.setattr(app_main, "AppManager", FakeMgr)
+
+    class FakeDocker:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def run_compose_command(self, *args, **kwargs):
+            return {"success": True, "stdout": "", "stderr": ""}
+
+    monkeypatch.setattr(app_main, "DockerManager", FakeDocker)
+
+    calls = {}
+
+    class FakeCaddy:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def add_main_domain(self, base, port=80):
+            calls["main"] = (base, port)
+
+        async def add_subdomain(self, *args, **kwargs):
+            calls["sub"] = True
+
+        async def renew_certificate(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(app_main, "CaddyManager", FakeCaddy)
+
+    async def fake_subprocess(*args, **kwargs):
+        class Proc:
+            returncode = 0
+
+            async def communicate(self):
+                return (b"", b"")
+
+        return Proc()
+
+    monkeypatch.setattr(app_main.asyncio, "create_subprocess_exec", fake_subprocess)
+
+    async def fake_notify(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("pit_panel.core.notifier.notify_app_deploy", fake_notify)
+
+    class MockSession:
+        def add(self, *args, **kwargs):
+            pass
+
+        async def commit(self):
+            pass
+
+        async def execute(self, *args, **kwargs):
+            class R:
+                def scalar_one_or_none(self):
+                    return None
+
+            return R()
+
+        async def close(self):
+            pass
+
+    async def override_get_db():
+        yield MockSession()
+
+    client.app.dependency_overrides[get_db] = override_get_db
+
+    async def mock_is_ip_banned(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr("pit_panel.web.app.is_ip_banned", mock_is_ip_banned)
+
+    try:
+        resp = client.post(
+            "/apps/deploy-from-repo",
+            data={
+                "repo_url": "https://github.com/user/site.git",
+                "stack_type": "static-nginx",
+                "port": "8082",
+                "is_main_domain": "true",
+            },
+        )
+        assert resp.status_code == 200
+        assert "Deployed to example.com" in resp.text
+        assert calls.get("main") == ("example.com", 8082)
+        assert "sub" not in calls
+    finally:
+        client.app.dependency_overrides.clear()
+
+
 def test_analyze_repo_invalid_url(client, monkeypatch):
     from pit_panel.db.models import User
     from pit_panel.db.session import get_db
