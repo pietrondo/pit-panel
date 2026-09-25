@@ -5,13 +5,15 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.db.models import Subdomain
-from pit_panel.web.routes.app_routes.main import (
+from pit_panel.web.routes.app_routes.deploy import (
     _auto_setup_wordpress,
-    _get_db_password,
-    _has_db_container,
     _patch_vite_allowed_hosts,
     _render_apps_error,
     _resolve_subdomain,
+)
+from pit_panel.web.routes.app_routes.main import (
+    _get_db_password,
+    _has_db_container,
 )
 
 
@@ -161,17 +163,21 @@ async def test_resolve_subdomain(monkeypatch):
     class MockSettings:
         base_domain = "test.com"
 
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_settings", lambda: MockSettings())
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.deploy.get_settings", lambda: MockSettings()
+    )
 
     db = MockSession()
 
     monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.main.get_settings", lambda: MagicMock(base_domain=None)
+        "pit_panel.web.routes.app_routes.deploy.get_settings", lambda: MagicMock(base_domain=None)
     )
     sd, error = await _resolve_subdomain(db, 1, None, True, 0, "")
     assert error == "Base domain not configured. Set it in Settings."
 
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_settings", lambda: MockSettings())
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.deploy.get_settings", lambda: MockSettings()
+    )
     mock_sd = Subdomain(subdomain="_main_", app_type="test")
     db.set_val(mock_sd)
     sd, error = await _resolve_subdomain(db, 1, None, True, 0, "")
@@ -191,12 +197,14 @@ async def test_resolve_subdomain(monkeypatch):
     assert "Invalid subdomain name" in error
 
     monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.main.get_settings", lambda: MagicMock(base_domain=None)
+        "pit_panel.web.routes.app_routes.deploy.get_settings", lambda: MagicMock(base_domain=None)
     )
     sd, error = await _resolve_subdomain(db, 1, None, False, 0, "valid-name")
     assert error == "Base domain not configured. Set it in Settings."
 
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_settings", lambda: MockSettings())
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.deploy.get_settings", lambda: MockSettings()
+    )
     mock_sd_2 = Subdomain(subdomain="valid-name")
     db.set_val(mock_sd_2)
     sd, error = await _resolve_subdomain(db, 1, None, False, 0, "valid-name")
@@ -233,12 +241,12 @@ async def test_render_apps_error(monkeypatch):
         def get_template_info(self, t):
             return {}
 
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.AppManager", MockAppManager)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.deploy.AppManager", MockAppManager)
 
     def mock_render(template, **kwargs):
         return template
 
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.render", mock_render)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.deploy.render", mock_render)
 
     resp = await _render_apps_error(None, None, db, "Some error", MagicMock(headers={}))
     assert resp == "apps.html"
