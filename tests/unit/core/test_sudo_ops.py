@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -109,7 +110,7 @@ async def test_run_sudo_empty_output(mock_create_subprocess_exec):
 async def test_run_cmd_basic():
     from pit_panel.core.sudo_ops import run_cmd
 
-    result = await run_cmd(["echo", "hello"])
+    result = await run_cmd([sys.executable, "-c", "print('hello')"])
     assert result.stdout.strip() == "hello"
     assert result.stderr == ""
     assert result.returncode == 0
@@ -119,7 +120,10 @@ async def test_run_cmd_basic():
 async def test_run_cmd_input():
     from pit_panel.core.sudo_ops import run_cmd
 
-    result = await run_cmd(["cat"], input="test input")
+    result = await run_cmd(
+        [sys.executable, "-c", "import sys; sys.stdout.write(sys.stdin.read())"],
+        input="test input",
+    )
     assert result.stdout == "test input"
     assert result.returncode == 0
 
