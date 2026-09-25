@@ -83,7 +83,9 @@ def test_terminal_ws_authenticated(client, monkeypatch, tmp_path):
     compose.write_text("services:\n  web:\n    image: nginx\n")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.ops_terminal.get_settings", lambda: settings
+    )
 
     mock_proc = AsyncMock()
     mock_proc.stdout.read = AsyncMock(side_effect=[b"hello", b""])
@@ -140,7 +142,7 @@ def test_logs_ws_authenticated(client, monkeypatch, tmp_path):
     compose.write_text("services:\n  web:\n    image: nginx\n")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops_files.get_settings", lambda: settings)
 
     mock_proc = AsyncMock()
     mock_proc.stdout.read = AsyncMock(side_effect=[b"log line 1\n", b"log line 2\n", b""])

@@ -32,7 +32,8 @@ def _setup_session(client, monkeypatch, mock_sd=None):
     async def mock_get_user(*args, **kwargs):
         return User(id=1, username="admin", is_admin=True)
 
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_user", mock_get_user)
+    for module in ("ops", "ops_files", "ops_terminal"):
+        monkeypatch.setattr(f"pit_panel.web.routes.app_routes.{module}.get_user", mock_get_user)
 
     class MockSD:
         id = 1
@@ -124,7 +125,7 @@ def test_status_authenticated(client, monkeypatch):
         {"Name": "blog-db", "State": "exited", "Status": "Exited (0)"},
     ]
     monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.ops.DockerManager", lambda *args: mock_docker_mgr
+        "pit_panel.web.routes.app_routes.ops_files.DockerManager", lambda *args: mock_docker_mgr
     )
 
     try:
@@ -168,7 +169,7 @@ def test_env_get_authenticated(client, monkeypatch, tmp_path):
     env_file.write_text("KEY=value\nPORT=8081\n")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops_files.get_settings", lambda: settings)
 
     try:
         resp = client.get("/apps/1/env")
@@ -209,7 +210,7 @@ def test_backup_restore_authenticated(client, monkeypatch, tmp_path):
 
     dd = str(tmp_path / "data")
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"), data_dir=dd)
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops_files.get_settings", lambda: settings)
     monkeypatch.setattr("pit_panel.core.docker_ops.DockerManager.run_compose_command", AsyncMock())
 
     # Create a fake backup
@@ -233,7 +234,7 @@ def test_safe_extract_tar_rejects_path_traversal(tmp_path):
     import io
     import tarfile
 
-    from pit_panel.web.routes.app_routes.ops import _safe_extract_tar
+    from pit_panel.web.routes.app_routes.ops_files import _safe_extract_tar
 
     archive_path = tmp_path / "unsafe.tar.gz"
     with tarfile.open(archive_path, "w:gz") as archive:
@@ -256,7 +257,7 @@ def test_backup_run_authenticated(client, monkeypatch, tmp_path):
 
     dd = str(tmp_path / "data")
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"), data_dir=dd)
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops_files.get_settings", lambda: settings)
 
     try:
         resp = client.post("/apps/1/backup/run", follow_redirects=False)
@@ -280,7 +281,7 @@ def test_files_list_authenticated(client, monkeypatch, tmp_path):
     (app_dir / "subdir" / "nested.txt").write_text("nested")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops_files.get_settings", lambda: settings)
 
     try:
         resp = client.get("/apps/1/files", follow_redirects=False)
@@ -300,7 +301,7 @@ def test_files_view_authenticated(client, monkeypatch, tmp_path):
     (app_dir / "test.txt").write_text("hello world")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops_files.get_settings", lambda: settings)
 
     try:
         resp = client.get("/apps/1/files?path=test.txt", follow_redirects=False)
@@ -325,7 +326,9 @@ def test_terminal_get_authenticated(client, monkeypatch, tmp_path):
     compose.write_text("services:\n  web:\n    image: nginx\n")
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.ops_terminal.get_settings", lambda: settings
+    )
 
     try:
         resp = client.get("/apps/1/terminal", follow_redirects=False)
@@ -344,7 +347,7 @@ def test_env_post_authenticated(client, monkeypatch, tmp_path):
     app_dir.mkdir(parents=True)
 
     settings = Settings(secret_key="test", apps_dir=str(tmp_path / "apps"))
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_settings", lambda: settings)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.ops_files.get_settings", lambda: settings)
 
     try:
         resp = client.post("/apps/1/env", data={"env_content": "NEW_KEY=hello\n"})

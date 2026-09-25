@@ -882,7 +882,7 @@ class TestAppStatusRoute:
         async def mock_get_user(*args, **kwargs):
             return User(id=1, username="admin", is_admin=True)
 
-        monkeypatch.setattr("pit_panel.web.routes.app_routes.ops.get_user", mock_get_user)
+        monkeypatch.setattr("pit_panel.web.routes.app_routes.ops_files.get_user", mock_get_user)
 
         class MockSD:
             id = 1
@@ -914,7 +914,7 @@ class TestAppStatusRoute:
         ]
 
         monkeypatch.setattr(
-            "pit_panel.web.routes.app_routes.ops.DockerManager", lambda *args: mock_docker_mgr
+            "pit_panel.web.routes.app_routes.ops_files.DockerManager", lambda *args: mock_docker_mgr
         )
 
         try:
