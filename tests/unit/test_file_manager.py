@@ -259,3 +259,79 @@ def test_websocket_terminal_authorized(client, monkeypatch):
 
         # Check that stdin.write was called with command input
         assert mock_proc.stdin.write.called
+
+
+def test_list_files_unauthorized(client):
+    r = client.get("/api/file-manager/list?path=/some/path", follow_redirects=False)
+    assert r.status_code == 401
+
+
+def test_list_files_permission_denied(client, auth_headers):
+    r = client.get("/api/file-manager/list?path=/root", follow_redirects=False)
+    assert r.status_code == 403
+
+
+def test_get_file_content_unauthorized(client):
+    r = client.get("/api/file-manager/file?path=/some/path", follow_redirects=False)
+    assert r.status_code == 401
+
+
+def test_get_file_content_permission_denied(client, auth_headers):
+    r = client.get("/api/file-manager/file?path=/root/secret", follow_redirects=False)
+    assert r.status_code == 403
+
+
+def test_create_resource_unauthorized(client):
+    r = client.post(
+        "/api/file-manager/create",
+        json={"parent_path": "/tmp", "name": "new", "type": "file"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 401
+
+
+def test_delete_resource_unauthorized(client):
+    r = client.post("/api/file-manager/delete", json={"path": "/tmp/test"}, follow_redirects=False)
+    assert r.status_code == 401
+
+
+def test_upload_file_unauthorized(client):
+    r = client.post(
+        "/api/file-manager/upload",
+        data={"parent_path": "/tmp"},
+        files={"file": ("test.txt", b"")},
+        follow_redirects=False,
+    )
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_check_ws_admin(monkeypatch):
+    from pit_panel.web.auth import SESSION_COOKIE
+    from pit_panel.web.routes.file_manager import check_ws_admin
+
+    ws_mock = MagicMock()
+    ws_mock.cookies = {}
+    ws_mock.headers = {}
+
+    # Test no cookie
+    assert not await check_ws_admin(ws_mock, db=MagicMock())
+
+    # Test cookie in header
+    ws_mock.headers = {"cookie": f"{SESSION_COOKIE}=test_token"}
+
+    # Mock settings and token logic
+    mock_settings = MagicMock()
+    monkeypatch.setattr("pit_panel.web.routes.file_manager.get_settings", lambda: mock_settings)
+    monkeypatch.setattr(
+        "pit_panel.web.routes.file_manager.unsign_session_token", lambda s, c: {"uid": 1}
+    )
+
+    async def mock_validate(*args, **kwargs):
+        user = MagicMock()
+        user.is_admin = True
+        return user
+
+    monkeypatch.setattr("pit_panel.web.routes.file_manager.validate_session", mock_validate)
+
+    assert await check_ws_admin(ws_mock, db=MagicMock())
