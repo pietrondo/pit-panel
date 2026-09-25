@@ -1,4 +1,5 @@
 from . import (  # noqa: F401 — registers routes on router
+    deploy,
     main,
     ops,
     ops_files,

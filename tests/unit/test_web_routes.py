@@ -430,12 +430,12 @@ class TestMainDomain:
         from pit_panel.db.session import get_db
 
         settings = Settings(secret_key="test-secret-key-32chars!!", base_domain="example.com")
-        monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_settings", lambda: settings)
+        monkeypatch.setattr("pit_panel.web.routes.app_routes.deploy.get_settings", lambda: settings)
 
         async def mock_get_user(*args, **kwargs):
             return User(id=1, username="admin", is_admin=True)
 
-        monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_user", mock_get_user)
+        monkeypatch.setattr("pit_panel.web.routes.app_routes.deploy.get_user", mock_get_user)
 
         mock_run_compose = AsyncMock(return_value={"success": True})
         monkeypatch.setattr(
@@ -502,12 +502,12 @@ class TestMainDomain:
         )
 
         settings = Settings(secret_key="test-secret-key-32chars!!", base_domain="example.com")
-        monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_settings", lambda: settings)
+        monkeypatch.setattr("pit_panel.web.routes.app_routes.deploy.get_settings", lambda: settings)
 
         async def mock_get_user(*args, **kwargs):
             return User(id=1, username="admin", is_admin=True)
 
-        monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_user", mock_get_user)
+        monkeypatch.setattr("pit_panel.web.routes.app_routes.deploy.get_user", mock_get_user)
 
         class MockSD:
             id = 1

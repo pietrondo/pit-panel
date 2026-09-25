@@ -171,7 +171,7 @@ def test_deploy_from_repo_authenticated_invalid_url(client, monkeypatch):
     async def mock_get_user(*args, **kwargs):
         return User(id=1, username="admin", is_admin=True)
 
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_user", mock_get_user)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.deploy.get_user", mock_get_user)
 
     class MockSettings:
         def __init__(self, **kwargs):
@@ -179,7 +179,7 @@ def test_deploy_from_repo_authenticated_invalid_url(client, monkeypatch):
                 setattr(self, k, v)
 
     monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.main.get_settings",
+        "pit_panel.web.routes.app_routes.deploy.get_settings",
         lambda: MockSettings(base_domain="example.com", apps_dir="/tmp/apps"),
     )
 
@@ -225,7 +225,7 @@ def test_deploy_from_repo_authenticated_command_injection(client, monkeypatch):
     async def mock_get_user(*args, **kwargs):
         return User(id=1, username="admin", is_admin=True)
 
-    monkeypatch.setattr("pit_panel.web.routes.app_routes.main.get_user", mock_get_user)
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.deploy.get_user", mock_get_user)
 
     class MockSettings:
         def __init__(self, **kwargs):
@@ -233,7 +233,7 @@ def test_deploy_from_repo_authenticated_command_injection(client, monkeypatch):
                 setattr(self, k, v)
 
     monkeypatch.setattr(
-        "pit_panel.web.routes.app_routes.main.get_settings",
+        "pit_panel.web.routes.app_routes.deploy.get_settings",
         lambda: MockSettings(base_domain="example.com", apps_dir="/tmp/apps"),
     )
 
@@ -273,7 +273,7 @@ def test_deploy_from_repo_main_domain(client, monkeypatch, tmp_path):
     from pit_panel.config import Settings
     from pit_panel.db.models import User
     from pit_panel.db.session import get_db
-    from pit_panel.web.routes.app_routes import main as app_main
+    from pit_panel.web.routes.app_routes import deploy as app_main
 
     settings = Settings(
         secret_key="test-secret-key-32chars!!",
