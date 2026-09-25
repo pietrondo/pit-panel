@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import html
 import logging
 import os
 from pathlib import Path
@@ -73,6 +74,10 @@ async def _run_wp_cli(settings: Any, subdomain: str, wp_args: list[str]) -> dict
     return {"returncode": proc.returncode, "stdout": stdout.decode(), "stderr": stderr.decode()}
 
 
+def _error_span(message: object) -> HTMLResponse:
+    return HTMLResponse(f"<span class='text-red-500 text-xs'>{html.escape(str(message))}</span>")
+
+
 @router.post("/apps/{sd_id}/wp/flush-cache", response_class=HTMLResponse)
 async def app_wp_flush_cache(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(request, db)
@@ -90,9 +95,9 @@ async def app_wp_flush_cache(request: Request, sd_id: int, db: AsyncSession = De
     try:
         r = await _run_wp_cli(settings, sd.subdomain, ["cache", "flush"])
         if r["returncode"] != 0:
-            return HTMLResponse(f"<span class='text-red-500 text-xs'>Error: {r['stderr']}</span>")
+            return _error_span(f"Error: {r['stderr']}")
     except Exception as e:
-        return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {e}</span>")
+        return _error_span(f"Exception: {e}")
 
     return HTMLResponse(
         "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Cache flushed successfully!</span>"  # noqa: E501
@@ -116,9 +121,9 @@ async def app_wp_update_plugins(request: Request, sd_id: int, db: AsyncSession =
     try:
         r = await _run_wp_cli(settings, sd.subdomain, ["plugin", "update", "--all"])
         if r["returncode"] != 0:
-            return HTMLResponse(f"<span class='text-red-500 text-xs'>Error: {r['stderr']}</span>")
+            return _error_span(f"Error: {r['stderr']}")
     except Exception as e:
-        return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {e}</span>")
+        return _error_span(f"Exception: {e}")
 
     return HTMLResponse(
         "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Plugins updated successfully!</span>"  # noqa: E501
@@ -142,9 +147,9 @@ async def app_wp_update_core(request: Request, sd_id: int, db: AsyncSession = De
     try:
         r = await _run_wp_cli(settings, sd.subdomain, ["core", "update"])
         if r["returncode"] != 0:
-            return HTMLResponse(f"<span class='text-red-500 text-xs'>Error: {r['stderr']}</span>")
+            return _error_span(f"Error: {r['stderr']}")
     except Exception as e:
-        return HTMLResponse(f"<span class='text-red-500 text-xs'>Exception: {e}</span>")
+        return _error_span(f"Exception: {e}")
 
     return HTMLResponse(
         "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Core updated successfully!</span>"  # noqa: E501
@@ -370,7 +375,7 @@ async def app_wp_fix_url(request: Request, sd_id: int, db: AsyncSession = Depend
 
     msg = f"WordPress URL aggiornata a https://{fqdn}" if success else f"Errore: {error_msg}"
     cls = "text-green-600" if success else "text-red-600"
-    return HTMLResponse(f'<p class="text-sm {cls}">{msg}</p>')
+    return HTMLResponse(f'<p class="text-sm {cls}">{html.escape(msg)}</p>')
 
 
 @router.api_route(
