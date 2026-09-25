@@ -1,0 +1,45 @@
+name: Prune merged branches
+
+# Jules/agent branches pile up because every run creates one and they are not
+# always deleted after merge. This job deletes ONLY branches already merged
+# into main. Unmerged forks are left untouched on purpose: they must be
+# reviewed and cherry-picked, never merged wholesale.
+
+on:
+  schedule:
+    - cron: "0 4 * * 0" # Sunday 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete branches merged into main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git init -q .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q origin '+refs/heads/*:refs/remotes/origin/*' --prune
+
+          # Only agent-generated prefixes, to never touch unexpected branches.
+          pattern='^origin/(jules|bolt|palette|sentinel|test|tests|lint|merge-tmp|main-)'
+          mapfile -t merged < <(git branch -r --merged origin/main | sed 's/^ *//' | grep -E "$pattern" || true)
+
+          if [ ${#merged[@]} -eq 0 ]; then
+            echo "No merged branches to prune."
+            exit 0
+          fi
+
+          for ref in "${merged[@]}"; do
+            branch="${ref#origin/}"
+            echo "Deleting merged branch: $branch"
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}" \
+              && echo "  deleted" \
+              || echo "  skip (protected or already gone)"
+          done
