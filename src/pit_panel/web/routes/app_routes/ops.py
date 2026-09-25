@@ -507,6 +507,42 @@ async def app_logs_get(request: Request, sd_id: int, db: AsyncSession = Depends(
     return render("tabs/_logs.html", request=request, sd=sd, logs=logs)
 
 
+async def _stream_websocket(
+    websocket: WebSocket, proc: asyncio.subprocess.Process, forward_stdin: bool
+) -> None:
+    """Pump subprocess stdout to the socket; optionally forward input to stdin."""
+
+    async def reader() -> None:
+        try:
+            while True:
+                data = await proc.stdout.read(4096)
+                if not data:
+                    break
+                await websocket.send_text(data.decode(errors="replace"))
+        except Exception:
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await websocket.close()
+
+    async def writer() -> None:
+        try:
+            while True:
+                data = await websocket.receive_text()
+                if forward_stdin and proc.stdin and not proc.stdin.is_closing():
+                    proc.stdin.write(data.encode())
+                    await proc.stdin.drain()
+        except (WebSocketDisconnect, Exception):
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                proc.kill()
+
+    await asyncio.gather(reader(), writer())
+
+
 @router.websocket("/apps/{sd_id}/logs/ws")
 async def app_logs_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = Depends(get_db)):
     await websocket.accept()
@@ -540,32 +576,7 @@ async def app_logs_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = Depen
         await websocket.close()
         return
 
-    async def reader():
-        try:
-            while True:
-                data = await proc.stdout.read(4096)
-                if not data:
-                    break
-                await websocket.send_text(data.decode(errors="replace"))
-        except Exception:
-            pass
-        finally:
-            with contextlib.suppress(Exception):
-                proc.kill()
-            with contextlib.suppress(Exception):
-                await websocket.close()
-
-    async def writer():
-        try:
-            while True:
-                await websocket.receive_text()
-        except (WebSocketDisconnect, Exception):
-            pass
-        finally:
-            with contextlib.suppress(Exception):
-                proc.kill()
-
-    await asyncio.gather(reader(), writer())
+    await _stream_websocket(websocket, proc, forward_stdin=False)
 
 
 @router.get("/apps/{sd_id}/env", response_class=HTMLResponse)
@@ -875,33 +886,4 @@ async def app_terminal_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = D
         await websocket.close()
         return
 
-    async def reader():
-        try:
-            while True:
-                data = await proc.stdout.read(4096)
-                if not data:
-                    break
-                decoded = data.decode(errors="replace")
-                await websocket.send_text(decoded)
-        except Exception:
-            pass
-        finally:
-            with contextlib.suppress(Exception):
-                proc.kill()
-            with contextlib.suppress(Exception):
-                await websocket.close()
-
-    async def writer():
-        try:
-            while True:
-                data = await websocket.receive_text()
-                if proc.stdin and not proc.stdin.is_closing():
-                    proc.stdin.write(data.encode())
-                    await proc.stdin.drain()
-        except (WebSocketDisconnect, Exception):
-            pass
-        finally:
-            with contextlib.suppress(Exception):
-                proc.kill()
-
-    await asyncio.gather(reader(), writer())
+    await _stream_websocket(websocket, proc, forward_stdin=True)
