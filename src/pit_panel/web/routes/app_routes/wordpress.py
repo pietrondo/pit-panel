@@ -78,8 +78,14 @@ def _error_span(message: object) -> HTMLResponse:
     return HTMLResponse(f"<span class='text-red-500 text-xs'>{html.escape(str(message))}</span>")
 
 
-@router.post("/apps/{sd_id}/wp/flush-cache", response_class=HTMLResponse)
-async def app_wp_flush_cache(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+async def _wp_run_action(
+    request: Request,
+    sd_id: int,
+    db: AsyncSession,
+    wp_args: list[str],
+    success_message: str,
+) -> HTMLResponse:
+    """Shared body for the wp-cli actions: auth, lookup, run, error/success span."""
     user = await get_user(request, db)
     if not user:
         response = HTMLResponse("")
@@ -93,66 +99,36 @@ async def app_wp_flush_cache(request: Request, sd_id: int, db: AsyncSession = De
     settings = get_settings()
 
     try:
-        r = await _run_wp_cli(settings, sd.subdomain, ["cache", "flush"])
+        r = await _run_wp_cli(settings, sd.subdomain, wp_args)
         if r["returncode"] != 0:
             return _error_span(f"Error: {r['stderr']}")
     except Exception as e:
         return _error_span(f"Exception: {e}")
 
     return HTMLResponse(
-        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Cache flushed successfully!</span>"  # noqa: E501
+        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded "
+        f"dark:bg-green-900/30 dark:text-green-400'>{success_message}</span>"
+    )
+
+
+@router.post("/apps/{sd_id}/wp/flush-cache", response_class=HTMLResponse)
+async def app_wp_flush_cache(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
+    return await _wp_run_action(
+        request, sd_id, db, ["cache", "flush"], "Cache flushed successfully!"
     )
 
 
 @router.post("/apps/{sd_id}/wp/update-plugins", response_class=HTMLResponse)
 async def app_wp_update_plugins(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
-    user = await get_user(request, db)
-    if not user:
-        response = HTMLResponse("")
-        response.headers["HX-Redirect"] = "/login"
-        return response
-
-    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
-    sd = result.scalar_one_or_none()
-    if not sd:
-        return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
-    settings = get_settings()
-
-    try:
-        r = await _run_wp_cli(settings, sd.subdomain, ["plugin", "update", "--all"])
-        if r["returncode"] != 0:
-            return _error_span(f"Error: {r['stderr']}")
-    except Exception as e:
-        return _error_span(f"Exception: {e}")
-
-    return HTMLResponse(
-        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Plugins updated successfully!</span>"  # noqa: E501
+    return await _wp_run_action(
+        request, sd_id, db, ["plugin", "update", "--all"], "Plugins updated successfully!"
     )
 
 
 @router.post("/apps/{sd_id}/wp/update-core", response_class=HTMLResponse)
 async def app_wp_update_core(request: Request, sd_id: int, db: AsyncSession = Depends(get_db)):
-    user = await get_user(request, db)
-    if not user:
-        response = HTMLResponse("")
-        response.headers["HX-Redirect"] = "/login"
-        return response
-
-    result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
-    sd = result.scalar_one_or_none()
-    if not sd:
-        return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
-    settings = get_settings()
-
-    try:
-        r = await _run_wp_cli(settings, sd.subdomain, ["core", "update"])
-        if r["returncode"] != 0:
-            return _error_span(f"Error: {r['stderr']}")
-    except Exception as e:
-        return _error_span(f"Exception: {e}")
-
-    return HTMLResponse(
-        "<span class='text-green-600 text-sm font-medium p-2 bg-green-50 rounded dark:bg-green-900/30 dark:text-green-400'>Core updated successfully!</span>"  # noqa: E501
+    return await _wp_run_action(
+        request, sd_id, db, ["core", "update"], "Core updated successfully!"
     )
 
 
