@@ -6,3 +6,4 @@ services:
       - '${PORT}:80'
     volumes:
       - ./html:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
