@@ -913,3 +913,49 @@ async def test_fix_wp_site_url_exception(monkeypatch):
 
     await _fix_wp_site_url(mock_docker_mgr, "test", "test.example.com")
     # Exception caught and logged
+
+
+@pytest.mark.asyncio
+async def test_wp_flush_cache_error_escapes_html(mock_request, mock_db, auth_mock, monkeypatch):
+    # Regression pietr-rsa: wp-cli stderr must not be injected as raw HTML.
+    mock_sd = Subdomain(id=1, subdomain="test", app_type="wordpress")
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=mock_sd))
+    )
+
+    mock_run = AsyncMock(
+        return_value={"returncode": 1, "stdout": "", "stderr": "<script>alert(1)</script>"}
+    )
+    monkeypatch.setattr("pit_panel.web.routes.app_routes.wordpress._run_wp_cli", mock_run)
+
+    resp = await app_wp_flush_cache(mock_request, 1, mock_db)
+    assert resp.status_code == 200
+    assert b"<script>alert(1)</script>" not in resp.body
+    assert b"&lt;script&gt;alert(1)&lt;/script&gt;" in resp.body
+
+
+@pytest.mark.asyncio
+async def test_app_wp_fix_url_error_escapes_html(mock_request, mock_db, auth_mock, monkeypatch):
+    # Regression pietr-rsa: docker stderr must not be injected as raw HTML.
+    mock_sd = Subdomain(id=1, subdomain="test", base_domain="example.com", app_type="wordpress")
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=mock_sd))
+    )
+
+    mock_settings = MagicMock(base_domain="example.com", apps_dir="/apps")
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.wordpress.get_settings", lambda: mock_settings
+    )
+
+    mock_docker_mgr = MagicMock()
+    mock_docker_mgr.exec_command = AsyncMock(
+        return_value={"success": False, "stderr": "<img src=x onerror=alert(1)>"}
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.wordpress.DockerManager", lambda x: mock_docker_mgr
+    )
+
+    resp = await app_wp_fix_url(mock_request, 1, mock_db)
+    assert resp.status_code == 200
+    assert b"<img src=x onerror=alert(1)>" not in resp.body
+    assert b"&lt;img src=x onerror=alert(1)&gt;" in resp.body
