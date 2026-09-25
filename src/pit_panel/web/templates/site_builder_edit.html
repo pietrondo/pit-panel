@@ -92,7 +92,7 @@
                 <input type="text" x-model="newPageTitle" placeholder="New page title"
                        aria-label="New page title" maxlength="200"
                        class="flex-1 min-w-0 text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
-                <button type="submit" class="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">+</button>
+                <button type="submit" aria-label="Add page" class="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">+</button>
             </form>
 
             <h2 class="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Widgets</h2>
@@ -176,7 +176,7 @@
                                                     <input type="text" :value="widget.props.src || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'src', $event.target.value)" aria-label="Image URL" placeholder="Image URL" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
                                                     <input type="text" :value="widget.props.alt || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'alt', $event.target.value)" aria-label="Alt text" placeholder="Alt text" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
                                                     <div class="flex items-center gap-2">
-                                                        <input type="file" accept="image/*" :id="'up-' + widget.id"
+                                                        <input type="file" aria-label="Upload Image" accept="image/*" :id="'up-' + widget.id"
                                                                @change="uploadImage(sIdx, cIdx, wIdx, $event.target.files[0], $event.target)"
                                                                class="text-xs">
                                                         <span x-show="uploading === widget.id" class="text-xs text-slate-400">Uploading…</span>
