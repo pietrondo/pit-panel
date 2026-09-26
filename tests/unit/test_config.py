@@ -1,7 +1,20 @@
 import tempfile
 from pathlib import Path
 
+import pytest
+
+import pit_panel.config as config
 from pit_panel.config import Settings
+
+
+@pytest.fixture(autouse=True)
+def clear_detected_ip_cache():
+    cache = getattr(config, "_cached_detect_ip", None)
+    if cache is not None:
+        cache.cache_clear()
+    yield
+    if cache is not None:
+        cache.cache_clear()
 
 
 class TestSettings:
@@ -59,6 +72,24 @@ class TestSettings:
         s = Settings(base_domain="", panel_subdomain="panel")
         assert s.effective_domain == "192-168-1-100.nip.io"
         assert s.panel_url == "https://panel.192-168-1-100.nip.io"
+
+    def test_effective_domain_caches_fallback_ip_without_caching_domain(self, monkeypatch):
+        calls = 0
+
+        def detect_ip():
+            nonlocal calls
+            calls += 1
+            return "192.168.1.100"
+
+        monkeypatch.setattr(Settings, "_detect_ip", staticmethod(detect_ip))
+        s = Settings(base_domain="")
+
+        assert s.effective_domain == "192-168-1-100.nip.io"
+        assert s.effective_domain == "192-168-1-100.nip.io"
+        assert calls == 1
+
+        s.base_domain = "example.com"
+        assert s.effective_domain == "example.com"
 
     def test_detect_ip_success(self, monkeypatch):
 

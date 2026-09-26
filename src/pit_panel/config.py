@@ -1,4 +1,5 @@
 import tomllib as tomli
+from functools import lru_cache
 from pathlib import Path
 from typing import cast
 
@@ -38,7 +39,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
     def effective_domain(self) -> str:
         if self.base_domain:
             return self.base_domain
-        return f"{self._detect_ip().replace('.', '-')}.nip.io"
+        return f"{_cached_detect_ip().replace('.', '-')}.nip.io"
 
     @property
     def panel_url(self) -> str:
@@ -127,6 +128,11 @@ class Settings(BaseSettings):  # type: ignore[misc]
             "backup_retention_days": self.backup_retention_days,
         }
         config_path.write_bytes(tomli_w.dumps(data).encode())
+
+
+@lru_cache(maxsize=1)
+def _cached_detect_ip() -> str:
+    return Settings._detect_ip()
 
 
 _settings: Settings | None = None
