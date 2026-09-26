@@ -4,6 +4,7 @@ import asyncio
 import logging
 import shutil
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -35,6 +36,7 @@ async def clone_repo(repo_url: str) -> Path:
         raise ValueError("Invalid repository URL format.")
 
     dest = Path(tempfile.mkdtemp(prefix="pit-panel-repo-"))
+    proc = None
     try:
         proc = await asyncio.create_subprocess_exec(
             "git",
@@ -50,10 +52,37 @@ async def clone_repo(repo_url: str) -> Path:
         _, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
         if proc.returncode != 0:
             raise ValueError(f"Git clone failed: {stderr.decode(errors='replace')[:500]}")
-    except TimeoutError as e:
-        raise ValueError(f"Git clone timed out for repository: {repo_url}") from e
-    except OSError as e:
-        raise ValueError(f"Git executable not found or inaccessible: {e}") from e
+    except BaseException as e:
+        try:
+            if proc is not None and proc.returncode is None:
+                try:
+                    with suppress(ProcessLookupError):
+                        proc.terminate()
+                except Exception as shutdown_error:
+                    logger.warning(f"Failed to terminate git clone process: {shutdown_error}")
+                    try:
+                        proc.kill()
+                    except Exception as kill_error:
+                        logger.warning(f"Failed to kill git clone process: {kill_error}")
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=5)
+                except Exception as wait_error:
+                    logger.warning(f"Failed waiting for git clone process: {wait_error}")
+                    try:
+                        proc.kill()
+                    except Exception as kill_error:
+                        logger.warning(f"Failed to kill git clone process: {kill_error}")
+                    try:
+                        await asyncio.wait_for(proc.wait(), timeout=5)
+                    except Exception as reap_error:
+                        logger.error(f"Failed to reap git clone process: {reap_error}")
+        finally:
+            cleanup(dest)
+        if isinstance(e, TimeoutError):
+            raise ValueError(f"Git clone timed out for repository: {repo_url}") from e
+        if isinstance(e, OSError):
+            raise ValueError(f"Git executable not found or inaccessible: {e}") from e
+        raise
     return dest
 
 
@@ -106,6 +135,6 @@ def detect_stack(repo_path: Path) -> DetectedStack:
 
 def cleanup(repo_path: Path) -> None:
     try:
-        shutil.rmtree(repo_path, ignore_errors=True)
+        shutil.rmtree(repo_path)
     except Exception as e:
         logger.warning(f"Failed to cleanup {repo_path}: {e}")
