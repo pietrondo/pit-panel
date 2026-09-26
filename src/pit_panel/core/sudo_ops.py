@@ -15,6 +15,20 @@ ALLOWED_COMMANDS = {
     "uptime",
     "docker",
 }
+_PROCESS_CLEANUP_TIMEOUT = 1.0
+
+
+async def _kill_and_drain(proc: object) -> None:
+    """Best-effort process termination with bounded pipe cleanup."""
+    import asyncio
+
+    with contextlib.suppress(Exception):
+        proc.kill()  # type: ignore[attr-defined]
+    with contextlib.suppress(Exception):
+        await asyncio.wait_for(
+            proc.communicate(),  # type: ignore[attr-defined]
+            timeout=_PROCESS_CLEANUP_TIMEOUT,
+        )
 
 
 @dataclass
@@ -58,9 +72,7 @@ async def run_cmd(
                 auth_proc.communicate((sudo_password + "\n").encode()), timeout=timeout
             )
         except TimeoutError:
-            with contextlib.suppress(Exception):
-                auth_proc.kill()
-                await auth_proc.communicate()
+            await _kill_and_drain(auth_proc)
             return CmdResult(stdout="", stderr="sudo authentication timeout", returncode=-1)
         if auth_proc.returncode != 0:
             return CmdResult(stdout="", stderr="sudo authentication failed", returncode=-1)
@@ -84,9 +96,7 @@ async def run_cmd(
             returncode=proc.returncode or 0,
         )
     except TimeoutError:
-        with contextlib.suppress(Exception):
-            proc.kill()
-            await proc.communicate()
+        await _kill_and_drain(proc)
         result = CmdResult(stdout="", stderr="Timeout", returncode=-1)
     except Exception as e:
         result = CmdResult(stdout="", stderr=str(e), returncode=-1)
@@ -126,9 +136,7 @@ async def run_sudo(cmd: list[str], sudo_password: str) -> str:
             auth_proc.communicate((sudo_password.strip() + "\n").encode()), timeout=10
         )
     except TimeoutError:
-        with contextlib.suppress(Exception):
-            auth_proc.kill()
-            await auth_proc.communicate()
+        await _kill_and_drain(auth_proc)
         return "incorrect password attempt (timeout)"
 
     if auth_proc.returncode != 0:

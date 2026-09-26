@@ -1,10 +1,22 @@
 import asyncio
 import sys
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from pit_panel.core.sudo_ops import run_sudo
+
+
+def _cancels_then_hangs():
+    calls = 0
+    never = asyncio.Event()
+
+    async def communicate(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        await never.wait()
+
+    return communicate, lambda: calls
 
 
 @pytest.mark.asyncio
@@ -161,6 +173,7 @@ async def test_run_cmd_sudo_success(mock_create_subprocess_exec, mock_get_settin
 @patch("asyncio.create_subprocess_exec")
 async def test_run_cmd_timeout(mock_create_subprocess_exec):
     mock_proc = AsyncMock()
+    mock_proc.kill = Mock()
 
     async def slow_communicate(*args, **kwargs):
         await asyncio.sleep(2)
@@ -176,6 +189,25 @@ async def test_run_cmd_timeout(mock_create_subprocess_exec):
 
     assert result.stderr == "Timeout"
     assert result.returncode == -1
+
+
+@pytest.mark.asyncio
+@patch("asyncio.create_subprocess_exec")
+async def test_run_cmd_timeout_bounds_cleanup(mock_create_subprocess_exec, monkeypatch):
+    mock_proc = AsyncMock()
+    mock_proc.kill = Mock()
+    mock_proc.communicate.side_effect, call_count = _cancels_then_hangs()
+    mock_create_subprocess_exec.return_value = mock_proc
+    monkeypatch.setattr("pit_panel.core.sudo_ops._PROCESS_CLEANUP_TIMEOUT", 0.01, raising=False)
+
+    from pit_panel.core.sudo_ops import run_cmd
+
+    result = await asyncio.wait_for(run_cmd(["sleep", "10"], timeout=0.01), timeout=0.2)
+
+    assert result.stderr == "Timeout"
+    assert result.returncode == -1
+    mock_proc.kill.assert_called_once_with()
+    assert call_count() == 2
 
 
 @pytest.mark.asyncio
@@ -199,6 +231,7 @@ async def test_run_cmd_sudo_auth_timeout(mock_create_subprocess_exec, mock_get_s
     mock_settings.sudo_password = "password"
 
     auth_proc = AsyncMock()
+    auth_proc.kill = Mock()
 
     async def slow_communicate(*args, **kwargs):
         await asyncio.sleep(2)
@@ -214,6 +247,30 @@ async def test_run_cmd_sudo_auth_timeout(mock_create_subprocess_exec, mock_get_s
 
     assert result.stderr == "sudo authentication timeout"
     assert result.returncode == -1
+
+
+@pytest.mark.asyncio
+@patch("pit_panel.config.get_settings")
+@patch("asyncio.create_subprocess_exec")
+async def test_run_cmd_sudo_auth_timeout_bounds_cleanup(
+    mock_create_subprocess_exec, mock_get_settings, monkeypatch
+):
+    mock_get_settings.return_value.sudo_password = "password"
+    auth_proc = AsyncMock()
+    auth_proc.kill = Mock()
+    auth_proc.communicate.side_effect, call_count = _cancels_then_hangs()
+    mock_create_subprocess_exec.return_value = auth_proc
+    monkeypatch.setattr("pit_panel.core.sudo_ops._PROCESS_CLEANUP_TIMEOUT", 0.01, raising=False)
+
+    from pit_panel.core.sudo_ops import run_cmd
+
+    result = await asyncio.wait_for(
+        run_cmd(["sudo", "-n", "systemctl", "status"], timeout=0.01), timeout=0.2
+    )
+
+    assert result == type(result)("", "sudo authentication timeout", -1)
+    auth_proc.kill.assert_called_once_with()
+    assert call_count() == 2
 
 
 @pytest.mark.asyncio
@@ -241,6 +298,7 @@ async def test_run_cmd_sudo_auth_failed(mock_create_subprocess_exec, mock_get_se
 @patch("asyncio.create_subprocess_exec")
 async def test_run_sudo_auth_timeout(mock_create_subprocess_exec):
     auth_proc = AsyncMock()
+    auth_proc.kill = Mock()
 
     async def slow_communicate(*args, **kwargs):
         await asyncio.sleep(2)
@@ -258,6 +316,31 @@ async def test_run_sudo_auth_timeout(mock_create_subprocess_exec):
         result = await run_sudo(["systemctl", "status"], "password")
 
     assert result == "incorrect password attempt (timeout)"
+
+
+@pytest.mark.asyncio
+@patch("asyncio.create_subprocess_exec")
+async def test_run_sudo_auth_timeout_bounds_cleanup(mock_create_subprocess_exec, monkeypatch):
+    auth_proc = AsyncMock()
+    auth_proc.kill = Mock()
+    auth_proc.communicate.side_effect, call_count = _cancels_then_hangs()
+    mock_create_subprocess_exec.return_value = auth_proc
+    monkeypatch.setattr("pit_panel.core.sudo_ops._PROCESS_CLEANUP_TIMEOUT", 0.01, raising=False)
+    wait_for = asyncio.wait_for
+    requested_timeouts = []
+
+    async def short_wait_for(awaitable, timeout):
+        requested_timeouts.append(timeout)
+        return await wait_for(awaitable, timeout=min(timeout, 0.01))
+
+    monkeypatch.setattr(asyncio, "wait_for", short_wait_for)
+
+    result = await wait_for(run_sudo(["systemctl", "status"], "password"), timeout=0.2)
+
+    assert result == "incorrect password attempt (timeout)"
+    auth_proc.kill.assert_called_once_with()
+    assert call_count() == 2
+    assert requested_timeouts == [10, 0.01]
 
 
 @pytest.mark.asyncio
