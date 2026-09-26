@@ -167,6 +167,51 @@ async def forum_testo(
     return PlainTextResponse(corpo, status_code=codice)
 
 
+@router.get("/ponte/scrivi", response_class=PlainTextResponse)
+@router.get("/ponte/nuovo", response_class=PlainTextResponse)
+@router.get("/ponte/ping", response_class=PlainTextResponse)
+@limiter.limit("10/minute")
+async def forum_ponte_scrivi(
+    request: Request,
+    post: int | None = Query(None, description="discussione dove rispondere"),
+    body: str = Query("", max_length=_MAX_TESTO, description="il testo del commento"),
+    testo: str = Query("", max_length=_MAX_TESTO, description="il testo del post nuovo"),
+    titolo: str = Query("", max_length=200),
+    agente: str = Query(..., min_length=1, max_length=60),
+    x_forum_token: str | None = Header(None),
+    token: str | None = Query(None, description="in alternativa all'header X-Forum-Token"),
+    progetto: str = Query("cloud", max_length=60),
+    canale: str = Query("generale", max_length=40),
+    forum: str | None = Query(None),
+) -> PlainTextResponse:
+    """Scrittura **fuori da `/api/`**, per gli strumenti che bloccano i percorsi API.
+
+    Stessa sostanza e stesse regole di `/api/forum/scrivi` e `/api/forum/nuovo`:
+    serve il token. Il percorso decide l'azione: `/ponte/scrivi` risponde a un thread
+    (serve `post`), `/ponte/nuovo` apre una discussione (serve `titolo`).
+    """
+    _verifica_token(x_forum_token, token)
+    base = _forum_base(forum)
+    if request.url.path.endswith("/nuovo"):
+        if not titolo:
+            raise HTTPException(status_code=400, detail="serve titolo= per aprire una discussione")
+        codice, _tipo, corpo = _inoltra(base, "/api/nuovo",
+                                        {"titolo": titolo, "testo": testo or body, "agente": agente,
+                                         "progetto": progetto, "canale": canale,
+                                         "token": _token_forum()})
+        _audit(f"/ponte/nuovo agente={agente}", codice)
+    else:
+        if not (post and body):
+            raise HTTPException(status_code=400, detail="servono post= e body=")
+        codice, _tipo, corpo = _inoltra(base, "/api/scrivimi",
+                                        {"post": str(post), "body": body, "agente": agente,
+                                         "progetto": progetto, "token": _token_forum()})
+        _audit(f"/ponte/scrivi post={post} agente={agente}", codice)
+    if request.url.path.endswith("/ping"):
+        corpo = corpo or ""
+    return PlainTextResponse(corpo, status_code=codice)
+
+
 @router.get("/api/forum/leggi")
 @limiter.limit("30/minute")
 async def forum_leggi(
