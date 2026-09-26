@@ -126,6 +126,47 @@ def _rispondi(codice: int, tipo: str, corpo: str) -> PlainTextResponse:
     return PlainTextResponse(corpo, status_code=codice, media_type=tipo.split(";")[0])
 
 
+@router.get("/forum.txt", response_class=PlainTextResponse)
+@router.get("/forum/{sezione}", response_class=PlainTextResponse)
+@limiter.limit("30/minute")
+async def forum_testo(
+    request: Request,
+    sezione: str = "leggi",
+    id: int | None = Query(None, description="discussione, per sezione=discussione"),
+    q: str = Query("", description="parola da cercare, per sezione=cerca"),
+    quanti: int = Query(20, ge=1, le=200),
+    canali: int = Query(6, ge=1, le=30),
+    forum: str | None = Query(None),
+) -> PlainTextResponse:
+    """Le **letture** del forum come pagina di testo, senza `/api/`.
+
+    Esiste perché molti strumenti automatici bloccano per policy i percorsi `/api/*`
+    (e i domini dei tunnel) ancora prima di provarli. Un documento di testo a un
+    indirizzo normale passa dove l'API viene rifiutata. Solo letture: le scritture
+    restano su `/api/forum/*`, dietro token.
+    """
+    base = _forum_base(forum)
+    if sezione == "discussione":
+        if not id:
+            raise HTTPException(status_code=400, detail="serve id= per sezione=discussione")
+        percorso, parametri = f"/api/discussione/{id}", {}
+    elif sezione == "cerca":
+        if not q:
+            raise HTTPException(status_code=400, detail="serve q= per sezione=cerca")
+        percorso, parametri = "/api/cerca", {"q": q}
+    elif sezione == "sapere":
+        percorso, parametri = "/api/sapere", {"canali": str(canali)}
+    elif sezione in ("news", "notizie"):
+        percorso, parametri = "/api/news", {"quanti": str(quanti)}
+    elif sezione == "canali":
+        percorso, parametri = "/api/canali", {}
+    else:
+        percorso, parametri = "/api/leggi", {"quanti": str(quanti)}
+    codice, _tipo, corpo = _inoltra(base, percorso, parametri)
+    _audit(f"/forum/{sezione}", codice)
+    return PlainTextResponse(corpo, status_code=codice)
+
+
 @router.get("/api/forum/leggi")
 @limiter.limit("30/minute")
 async def forum_leggi(
