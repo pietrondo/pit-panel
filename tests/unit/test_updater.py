@@ -116,6 +116,16 @@ async def test_apply_update_success(updater):
         assert added_entry.status == "completed"
         assert mock_db.commit.call_count == 2
         assert mock_run.call_count == 4
+        mock_run.assert_any_call(
+            ["sudo", "-n", "uv", "--directory", "/opt/pit-panel", "sync", "--no-dev"],
+            timeout=120,
+            cwd="/opt/pit-panel",
+        )
+        mock_run.assert_any_call(
+            ["uv", "run", "--no-dev", "alembic", "upgrade", "head"],
+            timeout=60,
+            cwd="/opt/pit-panel",
+        )
 
 
 @pytest.mark.asyncio
@@ -158,6 +168,10 @@ async def test_rollback_success(updater):
 
         assert result is True
         assert mock_run.call_count == 2
+        mock_run.assert_called_with(
+            ["sudo", "-n", "uv", "--directory", "/opt/pit-panel", "sync", "--no-dev"],
+            timeout=120,
+        )
 
 
 @pytest.mark.asyncio

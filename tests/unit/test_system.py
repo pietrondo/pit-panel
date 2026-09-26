@@ -93,7 +93,10 @@ def test_system_upgrade(
     # Verify that it popped the systemctl restart command with absolute path
     # We refactored to use `run_cmd` instead of `subprocess.Popen` directly!
     # Let's verify that run_cmd was called
-    pass
+    mock_run.assert_any_call(
+        ["/bin/uv", "--directory", "/opt/pit-panel", "sync", "--no-dev"],
+        timeout=180,
+    )
 
 
 @patch("pit_panel.web.routes.system._get_git_info", new_callable=AsyncMock)
@@ -143,6 +146,10 @@ def test_system_upgrade_compile_failure(
     mock_run.assert_any_call(
         ["git", "-C", "/opt/pit-panel", "reset", "--hard", "mocked_original_sha_123456789"],
         timeout=30,
+    )
+    mock_run.assert_any_call(
+        ["/bin/uv", "--directory", "/opt/pit-panel", "sync", "--no-dev"],
+        timeout=180,
     )
 
     # Verify UpdateHistory was created with status="failed"

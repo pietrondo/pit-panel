@@ -76,7 +76,7 @@ if [ -f /etc/pit-panel/config.toml ] && ! grep -q '^host = "0\.0\.0\.0"' /etc/pi
 fi
 
 cd "$INSTALL_DIR"
-uv sync
+uv sync --no-dev
 
 # Create user
 if ! id pit-panel &>/dev/null; then
@@ -102,7 +102,7 @@ pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw deny from *
 pit-panel ALL=(root) NOPASSWD: /usr/sbin/ufw delete deny from *
 pit-panel ALL=(root) NOPASSWD: /usr/bin/git -C /opt/pit-panel fetch origin *
 pit-panel ALL=(root) NOPASSWD: /usr/bin/git -C /opt/pit-panel reset --hard *
-pit-panel ALL=(root) NOPASSWD: /usr/local/bin/uv --directory /opt/pit-panel sync
+pit-panel ALL=(root) NOPASSWD: /usr/local/bin/uv --directory /opt/pit-panel sync --no-dev
 pit-panel ALL=(root) NOPASSWD: /usr/bin/apt-get install -y ufw
 pit-panel ALL=(root) NOPASSWD: /usr/bin/apt-get install -y fail2ban
 pit-panel ALL=(root) NOPASSWD: /usr/bin/fail2ban-client status
@@ -217,7 +217,7 @@ if [ -z "$ADMIN_USER" ]; then
     echo "Auto-creating admin user..."
 fi
 
-uv run pit-panel-admin create-admin --username "$ADMIN_USER" --password "$ADMIN_PASS" --email "$ADMIN_EMAIL"
+uv run --no-dev pit-panel-admin create-admin --username "$ADMIN_USER" --password "$ADMIN_PASS" --email "$ADMIN_EMAIL"
 echo "  Username: $ADMIN_USER"
 echo "  Password: $ADMIN_PASS"
 

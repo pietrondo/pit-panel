@@ -44,12 +44,12 @@ chmod 755 /opt/pit-panel/scripts/self_update.py 2>/dev/null || true
 chown pit-panel:pit-panel /opt/pit-panel/scripts/self_update.py 2>/dev/null || true
 systemctl daemon-reload
 
-uv sync
+uv sync --no-dev
 
 # Run migrations
 if [ -d "src/pit_panel/db/migrations" ]; then
     echo "Running database migrations..."
-    uv run alembic upgrade head || echo "Migration skipped (alembic not configured)"
+    uv run --no-dev alembic upgrade head || echo "Migration skipped (alembic not configured)"
 fi
 
 # Restart
@@ -66,7 +66,7 @@ for i in $(seq 1 $MAX_RETRIES); do
     if [ "$i" -eq "$MAX_RETRIES" ]; then
         echo "Healthcheck FAILED after ${MAX_RETRIES}s — rolling back"
         git reset --hard "$CURRENT"
-        uv sync
+        uv sync --no-dev
         systemctl restart "$SERVICE"
         echo "Rolled back to $CURRENT"
         exit 1
