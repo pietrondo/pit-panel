@@ -60,6 +60,15 @@ async def security_fail2ban_enable(request: Request, db: AsyncSession = Depends(
         return HTMLResponse(
             '<span class="text-yellow-600 text-xs">fail2ban-client not found</span>'
         )
+    except TimeoutError:
+        with contextlib.suppress(Exception):
+            proc.kill()
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(proc.communicate(), timeout=1)
+        return HTMLResponse(
+            f'<span class="text-red-600 text-xs">❌ {jail_escaped}: command timed out</span>',
+            status_code=504,
+        )
     except Exception as e:
         with contextlib.suppress(Exception):
             if "proc" in locals():

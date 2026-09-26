@@ -271,3 +271,44 @@ async def test_fail2ban_enable_exception_with_proc(app, mock_admin, monkeypatch)
         assert resp.status_code == 200
         assert "Error: Communicate error" in resp.text
         mock_proc.kill.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_fail2ban_enable_timeout_kills_and_reaps_process(app, mock_admin, monkeypatch):
+    import asyncio
+
+    real_wait_for = asyncio.wait_for
+    communicate_calls = 0
+    communicate_cancelled = asyncio.Event()
+
+    async def fast_wait_for(awaitable, timeout):
+        return await real_wait_for(awaitable, timeout=0.01)
+
+    class MockProcess:
+        returncode = None
+
+        async def communicate(self):
+            nonlocal communicate_calls
+            communicate_calls += 1
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                communicate_cancelled.set()
+                raise
+
+        def kill(self):
+            raise RuntimeError("kill failed")
+
+    mock_proc = MockProcess()
+    monkeypatch.setattr(asyncio, "wait_for", fast_wait_for)
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", AsyncMock(return_value=mock_proc))
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await real_wait_for(
+            ac.post("/security/fail2ban/enable", data={"jail": "sshd"}), timeout=0.5
+        )
+
+    assert resp.status_code == 504
+    assert "timed out" in resp.text.lower()
+    assert communicate_cancelled.is_set()
+    assert communicate_calls == 2
