@@ -91,6 +91,28 @@ class TestSettings:
         s.base_domain = "example.com"
         assert s.effective_domain == "example.com"
 
+    def test_effective_domain_refreshes_fallback_ip_after_ttl(self, monkeypatch):
+        clock = [100.0]
+        ips = iter(["192.168.1.100", "192.168.1.101"])
+        calls = 0
+
+        def detect_ip():
+            nonlocal calls
+            calls += 1
+            return next(ips)
+
+        monkeypatch.setattr(config.time, "monotonic", lambda: clock[0])
+        monkeypatch.setattr(Settings, "_detect_ip", staticmethod(detect_ip))
+        s = Settings(base_domain="")
+
+        assert s.effective_domain == "192-168-1-100.nip.io"
+        assert s.effective_domain == "192-168-1-100.nip.io"
+        assert calls == 1
+
+        clock[0] += config._DETECT_IP_TTL_SECONDS
+        assert s.effective_domain == "192-168-1-101.nip.io"
+        assert calls == 2
+
     def test_detect_ip_success(self, monkeypatch):
 
         class MockResponse:

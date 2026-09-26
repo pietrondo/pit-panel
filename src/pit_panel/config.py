@@ -1,9 +1,12 @@
+import time
 import tomllib as tomli
 from functools import lru_cache
 from pathlib import Path
 from typing import cast
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DETECT_IP_TTL_SECONDS = 300
 
 
 class Settings(BaseSettings):  # type: ignore[misc]
@@ -39,7 +42,8 @@ class Settings(BaseSettings):  # type: ignore[misc]
     def effective_domain(self) -> str:
         if self.base_domain:
             return self.base_domain
-        return f"{_cached_detect_ip().replace('.', '-')}.nip.io"
+        bucket = int(time.monotonic() // _DETECT_IP_TTL_SECONDS)
+        return f"{_cached_detect_ip(bucket).replace('.', '-')}.nip.io"
 
     @property
     def panel_url(self) -> str:
@@ -130,8 +134,8 @@ class Settings(BaseSettings):  # type: ignore[misc]
         config_path.write_bytes(tomli_w.dumps(data).encode())
 
 
-@lru_cache(maxsize=1)
-def _cached_detect_ip() -> str:
+@lru_cache(maxsize=2)
+def _cached_detect_ip(bucket: int) -> str:
     return Settings._detect_ip()
 
 
