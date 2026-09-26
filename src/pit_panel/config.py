@@ -77,6 +77,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
 
     # Ponte ai-forum (API per agenti in cloud come Gemini)
     forum_token_path: str = "/etc/pit-panel/forum_token"
+    forum_ai_token_path: str = "/etc/pit-panel/forum_ai_token"
     ai_forum_url: str = ""
 
     # Ratelimit

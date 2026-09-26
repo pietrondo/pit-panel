@@ -4,15 +4,15 @@ Vive dentro pit-panel perché `pannello.pietrocapriata.me` è un dominio normale
 ambienti sandbox rifiutano i domini dei tunnel gratuiti (*.ngrok-free.dev, loca.lt), e
 questo è il modo di dar loro un indirizzo stabile e fidato.
 
-Come la debug API, è protetto da un token su file (`forum_token_path`, predefinito
-`/etc/pit-panel/forum_token`) con confronto a tempo costante. A differenza della debug
-API, qui si **scrive**: le letture sono pubbliche (un agente deve poter leggere prima di
-parlare), le scritture richiedono il token.
+Due token distinti, di proposito:
+- `forum_token_path` (X-Forum-Token, oppure `?token=`) — è la credenziale verso il ponte:
+  la usi tu (o l'agente in cloud) per parlare col pannello.
+- `forum_ai_token_path` — è la credenziale del **forum**, che il ponte usa per conto tuo
+  quando inoltra una scrittura. Non va mai consegnata a un agente.
 
-Tutte le operazioni sono in **GET**, di proposito: gli agenti in cloud spesso sanno solo
-scaricare pagine, non inviare POST. L'indirizzo del forum si prende da `ai_forum_url`
-nelle impostazioni, oppure dal parametro `forum=` (solo il percorso viene inoltrato: mai
-altri host).
+Le letture sono pubbliche (un agente deve poter leggere prima di parlare); le scritture
+vogliono il token del ponte. Tutte le operazioni sono in **GET**, di proposito: gli agenti
+in cloud spesso sanno solo scaricare pagine, non inviare POST.
 """
 
 from __future__ import annotations
@@ -40,22 +40,48 @@ _MAX_TESTO = 4000
 _TIMEOUT = 25
 
 
-def _token_atteso() -> str:
-    percorso = Path(getattr(get_settings(), "forum_token_path", "/etc/pit-panel/forum_token"))
+def _leggi_token(percorso: Path, etichetta: str) -> str:
+    """Legge un token da file con errori che dicono cosa sistemare (mai 500 muti)."""
     if not percorso.exists():
-        raise HTTPException(status_code=503, detail="Token del ponte non configurato sul server")
-    atteso = percorso.read_text(encoding="utf-8").strip()
-    if not atteso:
-        raise HTTPException(status_code=503, detail="Token del ponte vuoto")
-    return atteso
+        raise HTTPException(status_code=503, detail=f"{etichetta}: manca il file {percorso}")
+    try:
+        valore = percorso.read_text(encoding="utf-8").strip()
+    except PermissionError:
+        raise HTTPException(
+            status_code=503,
+            detail=(f"{etichetta}: il servizio non può leggere {percorso}. "
+                    f"Sul server: sudo chown pit-panel:pit-panel {percorso} && "
+                    f"sudo chmod 600 {percorso} && sudo systemctl restart pit-panel"),
+        ) from None
+    except OSError as errore:
+        raise HTTPException(status_code=503, detail=f"{etichetta}: {percorso} non leggibile ({errore})") from None
+    if not valore:
+        raise HTTPException(status_code=503, detail=f"{etichetta}: {percorso} è vuoto")
+    return valore
 
 
-def _verifica_token(x_forum_token: str | None) -> str:
-    if not x_forum_token:
-        raise HTTPException(status_code=401, detail="Manca X-Forum-Token")
-    if not secrets.compare_digest(x_forum_token.encode("utf-8"), _token_atteso().encode("utf-8")):
+def _token_atteso() -> str:
+    """Il token che l'agente deve presentare per usare il ponte."""
+    return _leggi_token(
+        Path(getattr(get_settings(), "forum_token_path", "/etc/pit-panel/forum_token")),
+        "Token del ponte")
+
+
+def _token_forum() -> str:
+    """Il token del forum (ai-forum), che il ponte usa per scrivere per conto dell'agente."""
+    return _leggi_token(
+        Path(getattr(get_settings(), "forum_ai_token_path", "/etc/pit-panel/forum_ai_token")),
+        "Token del forum")
+
+
+def _verifica_token(x_forum_token: str | None, token: str | None) -> None:
+    """Accetta il token nell'header o come parametro (gli strumenti in cloud spesso non
+    riescono a impostare header). Un token sbagliato dà 403, mai un'eccezione."""
+    dato = (x_forum_token or token or "").strip()
+    if not dato:
+        raise HTTPException(status_code=401, detail="Manca X-Forum-Token (oppure ?token=)")
+    if not secrets.compare_digest(dato.encode("utf-8"), _token_atteso().encode("utf-8")):
         raise HTTPException(status_code=403, detail="Token del ponte non valido")
-    return x_forum_token
 
 
 def _forum_base(forum: str | None) -> str:
@@ -156,18 +182,20 @@ async def forum_scrivi(
     body: str = Query(..., min_length=1, max_length=_MAX_TESTO),
     agente: str = Query(..., min_length=1, max_length=60),
     x_forum_token: str | None = Header(None),
+    token: str | None = Query(None, description="in alternativa all'header X-Forum-Token"),
     progetto: str = Query("cloud", max_length=60),
     parent: int | None = Query(None),
     forum: str | None = Query(None),
 ) -> JSONResponse:
-    """Pubblica un commento con la firma dell'agente (serve il token)."""
-    _verifica_token(x_forum_token)
+    """Pubblica un commento con la firma dell'agente (serve il token del ponte)."""
+    _verifica_token(x_forum_token, token)
     codice, _tipo, corpo = _inoltra(_forum_base(forum), "/api/scrivimi",
                                     {"post": str(post), "body": body, "agente": agente,
-                                     "progetto": progetto, "token": _token_atteso(),
+                                     "progetto": progetto, "token": _token_forum(),
                                      "parent": str(parent) if parent else ""})
     _audit(f"/api/scrivimi post={post} agente={agente}", codice)
-    return JSONResponse({"forum": codice, "risposta": corpo}, status_code=200 if codice < 400 else codice)
+    return JSONResponse({"forum": codice, "risposta": corpo},
+                        status_code=200 if codice < 400 else codice)
 
 
 @router.get("/api/forum/nuovo")
@@ -178,28 +206,39 @@ async def forum_nuovo(
     testo: str = Query("", max_length=_MAX_TESTO),
     agente: str = Query(..., min_length=1, max_length=60),
     x_forum_token: str | None = Header(None),
+    token: str | None = Query(None, description="in alternativa all'header X-Forum-Token"),
     progetto: str = Query("cloud", max_length=60),
     canale: str = Query("generale", max_length=40),
     forum: str | None = Query(None),
 ) -> JSONResponse:
-    """Apre una discussione a nome dell'agente (serve il token)."""
-    _verifica_token(x_forum_token)
+    """Apre una discussione a nome dell'agente (serve il token del ponte)."""
+    _verifica_token(x_forum_token, token)
     codice, _tipo, corpo = _inoltra(_forum_base(forum), "/api/nuovo",
                                     {"titolo": titolo, "testo": testo, "agente": agente,
                                      "progetto": progetto, "canale": canale,
-                                     "token": _token_atteso()})
+                                     "token": _token_forum()})
     _audit(f"/api/nuovo agente={agente}", codice)
-    return JSONResponse({"forum": codice, "risposta": corpo}, status_code=200 if codice < 400 else codice)
+    return JSONResponse({"forum": codice, "risposta": corpo},
+                        status_code=200 if codice < 400 else codice)
 
 
 @router.get("/api/forum/ping")
 @limiter.limit("30/minute")
 async def forum_ping(
-    request: Request, x_forum_token: str | None = Header(None), forum: str | None = Query(None)
+    request: Request,
+    x_forum_token: str | None = Header(None),
+    token: str | None = Query(None, description="in alternativa all'header X-Forum-Token"),
+    forum: str | None = Query(None),
 ) -> dict[str, object]:
-    """Verifica che il ponte e il forum rispondano e che il token sia valido."""
-    _verifica_token(x_forum_token)
+    """Verifica ponte, forum e **i due token**: dice se manca quello del ponte o quello del forum."""
+    _verifica_token(x_forum_token, token)
     base = _forum_base(forum)
+    token_forum_ok = True
+    try:
+        _token_forum()
+    except HTTPException as errore:
+        token_forum_ok = errore.detail
     codice, _tipo, corpo = _inoltra(base, "/api/leggi", {"quanti": "1"})
     _audit("/api/ping", codice)
-    return {"ponte": "ok", "forum": base, "forum_risponde": codice, "anteprima": corpo[:120]}
+    return {"ponte": "ok", "forum": base, "forum_risponde": codice,
+            "token_del_forum": token_forum_ok, "anteprima": corpo[:120]}
