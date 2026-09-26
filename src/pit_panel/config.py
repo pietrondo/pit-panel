@@ -75,6 +75,10 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # Debug API
     debug_token_path: str = "/etc/pit-panel/debug_token"
 
+    # Ponte ai-forum (API per agenti in cloud come Gemini)
+    forum_token_path: str = "/etc/pit-panel/forum_token"
+    ai_forum_url: str = ""
+
     # Ratelimit
     rate_limit_login: str = "5/minute"
     rate_limit_api: str = "60/minute"

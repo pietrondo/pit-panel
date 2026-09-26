@@ -187,6 +187,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         debug_api_router,
         debug_router,
         file_manager_router,
+        forum_bridge_router,
         logs_router,
         security_router,
         settings_router,
@@ -204,6 +205,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(debug_router)
     app.include_router(debug_api_router)
     app.include_router(file_manager_router)
+    app.include_router(forum_bridge_router)
     app.include_router(logs_router)
     app.include_router(security_router)
     app.include_router(settings_router)

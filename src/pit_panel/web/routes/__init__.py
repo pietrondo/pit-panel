@@ -5,6 +5,7 @@ from .dashboard import router as dashboard_router
 from .debug import router as debug_router
 from .debug_api import router as debug_api_router
 from .file_manager import router as file_manager_router
+from .forum_bridge import router as forum_bridge_router
 from .logs import router as logs_router
 from .security import router as security_router
 from .settings import router as settings_router
@@ -22,6 +23,7 @@ __all__ = [
     "debug_router",
     "debug_api_router",
     "file_manager_router",
+    "forum_bridge_router",
     "logs_router",
     "security_router",
     "settings_router",
