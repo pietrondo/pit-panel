@@ -127,7 +127,7 @@ async def _csrf_middleware(
 ) -> Response:
     if request.method in _CSRF_SAFE_METHODS:
         return await call_next(request)
-    if any(request.url.path.startswith(p) for p in _CSRF_EXEMPT_PATHS):
+    if any(request.url.path == p or request.url.path.startswith(p + "/") for p in _CSRF_EXEMPT_PATHS):
         return await call_next(request)
     # No session cookie => no CSRF risk (attacker has no auth to abuse).
     if SESSION_COOKIE not in request.cookies:

@@ -38,3 +38,7 @@
 **Vulnerability:** Use of `re.match()` with `^` and `$` anchors for strict backend input validation.
 **Learning:** In Python, the `$` anchor matches the end of the string *or just before a trailing newline*. This allows an attacker to bypass strict input validation filters (like domain names or jail names) by appending a single newline character to a malicious payload.
 **Prevention:** Always use `re.fullmatch()` instead of `re.match()` when performing strict string validation to ensure the entire input string conforms to the regex pattern without allowing trailing characters like newlines.
+## 2026-09-27 - Fix CSRF bypass via path startswith
+**Vulnerability:** CSRF protection could be bypassed due to improper path matching (`request.url.path.startswith(p)`).
+**Learning:** `startswith` allows bypassing protection by appending characters to an exempt path (e.g., `/login-malicious` matches `/login`).
+**Prevention:** Always use exact matching or ensure directory boundaries (e.g., `p + "/"`) when matching paths for security exemptions.
