@@ -176,9 +176,12 @@
                                                     <input type="text" :value="widget.props.src || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'src', $event.target.value)" aria-label="Image URL" placeholder="Image URL" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
                                                     <input type="text" :value="widget.props.alt || ''" @input="updateWidget(sIdx, cIdx, wIdx, 'alt', $event.target.value)" aria-label="Alt text" placeholder="Alt text" class="w-full text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
                                                     <div class="flex items-center gap-2">
-                                                        <input type="file" aria-label="Upload Image" accept="image/*" :id="'up-' + widget.id"
-                                                               @change="uploadImage(sIdx, cIdx, wIdx, $event.target.files[0], $event.target)"
-                                                               class="text-xs">
+                                                        <label class="cursor-pointer inline-block text-xs px-2 py-1 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-800">
+                                                            <span>Choose Image</span>
+                                                            <input type="file" aria-label="Upload Image" accept="image/*" :id="'up-' + widget.id"
+                                                                   @change="uploadImage(sIdx, cIdx, wIdx, $event.target.files[0], $event.target)"
+                                                                   class="sr-only">
+                                                        </label>
                                                         <span x-show="uploading === widget.id" class="text-xs text-slate-400">Uploading…</span>
                                                     </div>
                                                 </div>
