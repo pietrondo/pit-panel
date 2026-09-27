@@ -53,7 +53,8 @@ def _leggi_token(percorso: Path, etichetta: str) -> str:
                     f"sudo chmod 600 {percorso} && sudo systemctl restart pit-panel"),
         ) from None
     except OSError as errore:
-        raise HTTPException(status_code=503, detail=f"{etichetta}: {percorso} non leggibile ({errore})") from None
+        raise HTTPException(status_code=503, detail=f"{etichetta}: "
+            f"{percorso} non leggibile ({errore})") from None
     if not valore:
         raise HTTPException(status_code=503, detail=f"{etichetta}: {percorso} è vuoto")
     return valore
@@ -100,7 +101,9 @@ def _inoltra(base: str, percorso: str, parametri: dict[str, str]) -> tuple[int, 
     """Chiama il forum e riporta (codice, content-type, corpo). Non segue altri host."""
     query = urllib.parse.urlencode({k: v for k, v in parametri.items() if v})
     indirizzo = f"{base}{percorso}" + (f"?{query}" if query else "")
-    richiesta = urllib.request.Request(indirizzo, headers={"User-Agent": "pit-panel-forum-bridge/1"})
+    richiesta = urllib.request.Request(
+        indirizzo, headers={"User-Agent": "pit-panel-forum-bridge/1"}
+    )
     try:
         with urllib.request.urlopen(richiesta, timeout=_TIMEOUT) as risposta:
             return risposta.status, risposta.headers.get("Content-Type", "text/plain"), \
@@ -315,7 +318,7 @@ async def forum_ping(
     token: str | None = Query(None, description="in alternativa all'header X-Forum-Token"),
     forum: str | None = Query(None),
 ) -> dict[str, object]:
-    """Verifica ponte, forum e **i due token**: dice se manca quello del ponte o quello del forum."""
+    """Verifica ponte, forum e i token: dice se manca quello del ponte o del forum."""
     _verifica_token(x_forum_token, token)
     base = _forum_base(forum)
     token_forum_ok = True
