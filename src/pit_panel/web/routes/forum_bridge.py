@@ -17,7 +17,6 @@ in cloud spesso sanno solo scaricare pagine, non inviare POST.
 
 from __future__ import annotations
 
-import json
 import logging
 import secrets
 import time
@@ -49,12 +48,16 @@ def _leggi_token(percorso: Path, etichetta: str) -> str:
     except PermissionError:
         raise HTTPException(
             status_code=503,
-            detail=(f"{etichetta}: il servizio non può leggere {percorso}. "
-                    f"Sul server: sudo chown pit-panel:pit-panel {percorso} && "
-                    f"sudo chmod 600 {percorso} && sudo systemctl restart pit-panel"),
+            detail=(
+                f"{etichetta}: il servizio non può leggere {percorso}. "
+                f"Sul server: sudo chown pit-panel:pit-panel {percorso} && "
+                f"sudo chmod 600 {percorso} && sudo systemctl restart pit-panel"
+            ),
         ) from None
     except OSError as errore:
-        raise HTTPException(status_code=503, detail=f"{etichetta}: {percorso} non leggibile ({errore})") from None
+        raise HTTPException(
+            status_code=503, detail=f"{etichetta}: {percorso} non leggibile ({errore})"
+        ) from None
     if not valore:
         raise HTTPException(status_code=503, detail=f"{etichetta}: {percorso} è vuoto")
     return valore
@@ -64,14 +67,16 @@ def _token_atteso() -> str:
     """Il token che l'agente deve presentare per usare il ponte."""
     return _leggi_token(
         Path(getattr(get_settings(), "forum_token_path", "/etc/pit-panel/forum_token")),
-        "Token del ponte")
+        "Token del ponte",
+    )
 
 
 def _token_forum() -> str:
     """Il token del forum (ai-forum), che il ponte usa per scrivere per conto dell'agente."""
     return _leggi_token(
         Path(getattr(get_settings(), "forum_ai_token_path", "/etc/pit-panel/forum_ai_token")),
-        "Token del forum")
+        "Token del forum",
+    )
 
 
 def _verifica_token(x_forum_token: str | None, token: str | None) -> None:
@@ -101,11 +106,16 @@ def _inoltra(base: str, percorso: str, parametri: dict[str, str]) -> tuple[int, 
     """Chiama il forum e riporta (codice, content-type, corpo). Non segue altri host."""
     query = urllib.parse.urlencode({k: v for k, v in parametri.items() if v})
     indirizzo = f"{base}{percorso}" + (f"?{query}" if query else "")
-    richiesta = urllib.request.Request(indirizzo, headers={"User-Agent": "pit-panel-forum-bridge/1"})
+    richiesta = urllib.request.Request(
+        indirizzo, headers={"User-Agent": "pit-panel-forum-bridge/1"}
+    )
     try:
         with urllib.request.urlopen(richiesta, timeout=_TIMEOUT) as risposta:
-            return risposta.status, risposta.headers.get("Content-Type", "text/plain"), \
-                risposta.read().decode("utf-8", "replace")
+            return (
+                risposta.status,
+                risposta.headers.get("Content-Type", "text/plain"),
+                risposta.read().decode("utf-8", "replace"),
+            )
     except urllib.error.HTTPError as errore:
         return errore.code, "text/plain", errore.read().decode("utf-8", "replace")
     except (urllib.error.URLError, TimeoutError, OSError) as errore:
@@ -195,17 +205,33 @@ async def forum_ponte_scrivi(
     if request.url.path.endswith("/nuovo"):
         if not titolo:
             raise HTTPException(status_code=400, detail="serve titolo= per aprire una discussione")
-        codice, _tipo, corpo = _inoltra(base, "/api/nuovo",
-                                        {"titolo": titolo, "testo": testo or body, "agente": agente,
-                                         "progetto": progetto, "canale": canale,
-                                         "token": _token_forum()})
+        codice, _tipo, corpo = _inoltra(
+            base,
+            "/api/nuovo",
+            {
+                "titolo": titolo,
+                "testo": testo or body,
+                "agente": agente,
+                "progetto": progetto,
+                "canale": canale,
+                "token": _token_forum(),
+            },
+        )
         _audit(f"/ponte/nuovo agente={agente}", codice)
     else:
         if not (post and body):
             raise HTTPException(status_code=400, detail="servono post= e body=")
-        codice, _tipo, corpo = _inoltra(base, "/api/scrivimi",
-                                        {"post": str(post), "body": body, "agente": agente,
-                                         "progetto": progetto, "token": _token_forum()})
+        codice, _tipo, corpo = _inoltra(
+            base,
+            "/api/scrivimi",
+            {
+                "post": str(post),
+                "body": body,
+                "agente": agente,
+                "progetto": progetto,
+                "token": _token_forum(),
+            },
+        )
         _audit(f"/ponte/scrivi post={post} agente={agente}", codice)
     if request.url.path.endswith("/ping"):
         corpo = corpo or ""
@@ -221,8 +247,9 @@ async def forum_leggi(
     quanti: int = Query(20, ge=1, le=200),
 ) -> PlainTextResponse:
     """La bacheca del forum (pubblica)."""
-    codice, tipo, corpo = _inoltra(_forum_base(forum), "/api/leggi",
-                                   {"canale": canale, "quanti": str(quanti)})
+    codice, tipo, corpo = _inoltra(
+        _forum_base(forum), "/api/leggi", {"canale": canale, "quanti": str(quanti)}
+    )
     _audit("/api/leggi", codice)
     return _rispondi(codice, tipo, corpo)
 
@@ -275,13 +302,22 @@ async def forum_scrivi(
 ) -> JSONResponse:
     """Pubblica un commento con la firma dell'agente (serve il token del ponte)."""
     _verifica_token(x_forum_token, token)
-    codice, _tipo, corpo = _inoltra(_forum_base(forum), "/api/scrivimi",
-                                    {"post": str(post), "body": body, "agente": agente,
-                                     "progetto": progetto, "token": _token_forum(),
-                                     "parent": str(parent) if parent else ""})
+    codice, _tipo, corpo = _inoltra(
+        _forum_base(forum),
+        "/api/scrivimi",
+        {
+            "post": str(post),
+            "body": body,
+            "agente": agente,
+            "progetto": progetto,
+            "token": _token_forum(),
+            "parent": str(parent) if parent else "",
+        },
+    )
     _audit(f"/api/scrivimi post={post} agente={agente}", codice)
-    return JSONResponse({"forum": codice, "risposta": corpo},
-                        status_code=200 if codice < 400 else codice)
+    return JSONResponse(
+        {"forum": codice, "risposta": corpo}, status_code=200 if codice < 400 else codice
+    )
 
 
 @router.get("/api/forum/nuovo")
@@ -299,13 +335,22 @@ async def forum_nuovo(
 ) -> JSONResponse:
     """Apre una discussione a nome dell'agente (serve il token del ponte)."""
     _verifica_token(x_forum_token, token)
-    codice, _tipo, corpo = _inoltra(_forum_base(forum), "/api/nuovo",
-                                    {"titolo": titolo, "testo": testo, "agente": agente,
-                                     "progetto": progetto, "canale": canale,
-                                     "token": _token_forum()})
+    codice, _tipo, corpo = _inoltra(
+        _forum_base(forum),
+        "/api/nuovo",
+        {
+            "titolo": titolo,
+            "testo": testo,
+            "agente": agente,
+            "progetto": progetto,
+            "canale": canale,
+            "token": _token_forum(),
+        },
+    )
     _audit(f"/api/nuovo agente={agente}", codice)
-    return JSONResponse({"forum": codice, "risposta": corpo},
-                        status_code=200 if codice < 400 else codice)
+    return JSONResponse(
+        {"forum": codice, "risposta": corpo}, status_code=200 if codice < 400 else codice
+    )
 
 
 @router.get("/api/forum/ping")
@@ -316,7 +361,7 @@ async def forum_ping(
     token: str | None = Query(None, description="in alternativa all'header X-Forum-Token"),
     forum: str | None = Query(None),
 ) -> dict[str, object]:
-    """Verifica ponte, forum e **i due token**: dice se manca quello del ponte o quello del forum."""
+    """Verifica ponte, forum e **i due token**: dice se manca quello del ponte o del forum."""
     _verifica_token(x_forum_token, token)
     base = _forum_base(forum)
     token_forum_ok = True
@@ -326,5 +371,10 @@ async def forum_ping(
         token_forum_ok = errore.detail
     codice, _tipo, corpo = _inoltra(base, "/api/leggi", {"quanti": "1"})
     _audit("/api/ping", codice)
-    return {"ponte": "ok", "forum": base, "forum_risponde": codice,
-            "token_del_forum": token_forum_ok, "anteprima": corpo[:120]}
+    return {
+        "ponte": "ok",
+        "forum": base,
+        "forum_risponde": codice,
+        "token_del_forum": token_forum_ok,
+        "anteprima": corpo[:120],
+    }
