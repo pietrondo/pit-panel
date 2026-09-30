@@ -54,3 +54,6 @@
 ## 2026-08-18 - Hoist SSLContext Creation
 **Learning:** In Python, `ssl.create_default_context()` is an expensive operation (~40-50ms) as it loads CA certificates from the filesystem.
 **Action:** Always hoist the context creation outside of loops and reuse the thread-safe `SSLContext` instance to optimize performance when checking multiple domains.
+## 2026-09-30 - Overhead of asyncio.to_thread on fast I/O
+**Learning:** Wrapping very fast, synchronous operations (like reading `/proc/loadavg` or `/proc/meminfo`, or `shutil.disk_usage()`) in `asyncio.to_thread` introduces significant thread-switching overhead (~1-2ms per call) that far exceeds the time it takes to execute the operation synchronously (~0.05ms), especially on high-frequency HTMX polling routes.
+**Action:** Call fast, non-blocking synchronous operations directly on the main thread rather than wrapping them in `asyncio.to_thread` when in hot code paths.

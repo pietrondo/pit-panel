@@ -132,15 +132,14 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     # Call fast static OS I/O methods synchronously to avoid context-switching overhead
     cpu_usage = _cpu_usage()
     ram_usage = _ram_usage()
+    disk_usage = _disk_usage()
 
     (
         (subdomains, row),
         (containers_total, containers_running),
-        disk_usage,
     ) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
-        asyncio.to_thread(_disk_usage),
     )
     hostname = _server_hostname()
 
@@ -203,15 +202,14 @@ async def dashboard_stats(request: Request, db: AsyncSession = Depends(get_db)):
     # Call fast static OS I/O methods synchronously to avoid context-switching overhead
     cpu_usage = _cpu_usage()
     ram_usage = _ram_usage()
+    disk_usage = _disk_usage()
 
     (
         row,
         (containers_total, containers_running),
-        disk_usage,
     ) = await asyncio.gather(
         _fetch_db_data(),
         docker_mgr.containers_count(),
-        asyncio.to_thread(_disk_usage),
     )
     hostname = _server_hostname()
 
