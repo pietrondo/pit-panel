@@ -10,6 +10,15 @@ os.environ["PITPANEL_DATA_DIR"] = "/tmp/pit-panel-data"
 os.environ["PITPANEL_APPS_DIR"] = "/tmp/pit-panel-apps"
 
 
+@pytest.fixture(autouse=True)
+def _reset_docker_cache():
+    from pit_panel.core.docker_ops import DockerManager
+
+    DockerManager._ps_all_cache = None
+    yield
+    DockerManager._ps_all_cache = None
+
+
 @pytest.fixture
 def settings():
     from pit_panel.config import Settings

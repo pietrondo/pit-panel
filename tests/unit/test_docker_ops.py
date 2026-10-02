@@ -22,7 +22,7 @@ async def test_containers_count(mock_proc: AsyncMock) -> None:
         {"State": "exited", "ID": "def"},
         {"State": "running", "ID": "ghi"},
     ]
-    DockerManager._containers_cache = None
+    DockerManager._ps_all_cache = None
     with patch.object(mgr, "ps_all", return_value=mock_containers):
         total, running = await mgr.containers_count()
         assert total == 3
@@ -32,7 +32,7 @@ async def test_containers_count(mock_proc: AsyncMock) -> None:
 @pytest.mark.asyncio
 async def test_containers_count_oserror(mock_proc: AsyncMock) -> None:
     mgr = DockerManager()
-    DockerManager._containers_cache = None
+    DockerManager._ps_all_cache = None
     with patch.object(mgr, "ps_all", return_value=[]):
         total, running = await mgr.containers_count()
         assert total == 0
@@ -202,6 +202,29 @@ async def test_ps_all(mock_proc):
     assert len(result) == 2
     assert result[0]["ID"] == "abc123"
     assert result[1]["State"] == "exited"
+
+
+@pytest.mark.asyncio
+async def test_ps_all_caches_within_ttl(mock_proc) -> None:
+    manager = DockerManager()
+    mock_proc.communicate.return_value = (b'{"ID":"abc123","Names":"c","State":"running"}\n', b"")
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
+        first = await manager.ps_all()
+        second = await manager.ps_all()
+    mock_exec.assert_called_once()
+    assert second == first
+
+
+@pytest.mark.asyncio
+async def test_ps_all_returns_a_copy(mock_proc) -> None:
+    """Mutating a returned list must not corrupt the shared cache."""
+    manager = DockerManager()
+    mock_proc.communicate.return_value = (b'{"ID":"abc123","Names":"c","State":"running"}\n', b"")
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+        first = await manager.ps_all()
+        first.clear()
+        second = await manager.ps_all()
+    assert len(second) == 1
 
 
 @pytest.mark.asyncio

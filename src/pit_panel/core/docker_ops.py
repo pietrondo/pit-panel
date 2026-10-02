@@ -123,23 +123,21 @@ class DockerManager:
         except OSError as e:
             return f"Failed to retrieve logs: {e}"
 
-    _containers_cache: tuple[float, tuple[int, int]] | None = None
-    _cache_apps_dir: str = ""
+    _ps_all_cache: tuple[float, list[dict[str, Any]]] | None = None
 
     async def containers_count(self) -> tuple[int, int]:
-        now = time.monotonic()
-        if DockerManager._containers_cache is not None:
-            cached_at, value = DockerManager._containers_cache
-            if now - cached_at < 5 and DockerManager._cache_apps_dir == str(self.apps_dir):
-                return value
         containers = await self.ps_all()
         total = len(containers)
         running = sum(1 for c in containers if c.get("State") == "running")
-        DockerManager._containers_cache = (now, (total, running))
-        DockerManager._cache_apps_dir = str(self.apps_dir)
         return total, running
 
     async def ps_all(self) -> list[dict[str, Any]]:
+        now = time.monotonic()
+        if DockerManager._ps_all_cache is not None:
+            cached_at, value = DockerManager._ps_all_cache
+            if now - cached_at < 5.0:
+                # Copy so callers cannot mutate the cached list structure.
+                return list(value)
         try:
             proc = await asyncio.create_subprocess_exec(
                 "docker",
@@ -156,7 +154,8 @@ class DockerManager:
                 if line.strip():
                     with contextlib.suppress(json.JSONDecodeError):
                         containers.append(json.loads(line))
-            return containers
+            DockerManager._ps_all_cache = (now, containers)
+            return list(containers)
         except OSError:
             return []
 
