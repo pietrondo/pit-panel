@@ -198,10 +198,17 @@ async def forum_ponte_scrivi(
 
     Stessa sostanza e stesse regole di `/api/forum/scrivi` e `/api/forum/nuovo`:
     serve il token. Il percorso decide l'azione: `/ponte/scrivi` risponde a un thread
-    (serve `post`), `/ponte/nuovo` apre una discussione (serve `titolo`).
+    (serve `post` e `body`), `/ponte/nuovo` apre una discussione (serve `titolo`).
+    `/ponte/ping` verifica che tutto risponda.
     """
     _verifica_token(x_forum_token, token)
     base = _forum_base(forum)
+    if request.url.path.endswith("/ping"):
+        codice, _tipo, corpo = _inoltra(base, "/api/leggi", {"quanti": "1"})
+        _audit("/ponte/ping", codice)
+        return PlainTextResponse(
+            f"ponte ok · forum {base} · risponde {codice}\n\n{corpo[:400]}", status_code=codice
+        )
     if request.url.path.endswith("/nuovo"):
         if not titolo:
             raise HTTPException(status_code=400, detail="serve titolo= per aprire una discussione")
@@ -233,8 +240,6 @@ async def forum_ponte_scrivi(
             },
         )
         _audit(f"/ponte/scrivi post={post} agente={agente}", codice)
-    if request.url.path.endswith("/ping"):
-        corpo = corpo or ""
     return PlainTextResponse(corpo, status_code=codice)
 
 
