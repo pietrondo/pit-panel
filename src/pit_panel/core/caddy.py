@@ -3,6 +3,7 @@
 import asyncio
 import datetime as dt
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,14 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _last_ssl_renew_check: dt.datetime | None = None
+
+_HOST_RE = re.compile(r"^[a-zA-Z0-9.-]+$")
+
+
+def _check_host(*values: str) -> None:
+    """Reject values that could inject into a Caddy route host matcher."""
+    if not all(_HOST_RE.fullmatch(value) for value in values):
+        raise ValueError("Invalid hostname")
 
 
 async def ssl_auto_renew_loop() -> None:
@@ -48,6 +57,7 @@ class CaddyManager:
     async def add_subdomain(
         self, subdomain: str, base_domain: str, port: int = 80
     ) -> dict[str, Any]:
+        _check_host(subdomain, base_domain)
         fqdn = f"{subdomain}.{base_domain}"
         route = {
             "@id": fqdn,
@@ -57,6 +67,7 @@ class CaddyManager:
         return await self._patch_or_create_route(route)
 
     async def remove_subdomain(self, subdomain: str, base_domain: str) -> dict[str, Any]:
+        _check_host(subdomain, base_domain)
         fqdn = f"{subdomain}.{base_domain}"
         return await self._delete_route(fqdn)
 
@@ -82,6 +93,7 @@ class CaddyManager:
     async def setup_panel_route(
         self, panel_subdomain: str, base_domain: str, backend_port: int = 8080
     ) -> dict[str, Any]:
+        _check_host(panel_subdomain, base_domain)
         fqdn = f"{panel_subdomain}.{base_domain}"
         route = {
             "@id": f"panel-{fqdn}",
@@ -96,6 +108,7 @@ class CaddyManager:
         return await self._patch_or_create_route(route)
 
     async def add_main_domain(self, base_domain: str, port: int = 80) -> dict[str, Any]:
+        _check_host(base_domain)
         route = {
             "@id": f"main-{base_domain}",
             "match": [{"host": [base_domain]}],
@@ -104,6 +117,7 @@ class CaddyManager:
         return await self._patch_or_create_route(route)
 
     async def remove_main_domain(self, base_domain: str) -> dict[str, Any]:
+        _check_host(base_domain)
         return await self._delete_route(f"main-{base_domain}")
 
     async def add_static_subdomain(
@@ -115,6 +129,7 @@ class CaddyManager:
         Caddy-served subdomain. Uses Caddy's `file_server` handler with
         `hide` to enforce serving only index.html at root.
         """
+        _check_host(subdomain, base_domain)
         fqdn = f"{subdomain}.{base_domain}"
         route = {
             "@id": f"static-{fqdn}",
@@ -131,6 +146,7 @@ class CaddyManager:
         return await self._patch_or_create_route(route)
 
     async def remove_static_subdomain(self, subdomain: str, base_domain: str) -> dict[str, Any]:
+        _check_host(subdomain, base_domain)
         return await self._delete_route(f"static-{subdomain}.{base_domain}")
 
     async def get_certificates(self) -> list[dict[str, Any]]:

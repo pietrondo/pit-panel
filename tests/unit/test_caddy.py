@@ -41,6 +41,32 @@ class TestMainDomain:
             mock_delete.assert_called_once_with("main-example.com")
 
 
+class TestHostValidation:
+    """Hostnames are interpolated into Caddy route matchers, so hostile input must be rejected."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("bad", ["", "a b", "a/b", "a\nb", "*", 'evil"}', "a_1"])
+    async def test_add_subdomain_rejects_invalid(self, bad):
+        mgr = CaddyManager("http://127.0.0.1:2019")
+        with pytest.raises(ValueError):
+            await mgr.add_subdomain(bad, "example.com")
+
+    @pytest.mark.asyncio
+    async def test_rejects_invalid_base_domain(self):
+        mgr = CaddyManager("http://127.0.0.1:2019")
+        with pytest.raises(ValueError):
+            await mgr.add_main_domain("bad domain")
+
+    @pytest.mark.asyncio
+    async def test_accepts_valid_hosts(self):
+        mgr = CaddyManager("http://127.0.0.1:2019")
+        with patch.object(mgr, "_patch_or_create_route", AsyncMock(return_value={})) as mock_patch:
+            await mgr.add_subdomain("my-app", "sub.example.com")
+            await mgr.add_static_subdomain("site.1", "example.com", "/tmp/x")
+            await mgr.setup_panel_route("panel", "example.com")
+        assert mock_patch.call_count == 3
+
+
 @pytest.mark.asyncio
 async def test_get_certificates_api_success():
     mgr = CaddyManager()
