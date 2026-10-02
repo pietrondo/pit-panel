@@ -17,7 +17,6 @@ in cloud spesso sanno solo scaricare pagine, non inviare POST.
 
 from __future__ import annotations
 
-import json
 import logging
 import secrets
 import time

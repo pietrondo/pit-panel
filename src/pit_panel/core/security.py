@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import ipaddress
 import re
 from typing import Any, cast
 
@@ -268,24 +269,42 @@ async def ban_ip_address(
     db: AsyncSession, ip: str, reason: str, duration_minutes: int = 60
 ) -> bool:
     """Ban an IP address at both the database and system (UFW) level."""
+    try:
+        ip_obj = ipaddress.ip_network(ip, strict=False)
+        if ip_obj.prefixlen == ip_obj.max_prefixlen:
+            canonical_ip = str(ip_obj.network_address)
+        else:
+            canonical_ip = str(ip_obj)
+    except ValueError:
+        return False
+
     # System level ban
     with contextlib.suppress(Exception):
-        await _run_cmd(["sudo", "-n", "ufw", "deny", "from", ip])
+        await _run_cmd(["sudo", "-n", "ufw", "deny", "from", canonical_ip])
 
     # Database level ban
-    return await ban_ip(db, ip, reason, duration_minutes)
+    return await ban_ip(db, canonical_ip, reason, duration_minutes)
 
 
 async def unban_ip_address(db: AsyncSession, ip: str, user_id: int | None = None) -> bool:
     """Unban an IP address at both the database and system (UFW) level."""
+    try:
+        ip_obj = ipaddress.ip_network(ip, strict=False)
+        if ip_obj.prefixlen == ip_obj.max_prefixlen:
+            canonical_ip = str(ip_obj.network_address)
+        else:
+            canonical_ip = str(ip_obj)
+    except ValueError:
+        return False
+
     from pit_panel.security.ipban import unban_ip
 
     # System level unban
     with contextlib.suppress(Exception):
-        await _run_cmd(["sudo", "-n", "ufw", "delete", "deny", "from", ip])
+        await _run_cmd(["sudo", "-n", "ufw", "delete", "deny", "from", canonical_ip])
 
     # Database level unban
-    return await unban_ip(db, ip, user_id)
+    return await unban_ip(db, canonical_ip, user_id)
 
 
 async def _get_jail_config(jail: str) -> dict[str, Any]:
