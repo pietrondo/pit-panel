@@ -159,7 +159,7 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
         <input type="hidden" name="port" value="{port}">
         <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" name="is_main_domain" value="true">
-            <span>Deploy on main domain <code>{settings.base_domain or '—'}</code></span>
+            <span>Deploy on main domain <code>{settings.base_domain or "—"}</code></span>
         </label>
         <div class="flex gap-2">
             <select name="subdomain_id" class="input text-sm">
