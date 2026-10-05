@@ -54,6 +54,7 @@ CLAUDE.md
 scratch*.py
 test_cve*.py
 trivy_*.json
+conflict_triage.txt
 
 # Local AI runtime state
 .atl/

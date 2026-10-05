@@ -1,0 +1,45 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permissions": [
+    {
+      "action": "skill",
+      "resource": "wp-*",
+      "effect": "deny"
+    },
+    {
+      "action": "skill",
+      "resource": "wordpress-router",
+      "effect": "deny"
+    },
+    {
+      "action": "skill",
+      "resource": "filter-syntax",
+      "effect": "deny"
+    },
+    {
+      "action": "skill",
+      "resource": "csharp-scripts",
+      "effect": "deny"
+    },
+    {
+      "action": "skill",
+      "resource": "threejs-*",
+      "effect": "deny"
+    },
+    {
+      "action": "skill",
+      "resource": "godot-gdscript-patterns",
+      "effect": "deny"
+    },
+    {
+      "action": "skill",
+      "resource": "figma-*",
+      "effect": "deny"
+    },
+    {
+      "action": "skill",
+      "resource": "vercel-react-best-practices",
+      "effect": "deny"
+    }
+  ]
+}
