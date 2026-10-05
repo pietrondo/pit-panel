@@ -56,5 +56,10 @@ test_cve*.py
 trivy_*.json
 conflict_triage.txt
 
+# Jules one-off helper scripts (must never be committed)
+test_empty_states*.sh
+fix_*.py
+backend_*_check.py
+
 # Local AI runtime state
 .atl/

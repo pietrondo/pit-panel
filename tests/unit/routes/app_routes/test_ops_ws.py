@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -90,9 +90,9 @@ def test_terminal_ws_authenticated(client, monkeypatch, tmp_path):
     mock_proc = AsyncMock()
     mock_proc.stdout.read = AsyncMock(side_effect=[b"hello", b""])
     mock_proc.stdin = AsyncMock()
-    mock_proc.stdin.write = AsyncMock()
+    mock_proc.stdin.write = MagicMock()
     mock_proc.stdin.drain = AsyncMock()
-    mock_proc.kill = AsyncMock()
+    mock_proc.kill = MagicMock()
     mock_proc.stdin.is_closing = lambda: False
 
     async def mock_create_subprocess_exec(*args, **kwargs):
@@ -146,7 +146,7 @@ def test_logs_ws_authenticated(client, monkeypatch, tmp_path):
 
     mock_proc = AsyncMock()
     mock_proc.stdout.read = AsyncMock(side_effect=[b"log line 1\n", b"log line 2\n", b""])
-    mock_proc.kill = AsyncMock()
+    mock_proc.kill = MagicMock()
 
     async def mock_create_subprocess_exec(*args, **kwargs):
         assert "logs" in args
