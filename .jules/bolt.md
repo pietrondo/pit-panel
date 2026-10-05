@@ -9,20 +9,17 @@
 **Learning:** Sequential calls to 'systemctl is-active' via sudo incur significant overhead (e.g. ~30ms vs ~7ms) due to subprocess and authentication latency. 'systemctl is-active' natively supports multiple services as arguments and returns newline-separated results.
 **Action:** Always batch 'systemctl is-active' checks by passing all service names as arguments to a single call and splitting the output by newline.
 ## 2024-10-24 - Avoid thread pool overhead for static returns
-**Learning:** Offloading fast synchronous functions returning static cached data to `asyncio.to_thread` introduces significant context-switching overhead on high-frequency polling routes.
-**Action:** Call static or fast synchronous lookup functions directly on the main thread rather than wrapping them in a thread pool executor.
+**Learning:** Offloading fast synchronous functions returning static cached data to `asyncio.to_thread` introduces significant context-switching overhead on high-frequency polling routes. Reading `/proc/loadavg`, `/proc/meminfo` or `shutil.disk_usage()` via `to_thread` costs ~1-2ms against ~0.05ms of real work.
+**Action:** Call fast, non-blocking synchronous functions directly on the main thread rather than wrapping them in a thread pool executor.
+
 ## 2024-05-24 - Async File I/O Optimization
 **Learning:** Writing files synchronously (e.g., using `open()` or `asyncio.to_thread(_save_file)` with large chunks) within an async endpoint like `/api/file-manager/upload` blocks the event loop and scales poorly under concurrency, causing bottlenecks.
 **Action:** Replace synchronous file writing loops and `asyncio.to_thread` with non-blocking alternatives like `aiofiles.open()` in an `async with` block alongside asynchronous file reading (e.g., `await file.read()`).
-<<<<<<< HEAD
-## 2024-05-24 - Async to_thread Context Switching Overhead
-**Learning:** Using `asyncio.to_thread` for very fast, synchronous operations like reading small pseudo-files (`/proc/loadavg`, `/proc/meminfo`) on high-frequency polling routes incurs significant context-switching overhead (~18x slower in benchmarks) that far outweighs the benefit of offloading to a thread.
-**Action:** Call fast, non-blocking synchronous file reads directly on the main thread rather than wrapping them in `asyncio.to_thread` when in hot code paths.
+
 ## 2024-10-24 - Optimize File Parsing with .startswith()
 **Learning:** Using `.split()` on every line during file parsing (like `/proc/meminfo`) creates unnecessary list objects and slows down high-frequency loops.
 **Action:** Use `.startswith()` on strings directly before attempting to extract or split data to avoid unnecessary memory allocations and improve CPU execution time during parsing.
-## 2024-07-31 - Overhead of asyncio.to_thread on fast I/O
-**Learning:** Wrapping very fast, synchronous operations (like reading `/proc/loadavg` or `/proc/meminfo`) in `asyncio.to_thread` introduces significant thread-switching overhead (~1ms per call) that far exceeds the time it takes to execute the operation synchronously (~0.05ms), especially on high-frequency HTMX polling routes.
+
 ## 2025-02-12 - In-Memory Cache for DB Queries in Fast Polling Routes
 **Learning:** High-frequency polling endpoints (like HTMX updating every 10 seconds) execute identical database queries for each connected client unnecessarily. Uncached repetitive DB polling creates bottlenecks.
 **Action:** Implement a short-lived in-memory cache using a bounded dictionary structure with a manual `MAX_CACHE_SIZE` limit and TTL checks via `time.monotonic()` for global data fetched on high-frequency routes to reduce DB load.
@@ -40,20 +37,15 @@
 **Learning:** The in-memory cache implementation of `RateLimiter` executed an O(N) cleanup loop across all keys on every invocation of `is_allowed`. For high-frequency requests, this global loop blocks CPU cycles unnecessary.
 **Action:** Always optimize per-request rate limiters and cache evictions by lazily cleaning only the currently accessed key during the hot path, and deferring global garbage collection over the entire cache to periodic intervals (e.g., matching the expiration window).
 ## 2025-02-12 - Reusing SSL Contexts in Loops
-**Learning:** Re-instantiating `ssl.create_default_context()` inside a loop incurs significant overhead (~40ms per call) because it loads CA certificates from the filesystem each time.
-**Action:** Always hoist `ssl.create_default_context()` outside of loops and reuse the thread-safe `SSLContext` instance to optimize performance when making multiple connections or checking multiple domains.
-## 2025-02-13 - Optimize SSL Context Creation
-**Learning:** Re-creating `ssl.create_default_context()` inside a loop for multiple domains introduces significant overhead (~40ms per iteration).
-**Action:** Always hoist `ssl.create_default_context()` and its configuration outside of loops when verifying or connecting to multiple domains to reuse the context instance.
+**Learning:** Re-instantiating `ssl.create_default_context()` inside a loop incurs significant overhead (~40-50ms per call) because it loads CA certificates from the filesystem each time.
+**Action:** Always hoist `ssl.create_default_context()` outside of loops and reuse the thread-safe `SSLContext` instance when verifying or connecting to multiple domains.
+
 ## 2026-11-20 - Cache user objects on request state
 **Learning:** Resolving the current user via `get_user()` requires unsigning a token and querying the database. In routes that utilize multiple dependencies or middleware requiring the user (or admin) object, calling `get_user()` repeatedly introduces redundant overhead (~0.5ms per call).
 **Action:** Implement request-level caching by storing the resolved user object in `request.state.user` during the first call, and returning it immediately on subsequent calls within the same request lifecycle.
 ## 2026-08-19 - Session Validation JOIN Bypass
 **Learning:** High-frequency HTMX polling routes trigger `validate_session` continuously, incurring an expensive `User` joined with `Session` database query on every request.
 **Action:** Implement a short-lived in-memory cache mapping session tokens to verified `user_id`s, reducing the DB lookup to a fast, direct table read on cache hits.
-## 2026-08-18 - Hoist SSLContext Creation
-**Learning:** In Python, `ssl.create_default_context()` is an expensive operation (~40-50ms) as it loads CA certificates from the filesystem.
-**Action:** Always hoist the context creation outside of loops and reuse the thread-safe `SSLContext` instance to optimize performance when checking multiple domains.
-## 2026-09-30 - Overhead of asyncio.to_thread on fast I/O
-**Learning:** Wrapping very fast, synchronous operations (like reading `/proc/loadavg` or `/proc/meminfo`, or `shutil.disk_usage()`) in `asyncio.to_thread` introduces significant thread-switching overhead (~1-2ms per call) that far exceeds the time it takes to execute the operation synchronously (~0.05ms), especially on high-frequency HTMX polling routes.
-**Action:** Call fast, non-blocking synchronous operations directly on the main thread rather than wrapping them in `asyncio.to_thread` when in hot code paths.
+## 2026-08-18 - Session cache beats per-request validation
+**Learning:** Every lesson above reduces per-call cost; the largest wins come from removing the call entirely.
+**Action:** Before micro-optimising, check whether the expensive operation can be hoisted, cached, or eliminated outright.

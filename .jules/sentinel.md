@@ -12,10 +12,10 @@
 **Vulnerability:** The `_safe_path` function in `src/pit_panel/web/routes/debug_api.py` used `str(p).startswith(prefix)` to check if a path was within an allowed directory. This allows paths like `/opt/pit-panel-hacked/test` to bypass the check because the string starts with `/opt/pit-panel`.
 **Learning:** Using string matching like `.startswith()` for path validation is dangerous and leads to path traversal / authorization bypass vulnerabilities because it ignores directory boundaries.
 **Prevention:** Always use proper path manipulation libraries for authorization checks. In Python, use `pathlib.Path` methods like `p.is_relative_to(allowed_root)` after fully resolving both the target path and the allowed root path.
-## 2026-09-01 - Enforce Strict Regex and IP Canonicalization
-**Vulnerability:** Input validation for fail2ban jails and container names relied on `re.match`, allowing trailing newlines to bypass checks. IP addresses for `iptables` were validated but passed as uncanonicalized strings.
-**Learning:** `re.match` only anchors the start of the string, and even with `$`, it allows trailing newlines. IP strings should be canonicalized to avoid subtle evasions in system commands.
-**Prevention:** Always use `re.fullmatch` for strict string validation. Use `ipaddress.ip_network(ip).compressed` or `str()` before passing IP values to shell tools.
+## 2026-09-01 - Strict regex + IP canonicalization
+**Vulnerability:** Input validation for fail2ban jails, container names and subdomains relied on `re.match`, allowing a trailing newline to bypass the check. Separately, IPs for `iptables` were validated but passed as uncanonicalized strings.
+**Learning:** `re.match` only anchors the start of the string, and even with `$` it matches *just before* a trailing newline. For atomic entities (hostnames, identifiers) that is a validation bypass. IP strings must also be canonicalized before reaching shell tools.
+**Prevention:** Always use `re.fullmatch` for strict validation, and pass IPs through `ipaddress.ip_network(ip).compressed` before using them in system commands. Applies to `_validate_subdomain` (`src/pit_panel/core/app_manager.py`), fail2ban jail names and container names.
 
 ## 2024-05-22 - Path Traversal via re.match() Validation Bypass
 **Vulnerability:** The `_validate_subdomain` function in `src/pit_panel/core/app_manager.py` used `_SUBDOMAIN_RE.match(subdomain)` to validate subdomain inputs. In Python, `re.match` anchors only to the start of the string. Even if the regex pattern ends with `$`, it allows a trailing newline character. Thus, malicious subdomains containing a trailing newline (e.g. `valid\nmalicious`) could bypass validation and potentially exploit downstream path construction or command execution.
@@ -26,18 +26,11 @@
 **Vulnerability:** The CSRF middleware validated the `Referer` header using `referer.startswith(expected_origin)`. This allows an attacker on `https://example.com.malicious.com` to bypass the CSRF check since the string starts with `https://example.com`.
 **Learning:** Using string matching like `.startswith()` for URL validation is dangerous and can lead to SSRF or CSRF bypasses because it ignores URI boundaries like the end of the domain name.
 **Prevention:** Always use proper URL parsing libraries like `urllib.parse.urlparse` to extract and strictly compare the `scheme` and `netloc` components when validating origins and referers.
-## 2024-08-30 - Incomplete String Validation via Regex match()
-**Vulnerability:** Various backend routes and core functions used `re.match()` with the `$` anchor to validate input strings (like container names, domains, app names). However, Python's `re.match()` with a `$` anchor only ensures the match extends to the end of the string *or just before a trailing newline*. This meant malicious input with a trailing newline (e.g., `container_name\n`) could bypass the validation, potentially leading to command injection when the string was later passed to subprocesses without proper sanitization.
-**Learning:** Using `re.match(r"^...$", ...)` is insufficient for strict string validation in Python, as it allows trailing newlines to slip through.
-**Prevention:** Always use `re.fullmatch(r"^...$", ...)` to ensure the entire input string perfectly conforms to the regular expression without any trailing characters.
-## 2024-05-30 - Fix regex validation logic using fullmatch
-**Vulnerability:** Weak input validation caused by `re.match()` which only matches at the beginning of the string, allowing arbitrary input (including newlines and malicious payloads) if appended after a valid prefix.
-**Learning:** Python's `re.match()` does not force a full string match unless anchored properly (`\A`, `\Z`, or `^`, `$`). However, using `^` and `$` with `re.match()` is vulnerable to newline injection. `re.fullmatch()` is explicitly designed for this and requires the entire string to match the pattern.
-**Prevention:** Always use `re.fullmatch()` when strictly validating system inputs, container names, and parameters passed to backend system commands in Python to prevent shell injection and evasion via newlines.
-## 2026-08-30 - Fix Regex Validation to prevent Trailing Newline Bypass
-**Vulnerability:** Use of `re.match()` with `^` and `$` anchors for strict backend input validation.
-**Learning:** In Python, the `$` anchor matches the end of the string *or just before a trailing newline*. This allows an attacker to bypass strict input validation filters (like domain names or jail names) by appending a single newline character to a malicious payload.
-**Prevention:** Always use `re.fullmatch()` instead of `re.match()` when performing strict string validation to ensure the entire input string conforms to the regex pattern without allowing trailing characters like newlines.
+## 2024-08-30 - re.match with ^...$ is not strict validation
+**Vulnerability:** Backend routes validated container names, domains and app names with `re.match(r"^...$", ...)`. In Python `$` matches the end of the string *or just before a trailing newline*, so `container_name\n` passed validation and then reached `subprocess` unfiltered.
+**Learning:** Anchors do not save you: `^`/`$` are line anchors, not string anchors. `\A`/`\Z` are the string-level ones, and `re.fullmatch` is the readable form of the same intent.
+**Prevention:** `re.fullmatch` everywhere you validate an atomic value that will reach a command line.
+
 ## 2026-09-27 - Fix CSRF bypass via path startswith
 **Vulnerability:** CSRF protection could be bypassed due to improper path matching (`request.url.path.startswith(p)`).
 **Learning:** `startswith` allows bypassing protection by appending characters to an exempt path (e.g., `/login-malicious` matches `/login`).
