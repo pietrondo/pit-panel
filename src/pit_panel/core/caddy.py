@@ -127,7 +127,8 @@ class CaddyManager:
 
         Used by the site builder to publish a generated index.html as a
         Caddy-served subdomain. Uses Caddy's `file_server` handler with
-        `hide` to enforce serving only index.html at root.
+        `root`, `index_names` and `hide` to enforce serving only
+        index.html at root.
         """
         _check_host(subdomain, base_domain)
         fqdn = f"{subdomain}.{base_domain}"
@@ -136,11 +137,11 @@ class CaddyManager:
             "match": [{"host": [fqdn]}],
             "handle": [
                 {
-                    "handler": "filesystem",
+                    "handler": "file_server",
                     "root": html_dir,
-                    "index": "index.html",
+                    "index_names": ["index.html"],
+                    "hide": [".*"],
                 },
-                {"handler": "file_server", "hide": [".*"]},
             ],
         }
         return await self._patch_or_create_route(route)

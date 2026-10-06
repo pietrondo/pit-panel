@@ -43,10 +43,11 @@ async def test_add_static_subdomain_sends_correct_route():
     assert route["@id"] == "static-mysite.example.com"
     assert route["match"] == [{"host": ["mysite.example.com"]}]
     handlers = route["handle"]
-    assert handlers[0]["handler"] == "filesystem"
+    assert len(handlers) == 1
+    assert handlers[0]["handler"] == "file_server"
     assert handlers[0]["root"] == "/var/www/mysite"
-    assert handlers[0]["index"] == "index.html"
-    assert handlers[1] == {"handler": "file_server", "hide": [".*"]}
+    assert handlers[0]["index_names"] == ["index.html"]
+    assert handlers[0]["hide"] == [".*"]
 
 
 @pytest.mark.asyncio
