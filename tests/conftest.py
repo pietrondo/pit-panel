@@ -19,6 +19,25 @@ def _reset_docker_cache():
     DockerManager._ps_all_cache = None
 
 
+def create_schema_sync(url: str) -> None:
+    """Create the tables without running the app lifespan (no background loops)."""
+    import asyncio
+
+    async def _run() -> None:
+        engine = create_async_engine(url)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        await engine.dispose()
+
+    asyncio.run(_run())
+
+
+@pytest.fixture
+def schema_creator():
+    """Fixture form of create_schema_sync, so tests need no cross-module import."""
+    return create_schema_sync
+
+
 @pytest.fixture
 def settings():
     from pit_panel.config import Settings

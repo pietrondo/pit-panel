@@ -218,8 +218,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(system_manage_router)
 
     @app.get("/health")  # type: ignore[untyped-decorator]
-    async def health() -> dict[str, str]:
-        return {"status": "ok"}
+    async def health() -> Response:
+        """Green only when the database has the columns this code expects.
+
+        A deploy that ships a model change without the matching schema used to
+        answer 500 on every page while this endpoint stayed green, so the
+        upgrade script rolled nothing back.
+        """
+        from pit_panel.db.schema_sync import missing_columns
+        from pit_panel.db.session import get_engine
+
+        try:
+            missing = await missing_columns(get_engine(app.state.settings))
+        except Exception as exc:
+            logger.exception("Health check could not read the schema")
+            return JSONResponse(
+                {"status": "degraded", "detail": str(exc)}, status_code=503
+            )
+        if missing:
+            return JSONResponse(
+                {"status": "schema_stale", "missing": missing}, status_code=503
+            )
+        return JSONResponse({"status": "ok"})
 
     return app
 

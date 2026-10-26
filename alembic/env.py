@@ -5,6 +5,7 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+from pit_panel.config import get_settings
 from pit_panel.db.models import Base
 
 config = context.config
@@ -15,10 +16,23 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def database_url() -> str:
+    """The application's own URL wins over alembic.ini.
+
+    ``alembic.ini`` points at ``pit-panel.db`` next to the repository, while the
+    panel keeps its data in ``Settings.data_dir``. Migrating the ini's path
+    would silently upgrade the wrong file (or create an empty one), so the
+    runtime settings are authoritative and the ini value is only a fallback.
+    """
+    try:
+        return get_settings().get_database_url()
+    except Exception:
+        return config.get_main_option("sqlalchemy.url") or ""
+
+
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url,
+        url=database_url(),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -34,8 +48,10 @@ def do_run_migrations(connection):
 
 
 async def run_async_migrations() -> None:
+    section = config.get_section(config.config_ini_section, {})
+    section["sqlalchemy.url"] = database_url()
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

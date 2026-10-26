@@ -237,7 +237,7 @@ class TestAppFactory:
         app = create_app(settings)
         assert app.title == "pit-panel"
 
-    def test_app_health_endpoint(self, settings, monkeypatch):
+    def test_app_health_endpoint(self, settings, monkeypatch, schema_creator):
         import tempfile
 
         from fastapi.testclient import TestClient
@@ -253,6 +253,9 @@ class TestAppFactory:
         )
         init_settings()
         monkeypatch.setattr("pit_panel.config._settings", settings)
+        monkeypatch.setattr("pit_panel.db.session._engine", None)
+        monkeypatch.setattr("pit_panel.db.session._sessionmaker", None)
+        schema_creator(settings.get_database_url())
         app = create_app(settings)
         client = TestClient(app)
         resp = client.get("/health")

@@ -46,11 +46,11 @@ systemctl daemon-reload
 
 uv sync --no-dev
 
-# Run migrations
-if [ -d "src/pit_panel/db/migrations" ]; then
-    echo "Running database migrations..."
-    uv run --no-dev alembic upgrade head || echo "Migration skipped (alembic not configured)"
-fi
+# No alembic step here: this database is built by create_all at startup, and the
+# alembic chain cannot be applied to a DB created that way (the initial revision
+# would re-create the existing tables). The schema is reconciled by
+# pit_panel.db.schema_sync during startup instead. The old check here looked for
+# src/pit_panel/db/migrations, which does not exist, so it never ran anyway.
 
 # Restart
 echo "Restarting pit-panel..."

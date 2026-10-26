@@ -48,7 +48,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db(settings: Settings) -> None:
     from pit_panel.db.models import Base
+    from pit_panel.db.schema_sync import sync_schema
 
     engine = get_engine(settings)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await sync_schema(engine)

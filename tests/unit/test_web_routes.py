@@ -9,7 +9,7 @@ from pit_panel.web.app import create_app
 
 
 @pytest.fixture
-def client(monkeypatch, tmp_path):
+def client(monkeypatch, tmp_path, schema_creator):
     db_path = tmp_path / "test.db"
     s = Settings(
         secret_key="test-secret-key-32chars!!",
@@ -20,6 +20,7 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setattr("pit_panel.config._settings", s)
     monkeypatch.setattr("pit_panel.db.session._engine", None)
     monkeypatch.setattr("pit_panel.db.session._sessionmaker", None)
+    schema_creator(s.get_database_url())
     app = create_app(s)
     return TestClient(app)
 
