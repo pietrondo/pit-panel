@@ -241,9 +241,13 @@ async def test_subdomain_edit_success(
     existing_sd.subdomain = "old-sub"
     existing_sd.app_type = None
     existing_sd.base_domain = "203-0-113-42.nip.io"
+    existing_sd.host_port = 80
 
     mock_db.execute = AsyncMock(
-        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=existing_sd))
+        side_effect=[
+            MagicMock(scalar_one_or_none=MagicMock(return_value=existing_sd)),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=None)),
+        ]
     )
 
     mock_caddy_instance = MagicMock()
@@ -264,7 +268,48 @@ async def test_subdomain_edit_success(
     mock_db.commit.assert_called_once()
     mock_audit.assert_called_once()
     mock_caddy_instance.remove_subdomain.assert_called_once_with("old-sub", "203-0-113-42.nip.io")
-    mock_caddy_instance.add_subdomain.assert_called_once_with("new-sub", "203-0-113-42.nip.io")
+    mock_caddy_instance.add_subdomain.assert_called_once_with(
+        "new-sub", "203-0-113-42.nip.io", port=80
+    )
+
+
+@pytest.mark.asyncio
+@patch("pit_panel.web.routes.subdomains.get_user")
+async def test_subdomain_edit_rejects_name_owned_by_another_user(
+    mock_get_user, test_client, mock_db, mock_settings
+):
+    mock_user = MagicMock()
+    mock_user.id = 1
+    mock_get_user.return_value = mock_user
+
+    existing_sd = MagicMock()
+    existing_sd.id = 1
+    existing_sd.is_main_domain = False
+    existing_sd.subdomain = "old-sub"
+    existing_sd.app_type = None
+    existing_sd.base_domain = "203-0-113-42.nip.io"
+    existing_sd.host_port = 80
+
+    clash = MagicMock()
+    clash.id = 2
+
+    # First query loads the edited subdomain, the second one looks for the new name.
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            MagicMock(scalar_one_or_none=MagicMock(return_value=existing_sd)),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=clash)),
+        ]
+    )
+
+    response = test_client.post(
+        "/subdomains/1/edit",
+        data={"subdomain": "taken-sub", "app_type": "none"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 409
+    assert "already exists" in response.text
+    assert existing_sd.subdomain == "old-sub"
 
 
 @pytest.mark.asyncio
@@ -385,3 +430,15 @@ async def test_log_audit_helper():
     mock_db.add.assert_called_once()
     added_entry_no_client = mock_db.add.call_args[0][0]
     assert added_entry_no_client.ip is None
+
+
+@pytest.mark.asyncio
+async def test_dns_add_skips_domains_outside_the_dynu_root():
+    from types import SimpleNamespace
+
+    from pit_panel.web.routes.subdomains import _dns_add
+
+    settings = SimpleNamespace(dynu_api_key="key", dynu_domain="root.dynu.net")
+
+    # Legacy subdomains keep their own base domain: no Dynu record is provisioned for them.
+    assert await _dns_add(settings, "customer", "legacy.example.com") is None
