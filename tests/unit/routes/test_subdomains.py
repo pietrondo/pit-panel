@@ -31,6 +31,7 @@ def mock_settings():
     with patch("pit_panel.web.routes.subdomains.get_settings") as mock:
         settings = MagicMock()
         settings.base_domain = "example.com"
+        settings.effective_domain = "example.com"
         settings.caddy_admin_url = "http://localhost:2019"
         mock.return_value = settings
         yield mock
@@ -120,6 +121,41 @@ async def test_subdomain_add_success(
 
 
 @pytest.mark.asyncio
+@patch("pit_panel.web.routes.subdomains.get_user")
+@patch("pit_panel.web.routes.subdomains._log_audit")
+@patch("pit_panel.web.routes.subdomains.CaddyManager")
+async def test_subdomain_add_uses_effective_domain_when_custom_domain_is_unset(
+    mock_caddy, mock_audit, mock_get_user, test_client, mock_db
+):
+    mock_user = MagicMock(id=1)
+    mock_get_user.return_value = mock_user
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+    )
+    settings = MagicMock(
+        base_domain="", effective_domain="203-0-113-42.nip.io", caddy_admin_url="http://localhost:2019"
+    )
+    mock_caddy_instance = MagicMock()
+    mock_caddy_instance.add_subdomain = AsyncMock()
+    mock_caddy_instance.renew_certificate = AsyncMock()
+    mock_caddy.return_value = mock_caddy_instance
+
+    with patch("pit_panel.web.routes.subdomains.get_settings", return_value=settings):
+        response = test_client.post(
+            "/subdomains/add", data={"subdomain": "customer", "app_type": "none"},
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 302
+    added = mock_db.add.call_args.args[0]
+    assert added.base_domain == "203-0-113-42.nip.io"
+    mock_caddy_instance.add_subdomain.assert_called_once_with("customer", "203-0-113-42.nip.io")
+    mock_caddy_instance.renew_certificate.assert_called_once_with(
+        "customer.203-0-113-42.nip.io"
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "invalid_name", ["invalid_name!", "../test", "test/123", "-test", "test-", " "]
 )
@@ -204,6 +240,7 @@ async def test_subdomain_edit_success(
     existing_sd.is_main_domain = False
     existing_sd.subdomain = "old-sub"
     existing_sd.app_type = None
+    existing_sd.base_domain = "203-0-113-42.nip.io"
 
     mock_db.execute = AsyncMock(
         return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=existing_sd))
@@ -226,8 +263,8 @@ async def test_subdomain_edit_success(
     assert existing_sd.app_type == "wordpress"
     mock_db.commit.assert_called_once()
     mock_audit.assert_called_once()
-    mock_caddy_instance.remove_subdomain.assert_called_once_with("old-sub", "example.com")
-    mock_caddy_instance.add_subdomain.assert_called_once_with("new-sub", "example.com")
+    mock_caddy_instance.remove_subdomain.assert_called_once_with("old-sub", "203-0-113-42.nip.io")
+    mock_caddy_instance.add_subdomain.assert_called_once_with("new-sub", "203-0-113-42.nip.io")
 
 
 @pytest.mark.asyncio
@@ -276,6 +313,7 @@ async def test_subdomain_delete_success(
     existing_sd.id = 1
     existing_sd.is_main_domain = False
     existing_sd.subdomain = "test-sub"
+    existing_sd.base_domain = "203-0-113-42.nip.io"
 
     mock_db.execute = AsyncMock(
         return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=existing_sd))
@@ -292,7 +330,9 @@ async def test_subdomain_delete_success(
     mock_db.delete.assert_called_once_with(existing_sd)
     mock_db.commit.assert_called_once()
     mock_audit.assert_called_once()
-    mock_caddy_instance.remove_subdomain.assert_called_once_with("test-sub", "example.com")
+    mock_caddy_instance.remove_subdomain.assert_called_once_with(
+        "test-sub", "203-0-113-42.nip.io"
+    )
 
 
 @pytest.mark.asyncio

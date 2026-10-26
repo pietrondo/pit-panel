@@ -83,6 +83,7 @@ async def subdomain_add(
         return RedirectResponse("/login", status_code=302)
 
     settings = get_settings()
+    base_domain = settings.effective_domain
 
     safe_subdomain = subdomain.strip().lower().replace(" ", "-")
     if not safe_subdomain or not re.fullmatch(
@@ -102,7 +103,7 @@ async def subdomain_add(
     existing = await db.execute(
         select(Subdomain).where(
             Subdomain.subdomain == safe_subdomain,
-            Subdomain.base_domain == settings.base_domain,
+            Subdomain.base_domain == base_domain,
         )
     )
     if existing.scalar_one_or_none():
@@ -119,19 +120,19 @@ async def subdomain_add(
 
     sd = Subdomain(
         subdomain=safe_subdomain,
-        base_domain=settings.base_domain,
+        base_domain=base_domain,
         owner_user_id=user.id,
         app_type=app_type if app_type != "none" else None,
     )
     db.add(sd)
     await db.flush()
 
-    if settings.base_domain:
+    if base_domain:
         caddy = CaddyManager(settings.caddy_admin_url)
         with contextlib.suppress(Exception):
-            await caddy.add_subdomain(safe_subdomain, settings.base_domain)
+            await caddy.add_subdomain(safe_subdomain, base_domain)
         with contextlib.suppress(Exception):
-            fqdn = f"{safe_subdomain}.{settings.base_domain}"
+            fqdn = f"{safe_subdomain}.{base_domain}"
             await caddy.renew_certificate(fqdn)
 
     await _log_audit(
@@ -181,11 +182,11 @@ async def subdomain_edit(
     name_valid = bool(re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", new_name))
     if new_name and new_name != old_name and name_valid:
         sd.subdomain = new_name
-        if settings.base_domain:
+        if sd.base_domain:
             caddy = CaddyManager(settings.caddy_admin_url)
             with contextlib.suppress(Exception):
-                await caddy.remove_subdomain(old_name, settings.base_domain)
-                await caddy.add_subdomain(new_name, settings.base_domain)
+                await caddy.remove_subdomain(old_name, sd.base_domain)
+                await caddy.add_subdomain(new_name, sd.base_domain)
 
     await _log_audit(
         db,
@@ -229,10 +230,10 @@ async def subdomain_delete(
     if not sd or sd.is_main_domain:
         return RedirectResponse("/subdomains", status_code=302)
     settings = get_settings()
-    if settings.base_domain:
+    if sd.base_domain:
         caddy = CaddyManager(settings.caddy_admin_url)
         with contextlib.suppress(Exception):
-            await caddy.remove_subdomain(sd.subdomain, settings.base_domain)
+            await caddy.remove_subdomain(sd.subdomain, sd.base_domain)
 
     await _log_audit(
         db,
