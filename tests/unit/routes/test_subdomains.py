@@ -32,6 +32,7 @@ def mock_settings():
         settings = MagicMock()
         settings.base_domain = "example.com"
         settings.effective_domain = "example.com"
+        settings.panel_domain = "example.com"
         settings.caddy_admin_url = "http://localhost:2019"
         mock.return_value = settings
         yield mock
@@ -133,7 +134,10 @@ async def test_subdomain_add_uses_effective_domain_when_custom_domain_is_unset(
         return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
     )
     settings = MagicMock(
-        base_domain="", effective_domain="203-0-113-42.nip.io", caddy_admin_url="http://localhost:2019"
+        base_domain="",
+        effective_domain="203-0-113-42.nip.io",
+        panel_domain="203-0-113-42.nip.io",
+        caddy_admin_url="http://localhost:2019",
     )
     mock_caddy_instance = MagicMock()
     mock_caddy_instance.add_subdomain = AsyncMock()
@@ -432,10 +436,11 @@ async def test_log_audit_helper():
 async def test_dns_add_skips_roots_the_account_does_not_own(monkeypatch):
     from types import SimpleNamespace
 
+    from pit_panel.core.dynu import DynuRoots
     from pit_panel.web.routes import subdomains as subdomains_module
 
     async def account_roots(_settings):
-        return ["owned.dynu.net"]
+        return DynuRoots(["owned.dynu.net"])
 
     monkeypatch.setattr(subdomains_module, "available_roots", account_roots)
     settings = SimpleNamespace(dynu_api_key="key", dynu_domain="owned.dynu.net")
@@ -464,8 +469,11 @@ async def test_subdomain_add_can_use_any_root_of_the_account(
         dynu_api_key="key",
         dynu_domain="one.dynu.net",
         effective_domain="one.dynu.net",
+        panel_domain="pietrocapriata.me",
     )
-    mock_roots.return_value = ["one.dynu.net", "two.org"]
+    from pit_panel.core.dynu import DynuRoots
+
+    mock_roots.return_value = DynuRoots(["one.dynu.net", "two.org"])
     mock_dns.return_value = None
 
     response = test_client.post(

@@ -48,15 +48,18 @@
                     {% endif %}
                 </select>
                 <p class="text-xs text-gray-500 mt-1">
-                    Read from the Dynu account: {{ dynu_roots|length }} domain(s) available.
-                    Customer subdomains can be created on any of them.
+                    Read from the Dynu account: {{ dynu_roots|length }} domain(s). Customer subdomains can be created on any of them.
                 </p>
                 {% else %}
                 <input aria-label="Dynu Root Hostname" type="text" name="dynu_domain" value="{{ settings.dynu_domain }}"
                        placeholder="Save the API key first, then pick from the list" class="input font-mono">
-                <p class="text-xs text-gray-500 mt-1">
-                    The list is read from Dynu: save a valid API key and this field becomes a menu.
-                </p>
+                {% if dynu_error %}
+                <p class="text-xs text-red-600 dark:text-red-400 mt-1">Dynu did not answer: {{ dynu_error }}</p>
+                {% elif not settings.dynu_api_key %}
+                <p class="text-xs text-gray-500 mt-1">Save the API key and this field becomes a menu read from Dynu.</p>
+                {% else %}
+                <p class="text-xs text-gray-500 mt-1">The API key is saved; reload to retry the list.</p>
+                {% endif %}
                 {% endif %}
             </div>
             <div>

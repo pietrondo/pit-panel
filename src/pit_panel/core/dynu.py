@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -101,20 +102,27 @@ class DynuClient:
             raise DynuError(f"Dynu API request failed ({response.status_code}): {detail}")
 
 
-_ROOTS_CACHE: dict[str, tuple[float, list[str] | None]] = {}
+_ROOTS_CACHE: dict[str, tuple[float, DynuRoots]] = {}
 _ROOTS_TTL_SECONDS = 300
 
 
-async def available_roots(settings: Any) -> list[str] | None:
-    """Root hostnames the Dynu account can serve, or None when unknown.
+@dataclass(frozen=True)
+class DynuRoots:
+    """What the Dynu account can serve, and why when it cannot be read.
 
-    The account owns the list, so a root that is not in it can never resolve:
-    the panel asks instead of trusting a typed name. None means "could not ask"
-    (no key, or the API is unreachable) and is never treated as "none exist".
+    ``roots`` is None when the question could not be answered (no key, Dynu
+    unreachable, key rejected). That is never the same as "no domains".
     """
+
+    roots: list[str] | None
+    error: str | None = None
+
+
+async def available_roots(settings: Any) -> DynuRoots:
+    """Root hostnames the Dynu account can serve."""
     key = getattr(settings, "dynu_api_key", "")
     if not isinstance(key, str) or not key.strip():
-        return None
+        return DynuRoots(None, "No Dynu API key saved")
 
     cached = _ROOTS_CACHE.get(key)
     if cached and time.monotonic() - cached[0] < _ROOTS_TTL_SECONDS:
@@ -122,9 +130,11 @@ async def available_roots(settings: Any) -> list[str] | None:
 
     try:
         async with DynuClient(key) as client:
-            roots = await client.list_domains()
-    except Exception:
-        return None
+            result = DynuRoots(await client.list_domains())
+    except DynuError as exc:
+        result = DynuRoots(None, str(exc))
+    except Exception as exc:
+        result = DynuRoots(None, f"Dynu unreachable: {exc}")
 
-    _ROOTS_CACHE[key] = (time.monotonic(), roots)
-    return roots
+    _ROOTS_CACHE[key] = (time.monotonic(), result)
+    return result

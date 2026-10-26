@@ -130,17 +130,21 @@ async def test_settings_update_invalid_subdomain(mock_db, mock_admin):
 
 
 @pytest.mark.asyncio
-async def test_settings_rejects_a_dynu_root_the_account_does_not_have(mock_db, mock_admin):
+async def test_settings_keeps_the_key_and_drops_a_root_the_account_lacks(mock_db, mock_admin):
+    from pit_panel.core.dynu import DynuRoots
+
     with (
         patch("pit_panel.web.routes.settings.get_settings") as mock_get_settings,
         patch(
             "pit_panel.web.routes.settings.available_roots",
-            return_value=["one.dynu.net"],
+            return_value=DynuRoots(["one.dynu.net"]),
         ),
+        patch("pit_panel.web.routes.settings.render") as mock_render,
     ):
         mock_settings = MagicMock()
         mock_settings.dynu_api_key = ""
         mock_get_settings.return_value = mock_settings
+        mock_render.return_value = "rendered html"
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             response = await ac.post(
@@ -153,10 +157,13 @@ async def test_settings_rejects_a_dynu_root_the_account_does_not_have(mock_db, m
                 },
             )
 
-    assert response.status_code == 400
-    assert "1cooldns.org" in response.text
-    assert "one.dynu.net" in response.text
-    mock_settings.save_config_file.assert_not_called()
+    assert response.status_code == 200
+    # The key must survive even when the root is wrong: without it there is no
+    # list to choose from next time.
+    mock_settings.save_config_file.assert_called_once()
+    assert mock_settings.dynu_api_key == "some-key"
+    assert mock_settings.dynu_domain == ""
+    assert "not in the account" in mock_render.call_args.kwargs["error"]
 
 
 @pytest.mark.asyncio

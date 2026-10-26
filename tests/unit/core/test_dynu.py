@@ -83,9 +83,29 @@ async def test_list_domains_reads_every_root_in_the_account():
 
 
 @pytest.mark.asyncio
-async def test_available_roots_returns_none_without_a_key():
+async def test_available_roots_explains_a_missing_key():
     from types import SimpleNamespace
 
     from pit_panel.core.dynu import available_roots
 
-    assert await available_roots(SimpleNamespace(dynu_api_key="")) is None
+    status = await available_roots(SimpleNamespace(dynu_api_key=""))
+
+    assert status.roots is None
+    assert status.error == "No Dynu API key saved"
+
+
+@pytest.mark.asyncio
+async def test_available_roots_reports_a_rejected_key():
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from pit_panel.core import dynu
+
+    async def boom(self):
+        raise dynu.DynuError("Dynu API request failed (401): Unauthorized")
+
+    with patch.object(dynu.DynuClient, "list_domains", boom):
+        status = await dynu.available_roots(SimpleNamespace(dynu_api_key="bad-key"))
+
+    assert status.roots is None
+    assert "401" in status.error

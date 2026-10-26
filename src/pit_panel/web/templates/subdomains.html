@@ -52,9 +52,9 @@
                            title="Lowercase letters, numbers and hyphens; no leading or trailing hyphen">
                     <span class="text-sm text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">.</span>
                     {% if roots %}
-                    <select aria-label="Dynu root" name="root" x-model="root" class="input font-mono w-auto">
+                    <select aria-label="Root domain" name="root" x-model="root" class="input font-mono w-auto">
                         {% for r in roots %}
-                        <option value="{{ r }}" {% if r == root_domain %}selected{% endif %}>{{ r }}</option>
+                        <option value="{{ r }}" {% if r == root_domain %}selected{% endif %}>{{ r }}{% if r not in dynu_roots %} — your domain (DNS managed by you){% else %} — Dynu (record created automatically){% endif %}</option>
                         {% endfor %}
                     </select>
                     {% else %}
@@ -62,6 +62,11 @@
                     <span class="text-sm text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">{{ root_domain }}</span>
                     {% endif %}
                 </div>
+                {% if root_error %}
+                <p class="text-xs text-red-600 dark:text-red-400 mt-1">
+                    Dynu roots unavailable: {{ root_error }}
+                </p>
+                {% endif %}
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Final URL:
                     <span class="font-mono" x-text="'https://' + (name || 'cliente') + '.' + root"></span>

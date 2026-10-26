@@ -36,7 +36,7 @@ async def _dns_add(
     # Only a root the Dynu account actually owns can be provisioned.
     if not _dynu_enabled(settings):
         return None
-    roots = await available_roots(settings)
+    roots = (await available_roots(settings)).roots
     if roots is not None and domain not in roots:
         return None
     ip = ipv4 or settings._detect_ip()
@@ -48,7 +48,7 @@ async def _dns_add(
 async def _dns_delete(settings: Any, domain: str, record_id: int | None) -> None:
     if not _dynu_enabled(settings) or record_id is None:
         return
-    roots = await available_roots(settings)
+    roots = (await available_roots(settings)).roots
     if roots is not None and domain not in roots:
         return
     async with DynuClient(getattr(settings, "dynu_api_key", "")) as dynu:
@@ -102,9 +102,16 @@ async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
 
     settings = get_settings()
     root_warning = None
-    roots = None
+    roots: list[str] = []
+    root_error = None
+    # A subdomain can live on the panel's own domain (DNS managed elsewhere) or
+    # on any root the Dynu account owns.
+    choices = [settings.panel_domain]
     if _dynu_enabled(settings):
-        roots = await available_roots(settings)
+        status = await available_roots(settings)
+        root_error = status.error
+        roots = list(status.roots or [])
+        choices.extend(roots)
         root_warning = await root_problem(settings.dynu_domain)
 
     return render(
@@ -114,7 +121,9 @@ async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
         error=None,
         created=request.query_params.get("created"),
         root_domain=settings.effective_domain,
-        roots=roots,
+        roots=list(dict.fromkeys(choices)),
+        dynu_roots=roots,
+        root_error=root_error,
         root_warning=root_warning,
     )
 
@@ -142,26 +151,30 @@ async def subdomain_add(
     if _dynu_enabled(settings) and not bool(getattr(user, "is_admin", False)):
         raise HTTPException(status_code=403, detail="Administrator privileges required")
 
-    # The Dynu account owns the roots: a subdomain can live on any of them, not
-    # only on the configured default one.
+    # A subdomain can live on the panel's own domain (DNS managed elsewhere) or
+    # on any root the Dynu account owns.
     base_domain = settings.effective_domain
-    roots = await available_roots(settings) if _dynu_enabled(settings) else None
-    if roots:
-        chosen = (root or base_domain).strip().lower()
-        if chosen not in roots:
-            query = select(Subdomain).where(~Subdomain.is_main_domain)
-            if not bool(getattr(user, "is_admin", False)):
-                query = query.where(Subdomain.owner_user_id == user.id)
-            result = await db.execute(query.order_by(Subdomain.created_at.desc()))
-            return render(
-                "subdomains.html",
-                user=user,
-                subdomains=result.scalars().all(),
-                error=f"Unknown Dynu root: {chosen}. Available: {', '.join(roots)}",
-                root_domain=base_domain,
-                roots=roots,
-            )
-        base_domain = chosen
+    allowed = [settings.panel_domain]
+    if _dynu_enabled(settings):
+        status = await available_roots(settings)
+        allowed.extend(status.roots or [])
+    allowed = list(dict.fromkeys(allowed))
+
+    chosen = (root or base_domain).strip().lower()
+    if chosen not in allowed:
+        query = select(Subdomain).where(~Subdomain.is_main_domain)
+        if not bool(getattr(user, "is_admin", False)):
+            query = query.where(Subdomain.owner_user_id == user.id)
+        result = await db.execute(query.order_by(Subdomain.created_at.desc()))
+        return render(
+            "subdomains.html",
+            user=user,
+            subdomains=result.scalars().all(),
+            error=f"Unknown root: {chosen}. Available: {', '.join(allowed)}",
+            root_domain=base_domain,
+            roots=allowed,
+        )
+    base_domain = chosen
 
     safe_subdomain = subdomain.strip().lower().replace(" ", "-")
     if not safe_subdomain or not re.fullmatch(

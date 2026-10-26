@@ -65,7 +65,8 @@ async def test_settings_page_authenticated(monkeypatch):
         user=user,
         audit_entries=[mock_audit],
         settings=mock_settings,
-        dynu_roots=None,
+        dynu_roots=[],
+        dynu_error=None,
         config_saved=False,
         error=None,
     )
@@ -203,6 +204,8 @@ async def test_settings_update_existing_settings(monkeypatch):
         user=user,
         audit_entries=[mock_audit],
         settings=mock_settings,
+        dynu_roots=[],
+        dynu_error=None,
         config_saved=True,
         error=None,
     )
@@ -302,6 +305,8 @@ async def test_settings_update_new_settings(monkeypatch):
         user=user,
         audit_entries=[mock_audit],
         settings=mock_settings,
+        dynu_roots=[],
+        dynu_error=None,
         config_saved=True,
         error=None,
     )

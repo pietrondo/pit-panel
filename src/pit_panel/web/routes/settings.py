@@ -28,9 +28,12 @@ async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):
     audit_entries = result.scalars().all()
 
     settings = get_settings()
-    dynu_roots: list[str] | None = None
-    if settings.dynu_api_key.strip():
-        dynu_roots = await available_roots(settings)
+    dynu_roots: list[str] = []
+    dynu_error: str | None = None
+    if isinstance(settings.dynu_api_key, str) and settings.dynu_api_key.strip():
+        status = await available_roots(settings)
+        dynu_roots = list(status.roots or [])
+        dynu_error = status.error
 
     return render(
         "settings.html",
@@ -38,6 +41,7 @@ async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):
         audit_entries=audit_entries,
         settings=settings,
         dynu_roots=dynu_roots,
+        dynu_error=dynu_error,
         config_saved=False,
         error=None,
     )
@@ -96,19 +100,23 @@ async def settings_update(
         return HTMLResponse("Invalid panel subdomain", status_code=400)
     new_host = "127.0.0.1" if new_base else "0.0.0.0"  # nosec B104
 
-    # The Dynu account owns the roots: refuse a name it does not have instead of
-    # storing a root that can only ever produce hostnames nobody can resolve.
+    # The Dynu account owns the roots. A root it does not have can only ever
+    # produce hostnames nobody can resolve, so it is dropped -- but the API key
+    # is saved regardless: rejecting the whole form would throw the key away and
+    # leave the operator with no list to choose from.
+    dynu_error: str | None = None
     if new_dynu_domain and retained_dynu_key:
         probe = current_settings.model_copy(
             update={"dynu_api_key": retained_dynu_key, "dynu_domain": ""}
         )
-        roots = await available_roots(probe)
-        if roots is not None and new_dynu_domain not in roots:
-            available = ", ".join(roots) if roots else "none"
-            return HTMLResponse(
-                f"Unknown Dynu root: {new_dynu_domain}. Domains in the account: {available}",
-                status_code=400,
+        status = await available_roots(probe)
+        if status.roots is not None and new_dynu_domain not in status.roots:
+            available = ", ".join(status.roots) or "none in this account"
+            dynu_error = (
+                f"Dynu root {new_dynu_domain} is not in the account ({available}). "
+                f"The API key was saved: pick a root from the list."
             )
+            new_dynu_domain = ""
 
     # Store in DB (no filesystem write needed)
     updates = [
@@ -157,15 +165,20 @@ async def settings_update(
     result = await db.execute(select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50))
     audit_entries = result.scalars().all()
 
+    dynu_roots: list[str] = []
+    if settings.dynu_api_key.strip():
+        dynu_roots = list((await available_roots(settings)).roots or [])
+
     return render(
         "settings.html",
         user=user,
         audit_entries=audit_entries,
         settings=settings,
-        config_saved=True,
-        error=None,
+        dynu_roots=dynu_roots,
+        dynu_error=None,
+        config_saved=None if dynu_error else True,
+        error=dynu_error,
     )
-
 
 @router.get("/settings/audit", response_class=HTMLResponse)
 async def audit_log(request: Request, db: AsyncSession = Depends(get_db)):
