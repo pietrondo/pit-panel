@@ -14,12 +14,29 @@ class DynuError(RuntimeError):
 
 
 def _envelope_items(payload: Any, key: str) -> list[dict[str, Any]]:
-    """Records of a Dynu list response, with or without its envelope."""
+    """Records of a Dynu list response, with or without its envelope.
+
+    The documented shape is ``{"statusCode": 200, "<key>": [...]}``. A bare list
+    is accepted too, and when the key is not the documented one the first list
+    of objects in the envelope is used, so a rename on their side does not take
+    the panel down.
+    """
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+
     if isinstance(payload, dict):
-        payload = payload.get(key, [])
-    if not isinstance(payload, list):
-        return []
-    return [item for item in payload if isinstance(item, dict)]
+        candidate = payload.get(key)
+        if isinstance(candidate, list):
+            return [item for item in candidate if isinstance(item, dict)]
+        for value in payload.values():
+            if isinstance(value, list) and any(isinstance(item, dict) for item in value):
+                return [item for item in value if isinstance(item, dict)]
+        # Nothing list-shaped: say what came back instead of pretending it is empty.
+        raise DynuError(
+            f"Dynu answered without {key}: keys={sorted(str(k) for k in payload)[:8]}"
+        )
+
+    raise DynuError(f"Dynu answered with {type(payload).__name__}, expected a list")
 
 
 def _created_record(payload: Any) -> dict[str, Any]:
