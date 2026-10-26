@@ -31,13 +31,23 @@
                        class="input font-mono">
             </div>
             <div>
+                <label class="label">Dynu API Key</label>
+                <input aria-label="Dynu API Key" type="password" name="dynu_api_key" value=""
+                       placeholder="Leave empty to keep the current key" class="input font-mono">
+            </div>
+            <div>
+                <label class="label">Dynu Root Hostname (e.g. example.dynu.net)</label>
+                <input aria-label="Dynu Root Hostname" type="text" name="dynu_domain" value="{{ settings.dynu_domain }}"
+                       placeholder="Leave empty to use Base Domain" class="input font-mono">
+            </div>
+            <div>
                 <label class="label">Panel Subdomain (e.g. panel)</label>
                 <input aria-label="Panel Subdomain" type="text" name="panel_subdomain" value="{{ settings.panel_subdomain }}" required
                        class="input font-mono" pattern="[a-z0-9-]+">
             </div>
             <div>
                 <label class="label">Sudo Password</label>
-                <input aria-label="Sudo Password" type="password" name="sudo_password" value="{{ settings.sudo_password }}"
+                <input aria-label="Sudo Password" type="password" name="sudo_password" value=""
                        placeholder="Your sudo password for system management" class="input font-mono">
                 <p class="text-xs text-gray-500 mt-1">Required for system management (services, reboot, etc.)</p>
             </div>
@@ -59,17 +69,18 @@
     <div class="p-6">
         <form method="POST" action="/settings/update" class="space-y-4">
             <input type="hidden" name="base_domain" value="{{ settings.base_domain }}">
+            <input type="hidden" name="dynu_domain" value="{{ settings.dynu_domain }}">
             <input type="hidden" name="panel_subdomain" value="{{ settings.panel_subdomain }}">
-            <input type="hidden" name="abuseipdb_api_key" value="{{ settings.abuseipdb_api_key }}">
+            <input type="hidden" name="abuseipdb_api_key" value="">
             <div>
                 <label class="label">Bot Token</label>
-                <input aria-label="Telegram Bot Token" type="password" name="telegram_bot_token" value="{{ settings.telegram_bot_token }}"
+                <input aria-label="Telegram Bot Token" type="password" name="telegram_bot_token" value=""
                        placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" class="input font-mono">
                 <p class="text-xs text-gray-500 mt-1">Get it from <a href="https://t.me/BotFather" target="_blank" class="text-indigo-600">@BotFather</a></p>
             </div>
             <div>
                 <label class="label">Chat ID</label>
-                <input aria-label="Telegram Chat Id" type="text" name="telegram_chat_id" value="{{ settings.telegram_chat_id }}"
+                <input aria-label="Telegram Chat Id" type="text" name="telegram_chat_id" value=""
                        placeholder="-1001234567890" class="input font-mono">
                 <p class="text-xs text-gray-500 mt-1">Get it from <a href="https://t.me/userinfobot" target="_blank" class="text-indigo-600">@userinfobot</a></p>
             </div>

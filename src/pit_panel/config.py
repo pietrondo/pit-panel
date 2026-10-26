@@ -1,3 +1,8 @@
+import contextlib
+import logging
+import os
+import stat
+import tempfile
 import time
 import tomllib as tomli
 from functools import lru_cache
@@ -7,6 +12,7 @@ from typing import cast
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DETECT_IP_TTL_SECONDS = 300
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):  # type: ignore[misc]
@@ -35,11 +41,16 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # Caddy
     caddy_admin_url: str = "http://127.0.0.1:2019"
     base_domain: str = ""
+    # Optional Dynu free DNS integration. dynu_domain is the owned root hostname.
+    dynu_api_key: str = ""
+    dynu_domain: str = ""
     panel_subdomain: str = "panel"
     ssl_auto_renew_days: int = 14
 
     @property
     def effective_domain(self) -> str:
+        if self.dynu_domain:
+            return self.dynu_domain
         if self.base_domain:
             return self.base_domain
         bucket = int(time.monotonic() // _DETECT_IP_TTL_SECONDS)
@@ -118,6 +129,8 @@ class Settings(BaseSettings):  # type: ignore[misc]
         config_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "base_domain": self.base_domain,
+            "dynu_api_key": self.dynu_api_key,
+            "dynu_domain": self.dynu_domain,
             "panel_subdomain": self.panel_subdomain,
             "host": self.host,
             "abuseipdb_api_key": self.abuseipdb_api_key,
@@ -131,7 +144,32 @@ class Settings(BaseSettings):  # type: ignore[misc]
             "backup_enabled": self.backup_enabled,
             "backup_retention_days": self.backup_retention_days,
         }
-        config_path.write_bytes(tomli_w.dumps(data).encode())
+        payload = tomli_w.dumps(data).encode()
+        temporary_path = None
+        try:
+            fd, temporary_path = tempfile.mkstemp(
+                prefix=f".{config_path.name}.", suffix=".tmp", dir=config_path.parent
+            )
+            with os.fdopen(fd, "wb") as config_file:
+                config_file.write(payload)
+                config_file.flush()
+                os.fsync(config_file.fileno())
+            temporary = Path(temporary_path)
+            # Windows inherits the data directory ACL; POSIX mode bits are not authoritative there.
+            temporary.chmod(0o600)
+            if os.name != "nt" and stat.S_IMODE(temporary.stat().st_mode) != 0o600:
+                raise OSError("temporary configuration file is not private")
+            os.replace(temporary, config_path)
+            temporary_path = None
+            if os.name != "nt" and stat.S_IMODE(config_path.stat().st_mode) != 0o600:
+                raise OSError("configuration file is not private")
+        except OSError as exc:
+            logger.error("Unable to restrict permissions on %s: %s", config_path, exc)
+            raise RuntimeError(f"Unable to secure configuration file: {config_path}") from exc
+        finally:
+            if temporary_path:
+                with contextlib.suppress(OSError):
+                    Path(temporary_path).unlink()
 
 
 @lru_cache(maxsize=2)

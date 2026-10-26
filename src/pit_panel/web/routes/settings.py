@@ -41,6 +41,8 @@ async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):
 async def settings_update(
     request: Request,
     base_domain: str = Form(""),
+    dynu_api_key: str = Form(""),
+    dynu_domain: str = Form(""),
     panel_subdomain: str = Form("panel"),
     abuseipdb_api_key: str = Form(""),
     sudo_password: str = Form(""),
@@ -53,8 +55,34 @@ async def settings_update(
         return RedirectResponse("/login", status_code=302)
 
     new_base = base_domain.strip()
+    new_dynu_domain = dynu_domain.strip() if isinstance(dynu_domain, str) else ""
+    current_settings = get_settings()
+    submitted_dynu_key = dynu_api_key.strip() if isinstance(dynu_api_key, str) else ""
+    retained_dynu_key = submitted_dynu_key or (
+        current_settings.dynu_api_key if isinstance(current_settings.dynu_api_key, str) else ""
+    )
+    def retain_secret(submitted, current, strip: bool = False) -> str:
+        value = submitted.strip() if strip and isinstance(submitted, str) else submitted
+        if not isinstance(value, str) or not value:
+            return current if isinstance(current, str) else ""
+        return value
+
+    retained_abuseipdb_key = retain_secret(
+        abuseipdb_api_key, current_settings.abuseipdb_api_key, True
+    )
+    retained_sudo_password = retain_secret(sudo_password, current_settings.sudo_password)
+    retained_telegram_token = retain_secret(
+        telegram_bot_token, current_settings.telegram_bot_token, True
+    )
+    retained_telegram_chat_id = retain_secret(
+        telegram_chat_id, current_settings.telegram_chat_id, True
+    )
     new_panel = panel_subdomain.strip() or "panel"
 
+    if new_dynu_domain and not re.fullmatch(
+        r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", new_dynu_domain
+    ):
+        return HTMLResponse("Invalid Dynu domain", status_code=400)
     if new_base and not re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", new_base):
         return HTMLResponse("Invalid base domain", status_code=400)
     if new_panel and not re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", new_panel):
@@ -66,11 +94,16 @@ async def settings_update(
         ("base_domain", new_base),
         ("panel_subdomain", new_panel),
         ("host", new_host),
-        ("abuseipdb_api_key", abuseipdb_api_key.strip()),
-        ("sudo_password", sudo_password),
-        ("telegram_bot_token", telegram_bot_token.strip()),
-        ("telegram_chat_id", telegram_chat_id.strip()),
+        ("abuseipdb_api_key", retained_abuseipdb_key),
+        ("sudo_password", retained_sudo_password),
+        ("telegram_bot_token", retained_telegram_token),
+        ("telegram_chat_id", retained_telegram_chat_id),
     ]
+    if retained_dynu_key or new_dynu_domain:
+        updates.extend([
+            ("dynu_api_key", retained_dynu_key),
+            ("dynu_domain", new_dynu_domain),
+        ])
     keys = [u[0] for u in updates]
     result = await db.execute(select(SystemSettings).where(SystemSettings.key.in_(keys)))
     existing_rows = {row.key: row for row in result.scalars().all()}
@@ -88,14 +121,16 @@ async def settings_update(
     await db.commit()
 
     # Update in-memory settings and persist to config file
-    settings = get_settings()
+    settings = current_settings
     settings.base_domain = new_base
+    settings.dynu_api_key = retained_dynu_key
+    settings.dynu_domain = new_dynu_domain
     settings.panel_subdomain = new_panel
     settings.host = new_host
-    settings.abuseipdb_api_key = abuseipdb_api_key.strip()
-    settings.sudo_password = sudo_password
-    settings.telegram_bot_token = telegram_bot_token.strip()
-    settings.telegram_chat_id = telegram_chat_id.strip()
+    settings.abuseipdb_api_key = retained_abuseipdb_key
+    settings.sudo_password = retained_sudo_password
+    settings.telegram_bot_token = retained_telegram_token
+    settings.telegram_chat_id = retained_telegram_chat_id
     settings.save_config_file()
 
     result = await db.execute(select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50))

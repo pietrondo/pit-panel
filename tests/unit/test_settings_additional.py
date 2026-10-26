@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,6 +10,19 @@ from slowapi.util import get_remote_address
 
 from pit_panel.db.session import get_db
 from pit_panel.web.routes.settings import router
+
+
+def test_config_save_fails_closed_when_chmod_fails(tmp_path, monkeypatch):
+    from pit_panel.config import Settings
+
+    settings = Settings(data_dir=str(tmp_path))
+    def deny_chmod(*_args, **_kwargs):
+        raise OSError("denied")
+
+    monkeypatch.setattr(Path, "chmod", deny_chmod)
+    with pytest.raises(RuntimeError, match="Unable to secure configuration file"):
+        settings.save_config_file()
+    assert list(tmp_path.glob("*.tmp")) == []
 
 app = FastAPI()
 app.include_router(router)
@@ -241,3 +255,8 @@ async def test_settings_test_notification_fail(mock_db, mock_admin):
             response = await ac.post("/settings/test-notification")
         assert response.status_code == 200
         assert "Failed" in response.text
+
+def test_settings_template_never_round_trips_dynu_api_key():
+    template = Path("src/pit_panel/web/templates/settings.html").read_text()
+    assert 'name="dynu_api_key" value="{{ settings.dynu_api_key }}"' not in template
+    assert '<input type="hidden" name="dynu_api_key"' not in template
