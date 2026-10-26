@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 
 @pytest.fixture
@@ -60,6 +61,17 @@ def _setup_session(client, monkeypatch, mock_sd=None):
     import pit_panel.web.deps as deps
 
     monkeypatch.setattr(deps, "get_current_user", mock_get_user)
+    async def mock_websocket_user(*args, **kwargs):
+        return User(id=1, username="admin", is_admin=True)
+
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.ops_terminal.get_websocket_user",
+        mock_websocket_user,
+    )
+    monkeypatch.setattr(
+        "pit_panel.web.routes.app_routes.ops_files.get_websocket_user",
+        mock_websocket_user,
+    )
     if hasattr(deps, "get_current_user_ws"):
         monkeypatch.setattr(deps, "get_current_user_ws", mock_get_user)
     else:
@@ -127,9 +139,8 @@ def test_terminal_ws_authenticated(client, monkeypatch, tmp_path):
     mock_db = client.app.dependency_overrides[ops.get_db]()
     mock_db.execute = mock_execute_none
 
-    with client.websocket_connect("/apps/999/terminal/ws") as websocket:
-        data = websocket.receive_text()
-        assert "ERROR: App not found" in data
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect("/apps/999/terminal/ws"):
+        pass
 
 
 def test_logs_ws_authenticated(client, monkeypatch, tmp_path):

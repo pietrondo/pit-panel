@@ -287,7 +287,7 @@ def test_deploy_from_repo_main_domain(client, monkeypatch, tmp_path):
 
     monkeypatch.setattr(app_main, "get_user", mock_get_user)
 
-    async def mock_resolve(db, user_id, settings, is_main, sd_id, new_sd):
+    async def mock_resolve(db, user_id, settings, is_main, sd_id, new_sd, is_admin=False):
         assert is_main is True
 
         class SD:

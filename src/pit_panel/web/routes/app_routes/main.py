@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import html
 import logging
 import os
 import re
@@ -16,10 +17,12 @@ from pit_panel.core.app_manager import AppManager
 from pit_panel.core.caddy import CaddyManager
 from pit_panel.core.docker_ops import DockerManager
 from pit_panel.core.repo_detector import analyze_repo
+from pit_panel.core.repo_validator import redact_repository_url, validate_repository_url_async
 from pit_panel.db.models import Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
 from pit_panel.web.render import render
+from pit_panel.web.routes.app_routes.access import require_subdomain_access
 
 from .router import router
 
@@ -62,6 +65,8 @@ async def apps_list(request: Request, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
     result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
     subdomains = result.scalars().all()
+    if not bool(getattr(user, "is_admin", False)):
+        subdomains = [sd for sd in subdomains if sd.owner_user_id == user.id]
     mgr = AppManager()
     templates = mgr.list_templates()
     template_infos = [{"name": t, "meta": mgr.get_template_info(t)} for t in templates]
@@ -86,16 +91,24 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
 
     form = await request.form()
     repo_url = str(form.get("repo_url", "")).strip()
-    if not repo_url:
+    if not repo_url or (
+        ("://" in repo_url or repo_url.startswith("git@"))
+        and not await validate_repository_url_async(repo_url)
+    ):
         return HTMLResponse('<p class="text-red-500 text-sm">Inserisci un URL GitHub</p>')
 
     try:
         detected = await analyze_repo(repo_url)
     except ValueError as e:
-        return HTMLResponse(f'<p class="text-red-500 text-sm">{e}</p>')
-    except Exception as e:
-        logger.exception(f"Repo analysis failed for {repo_url}")
-        return HTMLResponse(f'<p class="text-red-500 text-sm">Errore: {e}</p>')
+        return HTMLResponse(
+            f'<p class="text-red-500 text-sm">{html.escape(str(e))}</p>'
+        )
+    except Exception:
+        logger.exception("Repo analysis failed for %s", redact_repository_url(repo_url))
+        return HTMLResponse(
+            '<p class="text-red-500 text-sm">Repository analysis failed.</p>',
+            status_code=502,
+        )
 
     settings = get_settings()
     mgr = AppManager(settings.apps_dir)
@@ -126,6 +139,8 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
         select(Subdomain).where(Subdomain.app_type.is_(None)).order_by(Subdomain.created_at.asc())
     )
     available_sds = result.scalars().all()
+    if not bool(getattr(user, "is_admin", False)):
+        available_sds = [sd for sd in available_sds if sd.owner_user_id == user.id]
     name_from_repo = repo_url.rstrip("/").split("/")[-1]
     name_from_repo = re.sub(r"[^a-z0-9-]", "", name_from_repo.lower().replace("_", "-"))[:40]
 
@@ -154,7 +169,7 @@ async def app_analyze_repo(request: Request, db: AsyncSession = Depends(get_db))
           hx-post="/apps/deploy-from-repo"
           hx-target="#repo-result"
           hx-swap="innerHTML">
-        <input type="hidden" name="repo_url" value="{repo_url}">
+        <input type="hidden" name="repo_url" value="{html.escape(repo_url, quote=True)}">
         <input type="hidden" name="stack_type" value="{detected.stack_type}">
         <input type="hidden" name="port" value="{port}">
         <label class="flex items-center gap-2 text-sm">
@@ -197,6 +212,8 @@ async def app_detail(request: Request, sd_id: int, db: AsyncSession = Depends(ge
 
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
+    if sd:
+        require_subdomain_access(user, sd)
     if not sd:
         return RedirectResponse("/apps", status_code=302)
 
@@ -283,6 +300,8 @@ async def app_update_all(request: Request, db: AsyncSession = Depends(get_db)):
     docker_mgr = DockerManager(settings.apps_dir)
     result = await db.execute(select(Subdomain).where(Subdomain.app_type.isnot(None)))
     apps = result.scalars().all()
+    if not bool(getattr(user, "is_admin", False)):
+        apps = [sd for sd in apps if sd.owner_user_id == user.id]
 
     # Limit concurrency to 3 simultaneous docker operations to avoid resource exhaustion
     semaphore = asyncio.Semaphore(3)

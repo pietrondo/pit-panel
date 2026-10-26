@@ -15,6 +15,14 @@ def mock_proc():
     return proc
 
 
+@pytest.fixture(autouse=True)
+def allow_test_repository(monkeypatch):
+    monkeypatch.setattr(
+        "pit_panel.core.repo_detector.validate_repository_url_async",
+        AsyncMock(return_value=True),
+    )
+
+
 @pytest.mark.asyncio
 async def test_clone_repo_timeout_stops_child_before_cleanup(tmp_path):
     destination = tmp_path / "clone"

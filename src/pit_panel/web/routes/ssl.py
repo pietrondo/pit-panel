@@ -349,26 +349,25 @@ async def ssl_renew(
 
     settings = get_settings()
     caddy = CaddyManager(settings.caddy_admin_url)
+    base_domain = settings.effective_domain
 
     # Ensure Caddy route exists for this domain
     subdomain_name = (
-        domain.replace(f".{settings.base_domain}", "")
-        if settings.base_domain
-        else domain.split(".")[0]
+        domain.replace(f".{base_domain}", "") if base_domain else domain.split(".")[0]
     )
     result_sd = await db.execute(
         select(Subdomain).where(
             Subdomain.subdomain == subdomain_name,
-            Subdomain.base_domain == settings.base_domain,
+            Subdomain.base_domain == base_domain,
         )
     )
     sd = result_sd.scalar_one_or_none()
     port = 80
     if sd and sd.app_type:
         meta = AppManager(settings.apps_dir).get_template_info(sd.app_type)
-        port = meta.get("default_port", 80)
+        port = sd.host_port or meta.get("default_port", 80)
     try:
-        await caddy.add_subdomain(subdomain_name, settings.base_domain, port=port)
+        await caddy.add_subdomain(subdomain_name, base_domain, port=port)
     except Exception as e:
         logger.warning(f"add_subdomain failed for {subdomain_name}: {e}")
 
@@ -419,10 +418,10 @@ async def ssl_renew_all(request: Request, db: AsyncSession = Depends(get_db)):
     ok = 0
     fail = 0
     for sd in apps:
-        base = sd.base_domain or settings.base_domain
+        base = sd.base_domain or settings.effective_domain
         fqdn = f"{sd.subdomain}.{base}"
         meta = mgr.get_template_info(sd.app_type) if sd.app_type else {}
-        port = meta.get("default_port", 80)
+        port = sd.host_port or meta.get("default_port", 80)
         try:
             await caddy.add_subdomain(sd.subdomain, base, port=port)
             ok += 1

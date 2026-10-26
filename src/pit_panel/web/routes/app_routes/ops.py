@@ -1,6 +1,7 @@
 """App actions: restart, update, delete, clone, stop, renew SSL."""
 
 import asyncio
+import contextlib
 import logging
 import shutil
 from pathlib import Path
@@ -14,13 +15,36 @@ from pit_panel.config import get_settings
 from pit_panel.core.app_manager import AppManager
 from pit_panel.core.caddy import CaddyManager
 from pit_panel.core.docker_ops import DockerManager
+from pit_panel.core.repo_validator import (
+    isolated_git_env,
+    redact_repository_url,
+    validate_repository_url_async,
+)
 from pit_panel.db.models import AppDeployment, AuditLog, Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
+from pit_panel.web.routes.app_routes.access import require_subdomain_access
 
 from .router import router
 
 logger = logging.getLogger(__name__)
+
+
+async def _stop_git_process(proc) -> None:
+    if proc is None or proc.returncode is not None:
+        return
+    try:
+        proc.terminate()
+    except BaseException:
+        with contextlib.suppress(ProcessLookupError):
+            proc.kill()
+    try:
+        await asyncio.wait_for(proc.communicate(), timeout=5)
+    except BaseException:
+        with contextlib.suppress(ProcessLookupError):
+            proc.kill()
+        with contextlib.suppress(BaseException):
+            await asyncio.wait_for(proc.communicate(), timeout=5)
 
 
 @router.post("/apps/{sd_id}/restart", response_class=HTMLResponse)
@@ -33,6 +57,7 @@ async def app_restart(request: Request, sd_id: int, db: AsyncSession = Depends(g
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if sd:
+        require_subdomain_access(user, sd)
         settings = get_settings()
         docker_mgr = DockerManager(settings.apps_dir)
         await docker_mgr.run_compose_command(sd.subdomain, ["restart"])
@@ -51,21 +76,71 @@ async def app_update(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if sd:
+        require_subdomain_access(user, sd)
         settings = get_settings()
         docker_mgr = DockerManager(settings.apps_dir)
         app_dir = Path(settings.apps_dir) / sd.subdomain / "app"
 
         is_repo = (app_dir / ".git").is_dir()
         if is_repo:
+            rewrite_proc = await asyncio.create_subprocess_exec(
+                "git", "-C", str(app_dir), "config", "--local", "--get-regexp",
+                r"^(url\..*\.insteadof|core\.sshcommand|gitproxy|credential\.helper)$",
+                env=isolated_git_env(), stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            try:
+                rewrite_out, _ = await asyncio.wait_for(rewrite_proc.communicate(), timeout=10)
+            except asyncio.CancelledError:
+                await _stop_git_process(rewrite_proc)
+                raise
+            except TimeoutError:
+                await _stop_git_process(rewrite_proc)
+                return HTMLResponse("Git configuration lookup timed out", status_code=504)
+            if rewrite_proc.returncode == 0 and rewrite_out.strip():
+                return HTMLResponse("Git URL rewrite configuration is not allowed", status_code=400)
+            remote_proc = await asyncio.create_subprocess_exec(
+                "git", "-C", str(app_dir), "config", "--local", "--get",
+                "remote.origin.url", env=isolated_git_env(), stdout=asyncio.subprocess.PIPE,
+            )
+            try:
+                remote_out, remote_err = await asyncio.wait_for(
+                    remote_proc.communicate(), timeout=10
+                )
+            except asyncio.CancelledError:
+                await _stop_git_process(remote_proc)
+                raise
+            except TimeoutError:
+                await _stop_git_process(remote_proc)
+                return HTMLResponse("Repository remote lookup timed out", status_code=504)
+            remote_url = remote_out.decode(errors="replace").strip()
+            if remote_proc.returncode != 0 or not await validate_repository_url_async(remote_url):
+                logger.warning(
+                    "Rejected configured Git remote for %s: %s",
+                    sd.subdomain,
+                    redact_repository_url(remote_url),
+                )
+                return HTMLResponse("Invalid or disallowed repository remote", status_code=400)
             pull = await asyncio.create_subprocess_exec(
                 "git",
                 "-C",
                 str(app_dir),
+                "-c",
+                "http.followRedirects=false",
                 "pull",
+                env=isolated_git_env(),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            _, pull_stderr = await asyncio.wait_for(pull.communicate(), timeout=120)
+            try:
+                _, pull_stderr = await asyncio.wait_for(pull.communicate(), timeout=120)
+            except asyncio.CancelledError:
+                await _stop_git_process(pull)
+                raise
+            except TimeoutError:
+                await _stop_git_process(pull)
+                r = {"success": False, "stderr": "Git update timed out"}
+                pull_stderr = b"Git update timed out"
             pull_ok = pull.returncode == 0
             r = {"success": pull_ok, "stderr": pull_stderr.decode(errors="replace")}
             if pull_ok:
@@ -110,13 +185,15 @@ async def app_renew_ssl(request: Request, sd_id: int, db: AsyncSession = Depends
 
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
+    if sd:
+        require_subdomain_access(user, sd)
     if not sd:
         return HTMLResponse(
             "<span class='text-red-500 text-xs'>App not found</span>", status_code=404
         )
 
     settings = get_settings()
-    base_domain = sd.base_domain or settings.base_domain
+    base_domain = sd.base_domain or settings.effective_domain
     fqdn = f"{sd.subdomain}.{base_domain}"
     caddy = CaddyManager(settings.caddy_admin_url)
 
@@ -124,7 +201,7 @@ async def app_renew_ssl(request: Request, sd_id: int, db: AsyncSession = Depends
     port = 80
     if sd.app_type:
         meta = AppManager(settings.apps_dir).get_template_info(sd.app_type)
-        port = meta.get("default_port", 80)
+        port = sd.host_port or meta.get("default_port", 80)
     try:
         await caddy.add_subdomain(sd.subdomain, base_domain, port=port)
     except Exception as e:
@@ -161,6 +238,7 @@ async def app_stop(request: Request, sd_id: int, db: AsyncSession = Depends(get_
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if sd:
+        require_subdomain_access(user, sd)
         settings = get_settings()
         docker_mgr = DockerManager(settings.apps_dir)
         await docker_mgr.run_compose_command(sd.subdomain, ["down"])
@@ -197,6 +275,7 @@ async def app_clone(request: Request, sd_id: int, db: AsyncSession = Depends(get
     sd = result.scalar_one_or_none()
     if not sd or not sd.app_type:
         return RedirectResponse("/apps", status_code=302)
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     base = sd.subdomain
@@ -214,7 +293,7 @@ async def app_clone(request: Request, sd_id: int, db: AsyncSession = Depends(get
     # Create DB record
     clone_sd = Subdomain(
         subdomain=clone_name,
-        base_domain=sd.base_domain or settings.base_domain,
+        base_domain=sd.base_domain or settings.effective_domain,
         owner_user_id=user.id,
         app_type=sd.app_type,
     )
@@ -251,6 +330,7 @@ async def app_delete(request: Request, sd_id: int, db: AsyncSession = Depends(ge
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if sd:
+        require_subdomain_access(user, sd)
         settings = get_settings()
 
         # 1. Stop containers and remove volumes
@@ -258,13 +338,15 @@ async def app_delete(request: Request, sd_id: int, db: AsyncSession = Depends(ge
         await docker_mgr.run_compose_command(sd.subdomain, ["down", "-v"])
 
         # 2. Delete Caddy route
-        if settings.base_domain and sd.app_type:
+        if sd.app_type:
             try:
                 caddy = CaddyManager(settings.caddy_admin_url)
                 if sd.is_main_domain:
-                    await caddy.remove_main_domain(settings.base_domain)
+                    await caddy.remove_main_domain(sd.base_domain or settings.effective_domain)
                 else:
-                    await caddy.remove_subdomain(sd.subdomain, settings.base_domain)
+                    await caddy.remove_subdomain(
+                        sd.subdomain, sd.base_domain or settings.effective_domain
+                    )
             except Exception as e:
                 logger.warning(f"Failed to remove Caddy route for {sd.subdomain}: {e}")
 

@@ -67,6 +67,7 @@ def mock_docker_manager():
         instance.container_start = AsyncMock()
         instance.container_logs_live = AsyncMock(return_value="live logs")
         instance.container_stats = AsyncMock(return_value={"cpu": "1%"})
+        instance.ps_all = AsyncMock(return_value=[])
         yield instance
 
 

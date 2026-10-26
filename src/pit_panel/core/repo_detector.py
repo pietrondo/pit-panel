@@ -8,7 +8,29 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pit_panel.core.repo_validator import isolated_git_env, validate_repository_url_async
+
 logger = logging.getLogger(__name__)
+
+
+async def _terminate_kill_and_drain(proc) -> None:
+    if proc is None or proc.returncode is not None:
+        return
+    try:
+        proc.terminate()
+    except BaseException:
+        with suppress(ProcessLookupError):
+            proc.kill()
+    try:
+        await asyncio.wait_for(proc.wait(), timeout=5)
+    except BaseException:
+        with suppress(ProcessLookupError):
+            proc.kill()
+        with suppress(BaseException):
+            await asyncio.wait_for(proc.wait(), timeout=5)
+    if isinstance(proc, asyncio.subprocess.Process):
+        with suppress(BaseException):
+            await asyncio.wait_for(proc.communicate(), timeout=5)
 
 
 @dataclass
@@ -28,24 +50,23 @@ async def analyze_repo(repo_url: str) -> DetectedStack:
 
 
 async def clone_repo(repo_url: str) -> Path:
-    import re
-
-    if repo_url.startswith("-"):
-        raise ValueError("Invalid repository URL format.")
-    if not re.fullmatch(r"^(https?|git)://[a-zA-Z0-9.-]+(?:/[a-zA-Z0-9._-]+)*\/?$", repo_url):
-        raise ValueError("Invalid repository URL format.")
+    if not await validate_repository_url_async(repo_url):
+        raise ValueError("Invalid or disallowed repository URL.")
 
     dest = Path(tempfile.mkdtemp(prefix="pit-panel-repo-"))
     proc = None
     try:
         proc = await asyncio.create_subprocess_exec(
             "git",
+            "-c",
+            "http.followRedirects=false",
             "clone",
             "--depth",
             "1",
             "--",
             repo_url,
             str(dest),
+            env=isolated_git_env(),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -55,27 +76,7 @@ async def clone_repo(repo_url: str) -> Path:
     except BaseException as e:
         try:
             if proc is not None and proc.returncode is None:
-                try:
-                    with suppress(ProcessLookupError):
-                        proc.terminate()
-                except Exception as shutdown_error:
-                    logger.warning(f"Failed to terminate git clone process: {shutdown_error}")
-                    try:
-                        proc.kill()
-                    except Exception as kill_error:
-                        logger.warning(f"Failed to kill git clone process: {kill_error}")
-                try:
-                    await asyncio.wait_for(proc.wait(), timeout=5)
-                except Exception as wait_error:
-                    logger.warning(f"Failed waiting for git clone process: {wait_error}")
-                    try:
-                        proc.kill()
-                    except Exception as kill_error:
-                        logger.warning(f"Failed to kill git clone process: {kill_error}")
-                    try:
-                        await asyncio.wait_for(proc.wait(), timeout=5)
-                    except Exception as reap_error:
-                        logger.error(f"Failed to reap git clone process: {reap_error}")
+                await _terminate_kill_and_drain(proc)
         finally:
             cleanup(dest)
         if isinstance(e, TimeoutError):

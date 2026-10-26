@@ -21,6 +21,7 @@ from pit_panel.db.models import Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
 
+from .access import require_subdomain_access
 from .router import router
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,7 @@ async def _wp_run_action(
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<span class='text-red-500 text-xs'>App not found</span>")
+    require_subdomain_access(user, sd)
     settings = get_settings()
 
     try:
@@ -266,6 +268,7 @@ async def app_wp_auto_login(request: Request, sd_id: int, db: AsyncSession = Dep
     sd = result.scalar_one_or_none()
     if not sd or sd.app_type != "wordpress":
         return RedirectResponse(url="/apps", status_code=302)
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     base_domain = sd.base_domain or settings.base_domain
@@ -297,6 +300,7 @@ async def app_wp_fix_url(request: Request, sd_id: int, db: AsyncSession = Depend
     sd = result.scalar_one_or_none()
     if not sd or sd.app_type != "wordpress":
         return HTMLResponse("Not a WordPress app", status_code=400)
+    require_subdomain_access(user, sd)
 
     import re
 
@@ -378,6 +382,7 @@ async def app_proxy_service(
     sd = result.scalar_one_or_none()
     if not sd:
         return Response("App not found", status_code=404)
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     env = wp_read_env(settings.apps_dir, sd.subdomain)
@@ -482,6 +487,7 @@ async def app_wp_proxy(request: Request, sd_id: int, path: str, db: AsyncSession
     sd = result.scalar_one_or_none()
     if not sd:
         return Response("App not found", status_code=404)
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     port = _get_wp_port(settings, sd.subdomain)

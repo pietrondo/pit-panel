@@ -333,7 +333,7 @@ def test_site_builder_publish_success_caddy(
 
 @patch("pit_panel.web.routes.site_builder._published_site_dir")
 @patch("pit_panel.web.routes.site_builder.CaddyManager")
-def test_site_builder_publish_success_no_caddy(
+def test_site_builder_publish_routes_via_nipio_when_base_domain_unset(
     mock_caddy_cls, mock_pub_dir, test_app, client, mock_admin
 ):  # noqa: E501
     mock_db = AsyncMock()
@@ -346,12 +346,14 @@ def test_site_builder_publish_success_no_caddy(
     mock_path = MagicMock()
     mock_pub_dir.return_value = mock_path
     mock_path.__truediv__.return_value = mock_path
+    mock_caddy_cls.return_value.add_static_subdomain = AsyncMock()
 
     # Monkeypatch settings
     from pit_panel.config import get_settings
 
     s = get_settings()
     s.base_domain = None
+    s.dynu_domain = ""
 
     with patch(
         "pit_panel.web.routes.site_builder.get_admin", new_callable=AsyncMock
@@ -364,10 +366,11 @@ def test_site_builder_publish_success_no_caddy(
         response = client.post("/site-builder/sites/1/publish")
         assert response.status_code == 200
         assert response.json()["status"] == "published"
-        assert response.json()["url"].startswith("file://")
+        # No base domain: the panel falls back to the nip.io address, as app deploys do.
+        assert response.json()["url"].startswith("https://test.")
 
         mock_db.commit.assert_awaited()
-        mock_caddy_cls.assert_not_called()
+        mock_caddy_cls.return_value.add_static_subdomain.assert_awaited_once()
 
         test_app.dependency_overrides.clear()
 

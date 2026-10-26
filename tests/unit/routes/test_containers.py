@@ -11,6 +11,7 @@ from pit_panel.web.app import create_app
 @pytest.fixture
 def mock_user():
     user = User(id=1, username="admin", email="admin@example.com")
+    user.is_admin = True
     return user
 
 

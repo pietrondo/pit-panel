@@ -133,6 +133,7 @@ async def test_containers_list_no_user(async_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_containers_list_authenticated(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -170,6 +171,7 @@ async def test_container_logs_no_user(async_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_container_logs_authenticated(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -202,6 +204,7 @@ async def test_container_logs_authenticated(async_client: AsyncClient, monkeypat
 @pytest.mark.asyncio
 async def test_container_logs_error(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -234,6 +237,7 @@ async def test_container_logs_error(async_client: AsyncClient, monkeypatch: Any)
 @pytest.mark.asyncio
 async def test_container_logs_not_found(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -261,6 +265,7 @@ async def test_container_restart_no_user(async_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_container_restart_authenticated(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -298,6 +303,7 @@ async def test_container_restart_authenticated(async_client: AsyncClient, monkey
 @pytest.mark.asyncio
 async def test_container_restart_not_found(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -331,6 +337,7 @@ async def test_container_stop_start_no_user(async_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_container_stop_start_authenticated(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -366,6 +373,7 @@ async def test_container_stop_start_authenticated(async_client: AsyncClient, mon
 @pytest.mark.asyncio
 async def test_container_logs_live(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -389,6 +397,7 @@ async def test_container_logs_live(async_client: AsyncClient, monkeypatch: Any):
 @pytest.mark.asyncio
 async def test_container_logs_live_error(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -421,6 +430,7 @@ async def test_container_logs_live_no_user_invalid(async_client: AsyncClient, mo
 @pytest.mark.asyncio
 async def test_container_stats(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -444,6 +454,7 @@ async def test_container_stats(async_client: AsyncClient, monkeypatch: Any):
 @pytest.mark.asyncio
 async def test_container_stats_error(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -475,6 +486,7 @@ async def test_container_stats_no_user_invalid(async_client: AsyncClient, monkey
 @pytest.mark.asyncio
 async def test_container_restart_no_sd(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -498,6 +510,7 @@ async def test_container_restart_no_sd(async_client: AsyncClient, monkeypatch: A
 @pytest.mark.asyncio
 async def test_container_logs_no_sd(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -521,6 +534,7 @@ async def test_container_logs_no_sd(async_client: AsyncClient, monkeypatch: Any)
 @pytest.mark.asyncio
 async def test_containers_fragment_authenticated(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -553,6 +567,7 @@ async def test_containers_fragment_redirects_no_user(async_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_container_logs_authenticated_db_mock(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -590,6 +605,7 @@ async def test_container_logs_authenticated_db_mock(async_client: AsyncClient, m
 @pytest.mark.asyncio
 async def test_container_restart_authenticated_db_mock(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -632,6 +648,7 @@ async def test_container_restart_authenticated_db_mock(async_client: AsyncClient
 @pytest.mark.asyncio
 async def test_container_logs_db_mock_not_found(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user
@@ -653,8 +670,48 @@ async def test_container_logs_db_mock_not_found(async_client: AsyncClient, monke
 
 
 @pytest.mark.asyncio
+async def test_container_logs_rejects_another_owner(async_client: AsyncClient, monkeypatch: Any):
+    mock_user = User(id=2, username="tenant")
+    mock_user.is_admin = False
+
+    async def mock_get_user(request: Any, db: Any) -> User:
+        return mock_user
+
+    monkeypatch.setattr("pit_panel.web.routes.containers.get_user", mock_get_user)
+
+    class MockRow:
+        def __init__(self, id, subdomain, owner_user_id):
+            self.id = id
+            self.subdomain = subdomain
+            self.owner_user_id = owner_user_id
+            self.is_main_domain = False
+
+    class MockResult:
+        def scalar_one_or_none(self):
+            return MockRow(1, "test1", 1)
+
+    async def mock_execute(*args, **kwargs):
+        return MockResult()
+
+    monkeypatch.setattr("sqlalchemy.ext.asyncio.AsyncSession.execute", mock_execute)
+
+    class MockDockerMgr:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def compose_logs(self, subdomain, tail=200):
+            raise AssertionError("logs of another owner must not be read")
+
+    monkeypatch.setattr("pit_panel.web.routes.containers.DockerManager", MockDockerMgr)
+
+    resp = await async_client.get("/containers/1/logs")
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_container_logs_db_mock_error(async_client: AsyncClient, monkeypatch: Any):
     mock_user = User(id=1, username="admin")
+    mock_user.is_admin = True
 
     async def mock_get_user(request: Any, db: Any) -> User:
         return mock_user

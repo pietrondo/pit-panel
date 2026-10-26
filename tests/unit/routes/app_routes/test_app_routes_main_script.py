@@ -119,7 +119,7 @@ async def test_app_analyze_repo_exceptions(monkeypatch):
     monkeypatch.setattr("pit_panel.web.routes.app_routes.main.analyze_repo", mock_analyze_repo_ex)
 
     resp = await app_analyze_repo(req, db)
-    assert b"Errore: Some error" in resp.body
+    assert b"Repository analysis failed." in resp.body
 
 
 class MockResult:
@@ -172,7 +172,7 @@ async def test_resolve_subdomain(monkeypatch):
     monkeypatch.setattr(
         "pit_panel.web.routes.app_routes.deploy.get_settings", lambda: MagicMock(base_domain=None)
     )
-    sd, error = await _resolve_subdomain(db, 1, None, True, 0, "")
+    sd, error = await _resolve_subdomain(db, 1, None, True, 0, "", True)
     assert error == "Base domain not configured. Set it in Settings."
 
     monkeypatch.setattr(
@@ -180,11 +180,11 @@ async def test_resolve_subdomain(monkeypatch):
     )
     mock_sd = Subdomain(subdomain="_main_", app_type="test")
     db.set_val(mock_sd)
-    sd, error = await _resolve_subdomain(db, 1, None, True, 0, "")
+    sd, error = await _resolve_subdomain(db, 1, None, True, 0, "", True)
     assert error == "Main domain app already deployed"
 
     db.set_val(None)
-    sd, error = await _resolve_subdomain(db, 1, None, True, 0, "")
+    sd, error = await _resolve_subdomain(db, 1, None, True, 0, "", True)
     assert sd is not None
     assert sd.subdomain == "_main_"
     assert sd.is_main_domain is True

@@ -9,7 +9,7 @@ import shutil
 import tarfile
 from pathlib import Path
 
-from fastapi import Depends, Form, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, Form, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +21,7 @@ from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
 from pit_panel.web.render import render
 
+from .access import get_websocket_user, require_subdomain_access
 from .router import router
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ async def app_containers_get(request: Request, sd_id: int, db: AsyncSession = De
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<div class='text-red-500'>App not found</div>")
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
@@ -85,6 +87,7 @@ async def app_backup_get(request: Request, sd_id: int, db: AsyncSession = Depend
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<div class='text-red-500'>App not found</div>")
+    require_subdomain_access(user, sd)
 
     backups_dir2 = Path(get_settings().data_dir) / "backups" / sd.subdomain
     backups = []
@@ -116,6 +119,7 @@ async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depend
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<p class='text-red-500'>App not found</p>", status_code=404)
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     from pit_panel.core.backup import perform_app_backup
@@ -162,6 +166,7 @@ async def app_backup_restore(
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<p class='text-red-500'>App not found</p>", status_code=404)
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     backup_path = Path(settings.data_dir) / "backups" / sd.subdomain / f"{name}.tar.gz"
@@ -216,6 +221,7 @@ async def app_logs_get(request: Request, sd_id: int, db: AsyncSession = Depends(
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<div class='text-red-500'>App not found</div>")
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
@@ -267,14 +273,21 @@ async def _stream_websocket(
 
 @router.websocket("/apps/{sd_id}/logs/ws")
 async def app_logs_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = Depends(get_db)):
-    await websocket.accept()
-
+    user = await get_websocket_user(websocket, db)
+    if not user:
+        await websocket.close(code=1008)
+        return
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if not sd:
-        await websocket.send_text("ERROR: App not found")
-        await websocket.close()
+        await websocket.close(code=1008)
         return
+    try:
+        require_subdomain_access(user, sd)
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
 
     settings = get_settings()
     compose_path = Path(settings.apps_dir) / sd.subdomain / "docker-compose.yml"
@@ -313,6 +326,7 @@ async def app_env_get(request: Request, sd_id: int, db: AsyncSession = Depends(g
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<div class='text-red-500'>App not found</div>")
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     env_path = os.path.join(settings.apps_dir, sd.subdomain, ".env")
@@ -350,6 +364,7 @@ async def app_env_post(
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<div class='text-red-500'>App not found</div>")
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     env_path = os.path.join(settings.apps_dir, sd.subdomain, ".env")
@@ -407,6 +422,7 @@ async def app_status_get(request: Request, sd_id: int, db: AsyncSession = Depend
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<div class='text-red-500'>App not found</div>")
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     docker_mgr = DockerManager(settings.apps_dir)
@@ -445,6 +461,7 @@ async def app_files_get(request: Request, sd_id: int, db: AsyncSession = Depends
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<div class='text-red-500'>App not found</div>")
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     app_dir = Path(settings.apps_dir) / sd.subdomain
@@ -514,9 +531,15 @@ async def app_files_save(
     sd = result.scalar_one_or_none()
     if not sd:
         return HTMLResponse("<div class='text-red-500'>App not found</div>", status_code=404)
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     app_dir = Path(settings.apps_dir) / sd.subdomain
+    if ".git" in Path(path).parts:
+        return HTMLResponse(
+            "<div class='text-red-500'>Git metadata cannot be edited</div>",
+            status_code=403,
+        )
     target = (app_dir / path.lstrip("/")).resolve()
     try:
         target.relative_to(app_dir.resolve())

@@ -737,11 +737,12 @@ async def site_builder_publish(
         return JSONResponse({"error": "write_failed", "detail": str(e)}, status_code=500)
 
     settings = get_settings()
+    base_domain = settings.effective_domain
     caddy_note = ""
-    if settings.base_domain:
+    if base_domain:
         try:
             caddy = CaddyManager(settings.caddy_admin_url)
-            await caddy.add_static_subdomain(site.subdomain, settings.base_domain, str(pub_dir))
+            await caddy.add_static_subdomain(site.subdomain, base_domain, str(pub_dir))
         except Exception as e:
             logger.exception("Caddy route creation failed for %s", site.subdomain)
             caddy_note = f"Caddy route not configured: {e}"
@@ -755,8 +756,8 @@ async def site_builder_publish(
     return JSONResponse(
         {
             "status": "published",
-            "url": f"https://{site.subdomain}.{settings.base_domain}"
-            if settings.base_domain
+            "url": f"https://{site.subdomain}.{base_domain}"
+            if base_domain
             else f"file://{site.published_html_path}",
             "path": site.published_html_path,
             "pages": written,
@@ -787,10 +788,11 @@ async def site_builder_delete(
                 shutil.rmtree(pub_dir, ignore_errors=True)
 
     settings = get_settings()
-    if settings.base_domain:
+    base_domain = settings.effective_domain
+    if base_domain:
         with contextlib.suppress(Exception):
             await CaddyManager(settings.caddy_admin_url).remove_static_subdomain(
-                site.subdomain, settings.base_domain
+                site.subdomain, base_domain
             )
 
     await db.delete(site)

@@ -14,6 +14,7 @@ from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
 from pit_panel.web.render import render
 
+from .access import get_websocket_user, require_subdomain_access
 from .ops_files import _stream_websocket
 from .router import router
 
@@ -46,6 +47,7 @@ async def app_terminal_get(request: Request, sd_id: int, db: AsyncSession = Depe
     sd = result.scalar_one_or_none()
     if not sd:
         return RedirectResponse("/apps", status_code=302)
+    require_subdomain_access(user, sd)
 
     settings = get_settings()
     compose_path = Path(settings.apps_dir) / sd.subdomain / "docker-compose.yml"
@@ -56,14 +58,21 @@ async def app_terminal_get(request: Request, sd_id: int, db: AsyncSession = Depe
 
 @router.websocket("/apps/{sd_id}/terminal/ws")
 async def app_terminal_ws(websocket: WebSocket, sd_id: int, db: AsyncSession = Depends(get_db)):
-    await websocket.accept()
-
+    user = await get_websocket_user(websocket, db)
+    if not user:
+        await websocket.close(code=1008)
+        return
     result = await db.execute(select(Subdomain).where(Subdomain.id == sd_id))
     sd = result.scalar_one_or_none()
     if not sd:
-        await websocket.send_text("ERROR: App not found")
-        await websocket.close()
+        await websocket.close(code=1008)
         return
+    try:
+        require_subdomain_access(user, sd)
+    except Exception:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
 
     settings = get_settings()
     compose_path = Path(settings.apps_dir) / sd.subdomain / "docker-compose.yml"

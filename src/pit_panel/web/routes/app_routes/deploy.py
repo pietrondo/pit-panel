@@ -1,7 +1,9 @@
 """App deployment routes: template deploy and deploy-from-repo."""
 
 import asyncio
+import contextlib
 import datetime
+import html
 import logging
 import os
 import re
@@ -11,12 +13,19 @@ from pathlib import Path
 from fastapi import Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
 from pit_panel.core.app_manager import AppManager
 from pit_panel.core.caddy import CaddyManager
 from pit_panel.core.docker_ops import DockerManager
+from pit_panel.core.dynu import DynuClient
+from pit_panel.core.repo_validator import (
+    isolated_git_env,
+    redact_repository_url,
+    validate_repository_url_async,
+)
 from pit_panel.db.models import AppDeployment, AuditLog, Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
@@ -27,7 +36,92 @@ from .router import router
 logger = logging.getLogger(__name__)
 
 
-def _patch_vite_allowed_hosts(src_dir: Path) -> None:
+def _effective_domain(settings) -> str:
+    effective = getattr(settings, "effective_domain", None)
+    if isinstance(effective, str) and effective:
+        return effective
+    return settings.base_domain
+
+
+def _dynu_enabled(settings) -> bool:
+    return all(
+        isinstance(getattr(settings, key, ""), str) and getattr(settings, key, "").strip()
+        for key in ("dynu_api_key", "dynu_domain")
+    )
+
+
+async def _provision_dynu(settings, name: str, domain: str) -> tuple[int, str] | None:
+    if not _dynu_enabled(settings):
+        return None
+    ip = settings._detect_ip()
+    async with DynuClient(settings.dynu_api_key) as client:
+        record = await client.add_a_record(domain, name, ip)
+    return int(record["id"]), ip
+
+
+async def _allocate_host_port(
+    db, requested_port: int, settings, current_subdomain_id: int | None = None
+) -> int:
+    port = int(requested_port)
+    if not 8000 <= port <= 8999 or port == int(getattr(settings, "port", 8080)):
+        raise ValueError("Port must be within the managed range and cannot use the panel port")
+    # An app reserves two ports: the WordPress template also binds PORT+1 (phpMyAdmin).
+    query = (
+        select(Subdomain.id)
+        .where(Subdomain.host_port.in_([port - 1, port, port + 1]))
+        .limit(1)
+    )
+    if current_subdomain_id is not None:
+        query = query.where(Subdomain.id != current_subdomain_id)
+    result = await db.execute(query)
+    if result.scalar_one_or_none() is not None:
+        raise ValueError("Requested port is already reserved")
+    return port
+
+
+async def _cleanup_provisioned(settings, sd: Subdomain, db: AsyncSession) -> None:
+    if getattr(sd, "_provisioned_dynu_record_id", None) and _dynu_enabled(settings):
+        try:
+            async with DynuClient(settings.dynu_api_key) as client:
+                await client.delete_record(sd.base_domain, sd._provisioned_dynu_record_id)
+        except Exception:
+            logger.exception("Failed to clean up Dynu record for %s", sd.subdomain)
+    if getattr(sd, "_caddy_route_created", False) and _effective_domain(settings):
+        try:
+            caddy = CaddyManager(settings.caddy_admin_url)
+            if getattr(sd, "_caddy_route_kind", "subdomain") == "main":
+                await caddy.remove_main_domain(sd.base_domain)
+            else:
+                await caddy.remove_subdomain(sd.subdomain, sd.base_domain)
+        except Exception:
+            logger.exception("Failed to clean up Caddy route for %s", sd.subdomain)
+    docker_mgr = getattr(sd, "_deployment_docker_mgr", None)
+    if getattr(sd, "_compose_started", False) and docker_mgr:
+        with contextlib.suppress(Exception):
+            await docker_mgr.run_compose_command(sd.subdomain, ["down"])
+    if getattr(sd, "_app_dir_created", False):
+        with contextlib.suppress(Exception):
+            shutil.rmtree(Path(settings.apps_dir) / sd.subdomain)
+    await db.rollback()
+
+
+async def _stop_git_process(proc) -> None:
+    if proc is None or proc.returncode is not None:
+        return
+    try:
+        proc.terminate()
+    except BaseException:
+        with contextlib.suppress(ProcessLookupError):
+            proc.kill()
+    try:
+        await asyncio.wait_for(proc.communicate(), timeout=5)
+    except BaseException:
+        with contextlib.suppress(ProcessLookupError):
+            proc.kill()
+        with contextlib.suppress(BaseException):
+            await asyncio.wait_for(proc.communicate(), timeout=5)
+
+def _patch_vite_allowed_hosts(src_dir: Path, hostname: str = "localhost") -> None:
     for name in ("vite.config.ts", "vite.config.js", "vite.config.mjs"):
         cfg = src_dir / name
         if cfg.exists():
@@ -36,7 +130,7 @@ def _patch_vite_allowed_hosts(src_dir: Path) -> None:
                 "import { mergeConfig } from 'vite'\n"
                 f"import userConfig from './{name}'\n"
                 "export default mergeConfig(userConfig,"
-                " { server: { allowedHosts: true } })\n"
+                f" {{ server: {{ allowedHosts: ['{hostname}'] }} }})\n"
             )
             return
 
@@ -48,19 +142,23 @@ async def _resolve_subdomain(
     is_main_domain: bool,
     subdomain_id: int,
     new_subdomain: str,
+    is_admin: bool = False,
 ):
-    settings = get_settings()
+    if settings is None:
+        settings = get_settings()
     sd = None
     error = None
 
     if is_main_domain:
-        if not settings.base_domain:
+        if not is_admin:
+            error = "Administrator privileges required"
+        elif not _effective_domain(settings):
             error = "Base domain not configured. Set it in Settings."
         else:
             existing = await db.execute(
                 select(Subdomain).where(
                     Subdomain.is_main_domain,
-                    Subdomain.base_domain == settings.base_domain,
+                    Subdomain.base_domain == _effective_domain(settings),
                 )
             )
             sd = existing.scalar_one_or_none()
@@ -70,40 +168,52 @@ async def _resolve_subdomain(
             else:
                 sd = Subdomain(
                     subdomain="_main_",
-                    base_domain=settings.base_domain,
+                    base_domain=_effective_domain(settings),
                     owner_user_id=user_id,
                     is_main_domain=True,
                 )
                 db.add(sd)
+                sd._created_by_request = True
                 await db.flush()
     elif subdomain_id > 0:
         result = await db.execute(select(Subdomain).where(Subdomain.id == subdomain_id))
         sd = result.scalar_one_or_none()
         if not sd:
             error = "Subdomain not found"
+        elif not is_admin and sd.owner_user_id != user_id:
+            error = "You do not own this subdomain"
     elif new_subdomain.strip():
         name = new_subdomain.strip().lower().replace(" ", "-")
         if not re.fullmatch(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$", name):
             error = f"Invalid subdomain name: {name}"
         else:
-            if not settings.base_domain:
+            if not _effective_domain(settings):
                 error = "Base domain not configured. Set it in Settings."
             else:
                 existing = await db.execute(
                     select(Subdomain).where(
                         Subdomain.subdomain == name,
-                        Subdomain.base_domain == settings.base_domain,
+                        Subdomain.base_domain == _effective_domain(settings),
                     )
                 )
                 sd = existing.scalar_one_or_none()
                 if not sd:
+                    if _dynu_enabled(settings) and not is_admin:
+                        return None, "Administrator privileges required"
                     sd = Subdomain(
                         subdomain=name,
-                        base_domain=settings.base_domain,
+                        base_domain=_effective_domain(settings),
                         owner_user_id=user_id,
                     )
                     db.add(sd)
+                    sd._created_by_request = True
                     await db.flush()
+                    record = await _provision_dynu(settings, name, _effective_domain(settings))
+                    if record:
+                        sd.dynu_record_id, sd.dynu_ipv4 = record
+                        sd._provisioned_dynu_record_id = record[0]
+                elif not is_admin and sd.owner_user_id != user_id:
+                    error = "You do not own this subdomain"
     else:
         error = "Select an existing subdomain or enter a new name"
 
@@ -124,6 +234,8 @@ async def _render_apps_error(user, settings, db: AsyncSession, error: str, reque
         )
     result = await db.execute(select(Subdomain).order_by(Subdomain.created_at.desc()))
     subdomains = result.scalars().all()
+    if not bool(getattr(user, "is_admin", False)):
+        subdomains = [sd for sd in subdomains if sd.owner_user_id == user.id]
     mgr2 = AppManager()
     templates = mgr2.list_templates()
     template_infos = [{"name": t, "meta": mgr2.get_template_info(t)} for t in templates]
@@ -140,7 +252,7 @@ async def _render_apps_error(user, settings, db: AsyncSession, error: str, reque
 
 
 async def _auto_setup_wordpress(settings, sd, docker_mgr):
-    fqdn = f"{sd.subdomain}.{settings.base_domain}"
+    fqdn = f"{sd.subdomain}.{_effective_domain(settings)}"
     try:
         env_path = Path(settings.apps_dir) / sd.subdomain / ".env"
         env_vars = {}
@@ -182,16 +294,23 @@ async def _auto_setup_wordpress(settings, sd, docker_mgr):
 
 
 async def _setup_caddy_route(
-    settings, sd, port: int, error: str | None, stack_type: str
+    settings, sd, port: int, error: str | None, stack_type: str, track_resource: bool = False
 ) -> str | None:
     try:
         caddy = CaddyManager(settings.caddy_admin_url)
         if sd.is_main_domain:
-            await caddy.add_main_domain(settings.base_domain, port=port)
+            await caddy.add_main_domain(_effective_domain(settings), port=port)
+            if track_resource:
+                sd._caddy_route_created = True
+                sd._caddy_route_kind = "main"
         elif sd.app_type != stack_type:
-            await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
-            fqdn = f"{sd.subdomain}.{settings.base_domain}"
-            await caddy.renew_certificate(fqdn)
+            await caddy.add_subdomain(sd.subdomain, _effective_domain(settings), port=port)
+            if track_resource:
+                sd._caddy_route_created = True
+            fqdn = f"{sd.subdomain}.{_effective_domain(settings)}"
+            renewal = await caddy.renew_certificate(fqdn)
+            if isinstance(renewal, dict) and renewal.get("success") is False:
+                raise RuntimeError("Caddy certificate renewal failed")
     except Exception as e:
         logger.error(f"Caddy route error for {sd.subdomain}: {e}")
         error = (error or "") + f" | Caddy route error: {e}"
@@ -222,22 +341,53 @@ async def app_deploy(
 
     # Resolve subdomain: use existing by ID or create new
     sd, error = await _resolve_subdomain(
-        db, user.id, settings, is_main_domain, subdomain_id, new_subdomain
+        db,
+        user.id,
+        settings,
+        is_main_domain,
+        subdomain_id,
+        new_subdomain,
+        bool(getattr(user, "is_admin", False)),
     )
 
     if error or not sd:
         return await _render_apps_error(user, settings, db, error, request)
+    try:
+        if getattr(sd, "host_port", None) is not None and port == 8000:
+            port = sd.host_port
+        port = await _allocate_host_port(db, port, settings, sd.id)
+    except ValueError as exc:
+        if bool(getattr(sd, "_created_by_request", False)):
+            await _cleanup_provisioned(settings, sd, db)
+        return await _render_apps_error(user, settings, db, str(exc), request)
+    created_subdomain = bool(getattr(sd, "_created_by_request", False))
+    sd._deployment_docker_mgr = docker_mgr
+    sd._app_dir_created = not (Path(settings.apps_dir) / sd.subdomain).exists()
+    if hasattr(sd, "host_port") and sd.host_port != port:
+        try:
+            sd.host_port = port
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            if created_subdomain:
+                await _cleanup_provisioned(settings, sd, db)
+            return await _render_apps_error(
+                user, settings, db, "Requested port is already reserved", request
+            )
 
     # Deploy template
     try:
         mgr.deploy_template(sd.subdomain, stack_type, variables={"PORT": str(port)})
     except ValueError as e:
+        if created_subdomain:
+            await _cleanup_provisioned(settings, sd, db)
         return await _render_apps_error(user, settings, db, str(e), request)
 
     # Docker compose up
     compose_ok = False
     compose_logs = ""
     try:
+        sd._compose_started = created_subdomain
         result = await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
         compose_ok = result.get("success", False)
         compose_logs = (result.get("stdout", "") + result.get("stderr", ""))[:500]
@@ -246,13 +396,23 @@ async def app_deploy(
     except Exception as e:
         error = f"Docker compose error: {e}"
 
+    if not compose_ok and created_subdomain:
+        await _cleanup_provisioned(settings, sd, db)
+        return await _render_apps_error(user, settings, db, error, request)
+
     # Auto-setup WordPress
-    if compose_ok and stack_type == "wordpress" and settings.base_domain:
+    if compose_ok and stack_type == "wordpress" and _effective_domain(settings):
         await _auto_setup_wordpress(settings, sd, docker_mgr)
 
     # Caddy route
-    if settings.base_domain:
-        error = await _setup_caddy_route(settings, sd, port, error, stack_type)
+    if _effective_domain(settings):
+        error = await _setup_caddy_route(
+            settings, sd, port, error, stack_type, created_subdomain
+        )
+
+    if error and created_subdomain:
+        await _cleanup_provisioned(settings, sd, db)
+        return await _render_apps_error(user, settings, db, error, request)
 
     sd.app_type = stack_type
     sd.last_deployed = datetime.datetime.now(datetime.UTC)
@@ -276,26 +436,31 @@ async def app_deploy(
             user_agent=request.headers.get("user-agent"),
         )
     )
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception:
+        await _cleanup_provisioned(settings, sd, db)
+        raise
 
     if compose_ok:
         from pit_panel.core.notifier import notify_app_deploy
 
-        base_domain = sd.base_domain or settings.base_domain
+        base_domain = sd.base_domain or _effective_domain(settings)
         await notify_app_deploy(sd.subdomain, stack_type, f"{sd.subdomain}.{base_domain}")
 
     logs_escaped = (compose_logs or "").replace("&", "&amp;").replace("<", "&lt;")
     logs_escaped = logs_escaped.replace(">", "&gt;").replace("\n", "<br>")
     pre_style = 'class="text-xs bg-gray-950 p-3 rounded overflow-auto max-h-60"'
     if error:
+        safe_error = html.escape(str(error))
         return HTMLResponse(
             '<div class="card p-6 border-red-400 dark:border-red-700">'
             '<h3 class="text-red-600 font-semibold mb-2">Deploy failed</h3>'
-            f'<p class="text-sm text-red-500 mb-3">{error}</p>'
+            f'<p class="text-sm text-red-500 mb-3">{safe_error}</p>'
             f'<pre {pre_style} style="color:#fca5a5">{logs_escaped}</pre>'
             "</div>"
         )
-    fqdn = f"{sd.subdomain}.{sd.base_domain or settings.base_domain}"
+    fqdn = f"{sd.subdomain}.{sd.base_domain or _effective_domain(settings)}"
     return HTMLResponse(
         '<div class="card p-6 border-green-400 dark:border-green-700">'
         '<h3 class="text-green-600 font-semibold mb-2">Deploy successful!</h3>'
@@ -327,21 +492,25 @@ async def app_deploy_from_repo(
         return RedirectResponse("/login", status_code=302)
 
     settings = get_settings()
-    if not settings.base_domain:
+    if not _effective_domain(settings):
         return HTMLResponse('<p class="text-red-500">Base domain not configured</p>')
 
     # Validate repo_url to prevent command injection via git clone
     if not repo_url or repo_url.startswith("-") or "ext::" in repo_url:
         return HTMLResponse('<p class="text-red-500">Invalid repository URL</p>', status_code=400)
 
-    if not re.fullmatch(
-        r"^(https?://|git://|git@[a-zA-Z0-9.-]+:)[a-zA-Z0-9.-]+(?:/[a-zA-Z0-9._-]+)*\/?$", repo_url
-    ):
+    if "://" not in repo_url and not repo_url.startswith("git@"):
         return HTMLResponse(
             '<p class="text-red-500">Invalid repository URL scheme</p>', status_code=400
         )
 
+    if not await validate_repository_url_async(repo_url):
+        return HTMLResponse(
+            '<p class="text-red-500">Repository provider is not allowed</p>', status_code=400
+        )
+
     sd: Subdomain | None = None
+    safe_repo_url = redact_repository_url(repo_url)
 
     # Main domain: reuse the `_main_` subdomain, allowing redeploy of the same
     # stack from this repo (unlike /apps/deploy, which always creates a new app).
@@ -349,23 +518,35 @@ async def app_deploy_from_repo(
         existing_main = await db.execute(
             select(Subdomain).where(
                 Subdomain.is_main_domain,
-                Subdomain.base_domain == settings.base_domain,
+                Subdomain.base_domain == _effective_domain(settings),
             )
         )
         sd = existing_main.scalar_one_or_none()
         if sd and sd.app_type and sd.app_type != stack_type:
             return HTMLResponse('<p class="text-red-500">Main domain app already deployed</p>')
+        if not bool(getattr(user, "is_admin", False)):
+            return HTMLResponse(
+                '<p class="text-red-500">Administrator privileges required</p>',
+                status_code=403,
+            )
         if not sd:
-            sd, error = await _resolve_subdomain(db, user.id, settings, True, -1, "")
+            sd, error = await _resolve_subdomain(
+                db, user.id, settings, True, -1, "", bool(getattr(user, "is_admin", False))
+            )
+            if sd and not existing_main:
+                sd._created_by_request = True
             if error or not sd:
+                safe_error = html.escape(str(error or "Main domain unavailable"))
                 return HTMLResponse(
-                    f'<p class="text-red-500">{error or "Main domain unavailable"}</p>'
+                    f'<p class="text-red-500">{safe_error}</p>'
                 )
 
     # Try resolving by existing subdomain ID first
     if not sd and subdomain_id > 0:
         result = await db.execute(select(Subdomain).where(Subdomain.id == subdomain_id))
         sd = result.scalar_one_or_none()
+        if sd and not bool(getattr(user, "is_admin", False)) and sd.owner_user_id != user.id:
+            return HTMLResponse('<p class="text-red-500">You do not own this subdomain</p>')
         if sd and sd.app_type:
             return HTMLResponse(
                 f'<p class="text-red-500">{sd.subdomain} already has an app deployed</p>'
@@ -374,10 +555,16 @@ async def app_deploy_from_repo(
     # If a custom name was provided, resolve/create it
     if not sd and new_subdomain.strip():
         sd, error = await _resolve_subdomain(
-            db, user.id, settings, False, -1, new_subdomain.strip()
+            db,
+            user.id,
+            settings,
+            False,
+            -1,
+            new_subdomain.strip(),
+            bool(getattr(user, "is_admin", False)),
         )
         if error:
-            return HTMLResponse(f'<p class="text-red-500">{error}</p>')
+            return HTMLResponse(f'<p class="text-red-500">{html.escape(str(error))}</p>')
 
     # Fallback: auto-generate from repo name
     if not sd:
@@ -389,7 +576,7 @@ async def app_deploy_from_repo(
         existing = await db.execute(
             select(Subdomain).where(
                 Subdomain.subdomain == name,
-                Subdomain.base_domain == settings.base_domain,
+                Subdomain.base_domain == _effective_domain(settings),
             )
         )
         sd = existing.scalar_one_or_none()
@@ -398,21 +585,57 @@ async def app_deploy_from_repo(
             sd = None
 
         if not sd:
+            if _dynu_enabled(settings) and not bool(getattr(user, "is_admin", False)):
+                return HTMLResponse(
+                    '<p class="text-red-500">Administrator privileges required</p>',
+                    status_code=403,
+                )
             sd = Subdomain(
                 subdomain=name,
-                base_domain=settings.base_domain,
+                base_domain=_effective_domain(settings),
                 owner_user_id=user.id,
             )
             db.add(sd)
+            sd._created_by_request = True
             await db.flush()
+            record = await _provision_dynu(settings, name, _effective_domain(settings))
+            if record:
+                sd.dynu_record_id, sd.dynu_ipv4 = record
+                sd._provisioned_dynu_record_id = record[0]
 
+    try:
+        if getattr(sd, "host_port", None) is not None and port == 8000:
+            port = sd.host_port
+        port = await _allocate_host_port(db, port, settings, sd.id)
+    except ValueError as exc:
+        if bool(getattr(sd, "_created_by_request", False)):
+            await _cleanup_provisioned(settings, sd, db)
+        return HTMLResponse(
+            f'<p class="text-red-500">{html.escape(str(exc))}</p>', status_code=400
+        )
+    if hasattr(sd, "host_port") and sd.host_port != port:
+        try:
+            sd.host_port = port
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            if bool(getattr(sd, "_created_by_request", False)):
+                await _cleanup_provisioned(settings, sd, db)
+            return HTMLResponse(
+                '<p class="text-red-500">Requested port is already reserved</p>',
+                status_code=409,
+            )
     mgr = AppManager(settings.apps_dir)
     docker_mgr = DockerManager(settings.apps_dir)
+    sd._deployment_docker_mgr = docker_mgr
+    sd._app_dir_created = not (Path(settings.apps_dir) / sd.subdomain).exists()
 
     try:
         mgr.deploy_template(sd.subdomain, stack_type, variables={"PORT": str(port)})
     except ValueError as e:
-        return HTMLResponse(f'<p class="text-red-500">{e}</p>')
+        if bool(getattr(sd, "_created_by_request", False)):
+            await _cleanup_provisioned(settings, sd, db)
+        return HTMLResponse(f'<p class="text-red-500">{html.escape(str(e))}</p>')
 
     _source_stacks = {
         "nodejs": "app",
@@ -428,12 +651,15 @@ async def app_deploy_from_repo(
                 shutil.rmtree(src_dir)
             proc = await asyncio.create_subprocess_exec(
                 "git",
+                "-c",
+                "http.followRedirects=false",
                 "clone",
                 "--depth",
                 "1",
                 "--",
                 repo_url,
                 str(src_dir),
+                env=isolated_git_env(),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -441,23 +667,41 @@ async def app_deploy_from_repo(
             if proc.returncode != 0:
                 logger.error(
                     "Git clone failed for %s: %s",
-                    repo_url,
+                    safe_repo_url,
                     stderr.decode(errors="replace")[:300],
                 )
+                if bool(getattr(sd, "_created_by_request", False)):
+                    await _cleanup_provisioned(settings, sd, db)
+                return HTMLResponse(
+                    '<p class="text-red-500">Git clone failed.</p>', status_code=502
+                )
             else:
-                _patch_vite_allowed_hosts(src_dir)
+                _patch_vite_allowed_hosts(src_dir, f"{sd.subdomain}.{_effective_domain(settings)}")
         except PermissionError:
-            return HTMLResponse(
-                f'<p class="text-red-500">Permission denied on {src_dir}.'
+            if bool(getattr(sd, "_created_by_request", False)):
+                await _cleanup_provisioned(settings, sd, db)
+                return HTMLResponse(
+                    f'<p class="text-red-500">Permission denied on {html.escape(str(src_dir))}.'
                 " Run: sudo rm -rf {src_dir}</p>"
             )
+        except asyncio.CancelledError:
+            await _stop_git_process(proc)
+            raise
         except TimeoutError:
+            await _stop_git_process(proc)
+            if bool(getattr(sd, "_created_by_request", False)):
+                await _cleanup_provisioned(settings, sd, db)
             return HTMLResponse('<p class="text-red-500">Git clone timed out. Try again.</p>')
         except Exception as e:
-            logger.error("Git clone error for %s: %s", repo_url, e)
-            return HTMLResponse(f'<p class="text-red-500">Clone failed: {str(e)[:200]}</p>')
+            logger.error("Git clone error for %s: %s", safe_repo_url, e)
+            if bool(getattr(sd, "_created_by_request", False)):
+                await _cleanup_provisioned(settings, sd, db)
+            return HTMLResponse(
+                f'<p class="text-red-500">Clone failed: {html.escape(str(e)[:200])}</p>'
+            )
 
     try:
+        sd._compose_started = bool(getattr(sd, "_created_by_request", False))
         result = await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
         compose_ok = result.get("success", False)
         compose_error = (result.get("stderr", "") + result.get("stdout", ""))[:300]
@@ -465,17 +709,38 @@ async def app_deploy_from_repo(
         compose_ok = False
         compose_error = str(e)[:300]
 
-    if settings.base_domain:
+    if not compose_ok and bool(getattr(sd, "_created_by_request", False)):
+        await _cleanup_provisioned(settings, sd, db)
+        err_esc = html.escape(compose_error)
+        return HTMLResponse(
+            '<p class="text-red-500">Docker compose failed</p>'
+            f'<pre>{err_esc}</pre>', status_code=502
+        )
+
+    if _effective_domain(settings):
         try:
             caddy = CaddyManager(settings.caddy_admin_url)
             if sd.is_main_domain:
-                await caddy.add_main_domain(settings.base_domain, port=port)
+                await caddy.add_main_domain(_effective_domain(settings), port=port)
+                if bool(getattr(sd, "_created_by_request", False)):
+                    sd._caddy_route_created = True
+                    sd._caddy_route_kind = "main"
             else:
-                await caddy.add_subdomain(sd.subdomain, settings.base_domain, port=port)
-                fqdn = f"{sd.subdomain}.{settings.base_domain}"
-                await caddy.renew_certificate(fqdn)
+                await caddy.add_subdomain(sd.subdomain, _effective_domain(settings), port=port)
+                if bool(getattr(sd, "_created_by_request", False)):
+                    sd._caddy_route_created = True
+                    sd._caddy_route_kind = "subdomain"
+                fqdn = f"{sd.subdomain}.{_effective_domain(settings)}"
+                renewal = await caddy.renew_certificate(fqdn)
+                if isinstance(renewal, dict) and renewal.get("success") is False:
+                    raise RuntimeError("Caddy certificate renewal failed")
         except Exception as e:
             logger.error(f"Caddy route error for {sd.subdomain}: {e}")
+            if bool(getattr(sd, "_created_by_request", False)):
+                await _cleanup_provisioned(settings, sd, db)
+                return HTMLResponse(
+                    '<p class="text-red-500">Caddy route failed.</p>', status_code=502
+                )
 
     sd.app_type = stack_type
     sd.last_deployed = datetime.datetime.now(datetime.UTC)
@@ -496,7 +761,7 @@ async def app_deploy_from_repo(
             target_id=sd.id,
             details={
                 "stack": stack_type,
-                "repo": repo_url,
+                "repo": safe_repo_url,
                 "subdomain": sd.subdomain,
                 "success": compose_ok,
             },
@@ -504,7 +769,11 @@ async def app_deploy_from_repo(
             user_agent=request.headers.get("user-agent"),
         )
     )
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception:
+        await _cleanup_provisioned(settings, sd, db)
+        raise
 
     if not compose_ok:
         err_esc = compose_error.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -519,7 +788,7 @@ async def app_deploy_from_repo(
 
     from pit_panel.core.notifier import notify_app_deploy
 
-    base_domain = sd.base_domain or settings.base_domain
+    base_domain = sd.base_domain or _effective_domain(settings)
     fqdn = base_domain if sd.is_main_domain else f"{sd.subdomain}.{base_domain}"
     await notify_app_deploy(sd.subdomain, stack_type, fqdn)
 
