@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pit_panel.config import get_settings
 from pit_panel.core.caddy import CaddyManager
 from pit_panel.core.dns_check import root_problem
-from pit_panel.core.dynu import DynuClient
+from pit_panel.core.dynu import DynuClient, available_roots
 from pit_panel.db.models import AuditLog, Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
@@ -33,8 +33,11 @@ def _dynu_enabled(settings: Any) -> bool:
 async def _dns_add(
     settings: Any, name: str, domain: str, ipv4: str | None = None
 ) -> tuple[int, str] | None:
-    # Only the Dynu-managed root hostname has API-provisionable records.
-    if not _dynu_enabled(settings) or domain != getattr(settings, "dynu_domain", ""):
+    # Only a root the Dynu account actually owns can be provisioned.
+    if not _dynu_enabled(settings):
+        return None
+    roots = await available_roots(settings)
+    if roots is not None and domain not in roots:
         return None
     ip = ipv4 or settings._detect_ip()
     async with DynuClient(getattr(settings, "dynu_api_key", "")) as dynu:
@@ -45,7 +48,8 @@ async def _dns_add(
 async def _dns_delete(settings: Any, domain: str, record_id: int | None) -> None:
     if not _dynu_enabled(settings) or record_id is None:
         return
-    if domain != getattr(settings, "dynu_domain", ""):
+    roots = await available_roots(settings)
+    if roots is not None and domain not in roots:
         return
     async with DynuClient(getattr(settings, "dynu_api_key", "")) as dynu:
         await dynu.delete_record(domain, record_id)
@@ -98,7 +102,9 @@ async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
 
     settings = get_settings()
     root_warning = None
+    roots = None
     if _dynu_enabled(settings):
+        roots = await available_roots(settings)
         root_warning = await root_problem(settings.dynu_domain)
 
     return render(
@@ -108,6 +114,7 @@ async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
         error=None,
         created=request.query_params.get("created"),
         root_domain=settings.effective_domain,
+        roots=roots,
         root_warning=root_warning,
     )
 
@@ -116,6 +123,7 @@ async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
 async def subdomain_add(
     request: Request,
     subdomain: str = Form(...),
+    root: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_user(request, db)
@@ -133,7 +141,27 @@ async def subdomain_add(
     settings = get_settings()
     if _dynu_enabled(settings) and not bool(getattr(user, "is_admin", False)):
         raise HTTPException(status_code=403, detail="Administrator privileges required")
+
+    # The Dynu account owns the roots: a subdomain can live on any of them, not
+    # only on the configured default one.
     base_domain = settings.effective_domain
+    roots = await available_roots(settings) if _dynu_enabled(settings) else None
+    if roots:
+        chosen = (root or base_domain).strip().lower()
+        if chosen not in roots:
+            query = select(Subdomain).where(~Subdomain.is_main_domain)
+            if not bool(getattr(user, "is_admin", False)):
+                query = query.where(Subdomain.owner_user_id == user.id)
+            result = await db.execute(query.order_by(Subdomain.created_at.desc()))
+            return render(
+                "subdomains.html",
+                user=user,
+                subdomains=result.scalars().all(),
+                error=f"Unknown Dynu root: {chosen}. Available: {', '.join(roots)}",
+                root_domain=base_domain,
+                roots=roots,
+            )
+        base_domain = chosen
 
     safe_subdomain = subdomain.strip().lower().replace(" ", "-")
     if not safe_subdomain or not re.fullmatch(

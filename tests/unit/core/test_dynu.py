@@ -63,3 +63,29 @@ async def test_add_rejects_existing_a_or_cname_record():
         await DynuClient("k", transport=httpx.MockTransport(handler)).add_a_record(
             "root.dynu.net", "app", "1.2.3.4"
         )
+
+
+@pytest.mark.asyncio
+async def test_list_domains_reads_every_root_in_the_account():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {"id": 1, "name": "one.dynu.net"},
+                {"id": 2, "name": "two.org."},
+                {"id": 3},
+            ],
+        )
+
+    roots = await DynuClient("k", transport=httpx.MockTransport(handler)).list_domains()
+
+    assert roots == ["one.dynu.net", "two.org"]
+
+
+@pytest.mark.asyncio
+async def test_available_roots_returns_none_without_a_key():
+    from types import SimpleNamespace
+
+    from pit_panel.core.dynu import available_roots
+
+    assert await available_roots(SimpleNamespace(dynu_api_key="")) is None

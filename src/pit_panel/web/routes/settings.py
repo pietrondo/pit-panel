@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
+from pit_panel.core.dynu import available_roots
 from pit_panel.db.models import AuditLog, SystemSettings
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_admin
@@ -26,11 +27,17 @@ async def settings_page(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50))
     audit_entries = result.scalars().all()
 
+    settings = get_settings()
+    dynu_roots: list[str] | None = None
+    if settings.dynu_api_key.strip():
+        dynu_roots = await available_roots(settings)
+
     return render(
         "settings.html",
         user=user,
         audit_entries=audit_entries,
-        settings=get_settings(),
+        settings=settings,
+        dynu_roots=dynu_roots,
         config_saved=False,
         error=None,
     )
@@ -88,6 +95,20 @@ async def settings_update(
     if new_panel and not re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", new_panel):
         return HTMLResponse("Invalid panel subdomain", status_code=400)
     new_host = "127.0.0.1" if new_base else "0.0.0.0"  # nosec B104
+
+    # The Dynu account owns the roots: refuse a name it does not have instead of
+    # storing a root that can only ever produce hostnames nobody can resolve.
+    if new_dynu_domain and retained_dynu_key:
+        probe = current_settings.model_copy(
+            update={"dynu_api_key": retained_dynu_key, "dynu_domain": ""}
+        )
+        roots = await available_roots(probe)
+        if roots is not None and new_dynu_domain not in roots:
+            available = ", ".join(roots) if roots else "none"
+            return HTMLResponse(
+                f"Unknown Dynu root: {new_dynu_domain}. Domains in the account: {available}",
+                status_code=400,
+            )
 
     # Store in DB (no filesystem write needed)
     updates = [

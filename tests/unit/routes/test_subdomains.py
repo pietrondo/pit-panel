@@ -429,12 +429,52 @@ async def test_log_audit_helper():
 
 
 @pytest.mark.asyncio
-async def test_dns_add_skips_domains_outside_the_dynu_root():
+async def test_dns_add_skips_roots_the_account_does_not_own(monkeypatch):
     from types import SimpleNamespace
 
-    from pit_panel.web.routes.subdomains import _dns_add
+    from pit_panel.web.routes import subdomains as subdomains_module
 
-    settings = SimpleNamespace(dynu_api_key="key", dynu_domain="root.dynu.net")
+    async def account_roots(_settings):
+        return ["owned.dynu.net"]
+
+    monkeypatch.setattr(subdomains_module, "available_roots", account_roots)
+    settings = SimpleNamespace(dynu_api_key="key", dynu_domain="owned.dynu.net")
 
     # Legacy subdomains keep their own base domain: no Dynu record is provisioned for them.
-    assert await _dns_add(settings, "customer", "legacy.example.com") is None
+    assert (
+        await subdomains_module._dns_add(settings, "customer", "legacy.example.com") is None
+    )
+
+
+@pytest.mark.asyncio
+@patch("pit_panel.web.routes.subdomains.get_user")
+@patch("pit_panel.web.routes.subdomains._dns_add")
+@patch("pit_panel.web.routes.subdomains.available_roots")
+@patch("pit_panel.web.routes.subdomains.get_settings")
+async def test_subdomain_add_can_use_any_root_of_the_account(
+    mock_get_settings, mock_roots, mock_dns, mock_get_user, test_client, mock_db
+):
+    from types import SimpleNamespace
+
+    mock_get_user.return_value = MagicMock(id=1, is_admin=True)
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+    )
+    mock_get_settings.return_value = SimpleNamespace(
+        dynu_api_key="key",
+        dynu_domain="one.dynu.net",
+        effective_domain="one.dynu.net",
+    )
+    mock_roots.return_value = ["one.dynu.net", "two.org"]
+    mock_dns.return_value = None
+
+    response = test_client.post(
+        "/subdomains/add",
+        data={"subdomain": "cliente", "root": "two.org"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    mock_dns.assert_awaited_once_with(mock_get_settings.return_value, "cliente", "two.org")
+    created = mock_db.add.call_args_list[0].args[0]
+    assert created.base_domain == "two.org"

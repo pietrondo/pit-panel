@@ -36,9 +36,28 @@
                        placeholder="Leave empty to keep the current key" class="input font-mono">
             </div>
             <div>
-                <label class="label">Dynu Root Hostname (e.g. example.dynu.net)</label>
+                <label class="label">Dynu Root Hostname</label>
+                {% if dynu_roots %}
+                <select aria-label="Dynu Root Hostname" name="dynu_domain" class="input font-mono">
+                    <option value="">None (use Base Domain)</option>
+                    {% for r in dynu_roots %}
+                    <option value="{{ r }}" {% if r == settings.dynu_domain %}selected{% endif %}>{{ r }}</option>
+                    {% endfor %}
+                    {% if settings.dynu_domain and settings.dynu_domain not in dynu_roots %}
+                    <option value="{{ settings.dynu_domain }}" selected>{{ settings.dynu_domain }} — not in this Dynu account</option>
+                    {% endif %}
+                </select>
+                <p class="text-xs text-gray-500 mt-1">
+                    Read from the Dynu account: {{ dynu_roots|length }} domain(s) available.
+                    Customer subdomains can be created on any of them.
+                </p>
+                {% else %}
                 <input aria-label="Dynu Root Hostname" type="text" name="dynu_domain" value="{{ settings.dynu_domain }}"
-                       placeholder="Leave empty to use Base Domain" class="input font-mono">
+                       placeholder="Save the API key first, then pick from the list" class="input font-mono">
+                <p class="text-xs text-gray-500 mt-1">
+                    The list is read from Dynu: save a valid API key and this field becomes a menu.
+                </p>
+                {% endif %}
             </div>
             <div>
                 <label class="label">Panel Subdomain (e.g. panel)</label>

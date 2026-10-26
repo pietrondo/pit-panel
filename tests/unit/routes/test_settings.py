@@ -65,6 +65,7 @@ async def test_settings_page_authenticated(monkeypatch):
         user=user,
         audit_entries=[mock_audit],
         settings=mock_settings,
+        dynu_roots=None,
         config_saved=False,
         error=None,
     )

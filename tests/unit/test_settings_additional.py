@@ -130,6 +130,36 @@ async def test_settings_update_invalid_subdomain(mock_db, mock_admin):
 
 
 @pytest.mark.asyncio
+async def test_settings_rejects_a_dynu_root_the_account_does_not_have(mock_db, mock_admin):
+    with (
+        patch("pit_panel.web.routes.settings.get_settings") as mock_get_settings,
+        patch(
+            "pit_panel.web.routes.settings.available_roots",
+            return_value=["one.dynu.net"],
+        ),
+    ):
+        mock_settings = MagicMock()
+        mock_settings.dynu_api_key = ""
+        mock_get_settings.return_value = mock_settings
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.post(
+                "/settings/update",
+                data={
+                    "base_domain": "test.com",
+                    "panel_subdomain": "panel",
+                    "dynu_api_key": "some-key",
+                    "dynu_domain": "1cooldns.org",
+                },
+            )
+
+    assert response.status_code == 400
+    assert "1cooldns.org" in response.text
+    assert "one.dynu.net" in response.text
+    mock_settings.save_config_file.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_settings_update_success(mock_db, mock_admin):
     with (
         patch("pit_panel.web.routes.settings.get_settings") as mock_get_settings,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import httpx
@@ -46,6 +47,17 @@ class DynuClient:
                 return int(item["id"])
         raise DynuError(f"Dynu domain not found: {domain}")
 
+    async def list_domains(self) -> list[str]:
+        """Root hostnames this account can create records under."""
+        response = await self._client.get("/v2/dns")
+        self._raise(response)
+        names = []
+        for item in response.json():
+            name = str(item.get("name", "")).rstrip(".")
+            if name:
+                names.append(name)
+        return names
+
     async def add_a_record(self, domain: str, node: str, ipv4: str) -> dict[str, Any]:
         domain_id, records = await self._records(domain)
         for record in records:
@@ -87,3 +99,32 @@ class DynuClient:
         if response.is_error:
             detail = response.text[:300]
             raise DynuError(f"Dynu API request failed ({response.status_code}): {detail}")
+
+
+_ROOTS_CACHE: dict[str, tuple[float, list[str] | None]] = {}
+_ROOTS_TTL_SECONDS = 300
+
+
+async def available_roots(settings: Any) -> list[str] | None:
+    """Root hostnames the Dynu account can serve, or None when unknown.
+
+    The account owns the list, so a root that is not in it can never resolve:
+    the panel asks instead of trusting a typed name. None means "could not ask"
+    (no key, or the API is unreachable) and is never treated as "none exist".
+    """
+    key = getattr(settings, "dynu_api_key", "")
+    if not isinstance(key, str) or not key.strip():
+        return None
+
+    cached = _ROOTS_CACHE.get(key)
+    if cached and time.monotonic() - cached[0] < _ROOTS_TTL_SECONDS:
+        return cached[1]
+
+    try:
+        async with DynuClient(key) as client:
+            roots = await client.list_domains()
+    except Exception:
+        return None
+
+    _ROOTS_CACHE[key] = (time.monotonic(), roots)
+    return roots

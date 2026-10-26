@@ -42,7 +42,7 @@
     </div>
     <div class="p-6">
         <form method="POST" action="/subdomains/add" class="flex items-end gap-4"
-              x-data="{ name: '' }">
+              x-data="{ name: '', root: '{{ root_domain }}' }">
             <div class="flex-1">
                 <label class="label" for="new-subdomain">Subdomain name <span class="text-red-500">*</span></label>
                 <div class="flex items-center gap-1">
@@ -50,11 +50,21 @@
                            placeholder="cliente" class="input font-mono" x-model="name"
                            pattern="[a-z0-9]([a-z0-9-]*[a-z0-9])?"
                            title="Lowercase letters, numbers and hyphens; no leading or trailing hyphen">
-                    <span class="text-sm text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">.{{ root_domain }}</span>
+                    <span class="text-sm text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">.</span>
+                    {% if roots %}
+                    <select aria-label="Dynu root" name="root" x-model="root" class="input font-mono w-auto">
+                        {% for r in roots %}
+                        <option value="{{ r }}" {% if r == root_domain %}selected{% endif %}>{{ r }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <input type="hidden" name="root" value="{{ root_domain }}">
+                    <span class="text-sm text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">{{ root_domain }}</span>
+                    {% endif %}
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Final URL:
-                    <span class="font-mono" x-text="'https://' + (name || 'cliente') + '.{{ root_domain }}'"></span>
+                    <span class="font-mono" x-text="'https://' + (name || 'cliente') + '.' + root"></span>
                 </p>
             </div>
             <button type="submit" class="btn-ghost text-indigo-700 dark:text-indigo-400">Add</button>
