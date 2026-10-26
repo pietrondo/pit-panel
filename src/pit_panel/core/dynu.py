@@ -13,6 +13,36 @@ class DynuError(RuntimeError):
     """Raised when Dynu cannot complete a DNS operation."""
 
 
+def _envelope_items(payload: Any, key: str) -> list[dict[str, Any]]:
+    """Records of a Dynu list response, with or without its envelope."""
+    if isinstance(payload, dict):
+        payload = payload.get(key, [])
+    if not isinstance(payload, list):
+        return []
+    return [item for item in payload if isinstance(item, dict)]
+
+
+def _created_record(payload: Any) -> dict[str, Any]:
+    """The record object of a create response, wherever Dynu put it."""
+    if isinstance(payload, dict):
+        if "id" in payload:
+            return payload
+        candidates: list[Any] = list(payload.values())
+    elif isinstance(payload, list):
+        candidates = payload
+    else:
+        return {}
+
+    for value in candidates:
+        if isinstance(value, dict) and "id" in value:
+            return value
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict) and "id" in item:
+                    return item
+    return {}
+
+
 class DynuClient:
     def __init__(
         self,
@@ -40,20 +70,27 @@ class DynuClient:
     async def __aexit__(self, *_: object) -> None:
         await self._client.aclose()
 
-    async def _domain_id(self, domain: str) -> int:
+    async def _domains(self) -> list[dict[str, Any]]:
+        """The domains of the account.
+
+        Dynu wraps its lists in an envelope (``{"statusCode": 200, "domains":
+        [...]}``), so iterating the decoded body directly yields the envelope's
+        keys instead of the records. Both shapes are accepted here.
+        """
         response = await self._client.get("/v2/dns")
         self._raise(response)
-        for item in response.json():
+        return _envelope_items(response.json(), "domains")
+
+    async def _domain_id(self, domain: str) -> int:
+        for item in await self._domains():
             if str(item.get("name", "")).rstrip(".").lower() == domain.rstrip(".").lower():
                 return int(item["id"])
         raise DynuError(f"Dynu domain not found: {domain}")
 
     async def list_domains(self) -> list[str]:
         """Root hostnames this account can create records under."""
-        response = await self._client.get("/v2/dns")
-        self._raise(response)
         names = []
-        for item in response.json():
+        for item in await self._domains():
             name = str(item.get("name", "")).rstrip(".")
             if name:
                 names.append(name)
@@ -75,13 +112,16 @@ class DynuClient:
             },
         )
         self._raise(response)
-        return response.json()
+        record = _created_record(response.json())
+        if not record:
+            raise DynuError(f"Dynu did not return the created record for {node}.{domain}")
+        return record
 
     async def _records(self, domain: str) -> tuple[int, list[dict[str, Any]]]:
         domain_id = await self._domain_id(domain)
         response = await self._client.get(f"/v2/dns/{domain_id}/record")
         self._raise(response)
-        return domain_id, response.json()
+        return domain_id, _envelope_items(response.json(), "dnsRecords")
 
     async def delete_record(self, domain: str, record_id: int) -> None:
         domain_id = await self._domain_id(domain)

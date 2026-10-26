@@ -166,8 +166,11 @@ async def settings_update(
     audit_entries = result.scalars().all()
 
     dynu_roots: list[str] = []
-    if settings.dynu_api_key.strip():
-        dynu_roots = list((await available_roots(settings)).roots or [])
+    dynu_read_error: str | None = None
+    if isinstance(settings.dynu_api_key, str) and settings.dynu_api_key.strip():
+        status = await available_roots(settings)
+        dynu_roots = list(status.roots or [])
+        dynu_read_error = status.error
 
     return render(
         "settings.html",
@@ -175,7 +178,7 @@ async def settings_update(
         audit_entries=audit_entries,
         settings=settings,
         dynu_roots=dynu_roots,
-        dynu_error=None,
+        dynu_error=dynu_read_error,
         config_saved=None if dynu_error else True,
         error=dynu_error,
     )
