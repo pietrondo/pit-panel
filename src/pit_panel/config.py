@@ -49,8 +49,19 @@ class Settings(BaseSettings):  # type: ignore[misc]
 
     @property
     def effective_domain(self) -> str:
+        """Domain for customer subdomains: the Dynu root wins when it is set."""
         if self.dynu_domain:
             return self.dynu_domain
+        return self.panel_domain
+
+    @property
+    def panel_domain(self) -> str:
+        """Domain the panel itself is served on. Never the Dynu root.
+
+        The Dynu root only carries customer subdomains: the panel keeps the
+        domain it was installed on, otherwise its own URL starts pointing at a
+        hostname nobody configured.
+        """
         if self.base_domain:
             return self.base_domain
         bucket = int(time.monotonic() // _DETECT_IP_TTL_SECONDS)
@@ -59,7 +70,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
     @property
     def panel_url(self) -> str:
         """Get the full URL for the panel based on configured domains."""
-        return f"https://{self.panel_subdomain}.{self.effective_domain}"
+        return f"https://{self.panel_subdomain}.{self.panel_domain}"
 
     @staticmethod
     def _detect_ip() -> str:

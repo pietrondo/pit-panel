@@ -280,7 +280,7 @@ async def ssl_generate(
         return RedirectResponse("/login", status_code=302)
 
     settings = get_settings()
-    domain = settings.effective_domain
+    domain = settings.panel_domain
     panel_sub = settings.panel_subdomain
 
     if not _validate_domain(domain):

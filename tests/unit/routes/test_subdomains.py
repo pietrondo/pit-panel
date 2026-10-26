@@ -110,14 +110,14 @@ async def test_subdomain_add_success(
     )
 
     assert response.status_code == 302
-    assert response.headers["location"] == "/subdomains"
+    assert response.headers["location"] == "/subdomains?created=test-sub.example.com"
     mock_db.add.assert_called_once()
     mock_db.flush.assert_called_once()
     mock_db.commit.assert_called_once()
     mock_audit.assert_called_once()
-    mock_caddy.assert_called_once_with(mock_settings().caddy_admin_url)
-    mock_caddy_instance.add_subdomain.assert_called_once_with("test-sub", "example.com")
-    mock_caddy_instance.renew_certificate.assert_called_once_with("test-sub.example.com")
+    # A name has nothing to proxy: the route is created by the app deployment,
+    # which is the only place that knows the port.
+    mock_caddy.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -149,10 +149,7 @@ async def test_subdomain_add_uses_effective_domain_when_custom_domain_is_unset(
     assert response.status_code == 302
     added = mock_db.add.call_args.args[0]
     assert added.base_domain == "203-0-113-42.nip.io"
-    mock_caddy_instance.add_subdomain.assert_called_once_with("customer", "203-0-113-42.nip.io")
-    mock_caddy_instance.renew_certificate.assert_called_once_with(
-        "customer.203-0-113-42.nip.io"
-    )
+    mock_caddy.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -257,14 +254,13 @@ async def test_subdomain_edit_success(
 
     response = test_client.post(
         "/subdomains/1/edit",
-        data={"subdomain": "new-sub", "app_type": "wordpress"},
+        data={"subdomain": "new-sub"},
         follow_redirects=False,
     )
 
     assert response.status_code == 302
     assert response.headers["location"] == "/subdomains"
     assert existing_sd.subdomain == "new-sub"
-    assert existing_sd.app_type == "wordpress"
     mock_db.commit.assert_called_once()
     mock_audit.assert_called_once()
     mock_caddy_instance.remove_subdomain.assert_called_once_with("old-sub", "203-0-113-42.nip.io")

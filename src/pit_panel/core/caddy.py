@@ -286,6 +286,10 @@ class CaddyManager:
     async def _delete_route(self, route_id: str) -> dict[str, Any]:
         async with httpx.AsyncClient() as client:
             resp = await client.delete(f"{self.admin_url}/id/{route_id}")
+            # Deleting a route that was never created is a no-op, not a failure:
+            # a subdomain can exist in DNS before any app is deployed to it.
+            if resp.status_code == 404:
+                return {}
             resp.raise_for_status()
             return resp.json() if resp.text else {}
 

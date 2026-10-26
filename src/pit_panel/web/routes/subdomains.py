@@ -4,6 +4,7 @@ import contextlib
 import html
 import re
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pit_panel.config import get_settings
 from pit_panel.core.caddy import CaddyManager
+from pit_panel.core.dns_check import root_problem
 from pit_panel.core.dynu import DynuClient
 from pit_panel.db.models import AuditLog, Subdomain
 from pit_panel.db.session import get_db
@@ -94,14 +96,26 @@ async def subdomains_list(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(query.order_by(Subdomain.created_at.desc()))
     subdomains = result.scalars().all()
 
-    return render("subdomains.html", user=user, subdomains=subdomains, error=None)
+    settings = get_settings()
+    root_warning = None
+    if _dynu_enabled(settings):
+        root_warning = await root_problem(settings.dynu_domain)
+
+    return render(
+        "subdomains.html",
+        user=user,
+        subdomains=subdomains,
+        error=None,
+        created=request.query_params.get("created"),
+        root_domain=settings.effective_domain,
+        root_warning=root_warning,
+    )
 
 
 @router.post("/subdomains/add", response_class=HTMLResponse)
 async def subdomain_add(
     request: Request,
     subdomain: str = Form(...),
-    app_type: str = Form("none"),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_user(request, db)
@@ -137,6 +151,7 @@ async def subdomain_add(
             user=user,
             subdomains=subdomains,
             error="Invalid subdomain name",
+            root_domain=settings.effective_domain,
         )
 
     existing = await db.execute(
@@ -158,43 +173,23 @@ async def subdomain_add(
             user=user,
             subdomains=subdomains,
             error="Subdomain already exists",
+            root_domain=settings.effective_domain,
         )
 
-    dns_added = False
-    caddy_added = False
+    # A name on its own has nothing to proxy: the Caddy route is created by the
+    # app deployment, which knows the port. Creating it here pointed every new
+    # subdomain at 127.0.0.1:80, so the URL handed to a customer was an error page.
     try:
         dns_record = await _dns_add(settings, safe_subdomain, base_domain)
-        dns_added = dns_record is not None
-        if base_domain:
-            caddy = CaddyManager(settings.caddy_admin_url)
-            if _dynu_enabled(settings):
-                await caddy.add_subdomain(safe_subdomain, base_domain)
-                caddy_added = True
-                renew_result = await caddy.renew_certificate(f"{safe_subdomain}.{base_domain}")
-                if renew_result.get("success") is False:
-                    raise RuntimeError("Caddy certificate renewal failed")
-            else:
-                with contextlib.suppress(Exception):
-                    await caddy.add_subdomain(safe_subdomain, base_domain)
-                    await caddy.renew_certificate(f"{safe_subdomain}.{base_domain}")
     except Exception as exc:
-        if dns_added:
-            with contextlib.suppress(Exception):
-                await _dns_delete(settings, base_domain, dns_record[0] if dns_record else None)
-        if caddy_added:
-            with contextlib.suppress(Exception):
-                await CaddyManager(settings.caddy_admin_url).remove_subdomain(
-                    safe_subdomain, base_domain
-                )
         return HTMLResponse(
-            f"DNS or Caddy provisioning failed: {html.escape(str(exc))}", status_code=502
+            f"DNS provisioning failed: {html.escape(str(exc))}", status_code=502
         )
 
     sd = Subdomain(
         subdomain=safe_subdomain,
         base_domain=base_domain,
         owner_user_id=user.id,
-        app_type=app_type if app_type != "none" else None,
     )
     db.add(sd)
     try:
@@ -206,11 +201,6 @@ async def subdomain_add(
         if dns_record:
             with contextlib.suppress(Exception):
                 await _dns_delete(settings, base_domain, dns_record[0])
-        if caddy_added:
-            with contextlib.suppress(Exception):
-                await CaddyManager(settings.caddy_admin_url).remove_subdomain(
-                    safe_subdomain, base_domain
-                )
         return HTMLResponse(
             f"Subdomain persistence failed: {html.escape(str(exc))}", status_code=500
         )
@@ -225,16 +215,12 @@ async def subdomain_add(
         if dns_record:
             with contextlib.suppress(Exception):
                 await _dns_delete(settings, base_domain, dns_record[0])
-        if base_domain and _dynu_enabled(settings):
-            with contextlib.suppress(Exception):
-                await CaddyManager(settings.caddy_admin_url).remove_subdomain(
-                    safe_subdomain, base_domain
-                )
         return HTMLResponse(
             f"Subdomain persistence failed: {html.escape(str(exc))}", status_code=500
         )
 
-    return RedirectResponse("/subdomains", status_code=302)
+    fqdn = f"{safe_subdomain}.{base_domain}"
+    return RedirectResponse(f"/subdomains?created={quote(fqdn)}", status_code=302)
 
 
 @router.post("/subdomains/{sd_id}/edit", response_class=HTMLResponse)
@@ -242,7 +228,6 @@ async def subdomain_edit(
     request: Request,
     sd_id: int,
     subdomain: str = Form(...),
-    app_type: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_user(request, db)
@@ -270,8 +255,6 @@ async def subdomain_edit(
     old_name = sd.subdomain
     old_domain = sd.base_domain
     old_ipv4 = sd.dynu_ipv4
-    old_type = sd.app_type
-    sd.app_type = app_type if app_type != "none" else None
 
     name_valid = bool(re.fullmatch(r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$", new_name))
     new_dns_record = None
@@ -329,8 +312,6 @@ async def subdomain_edit(
             {
                 "old_subdomain": old_name,
                 "new_subdomain": sd.subdomain,
-                "old_app_type": old_type,
-                "new_app_type": sd.app_type,
             }, request,
         )
         await db.commit()

@@ -38,6 +38,23 @@ class TestSettings:
         s = Settings(database_url="sqlite+aiosqlite:///custom.db")
         assert s.get_database_url() == "sqlite+aiosqlite:///custom.db"
 
+    def test_dynu_root_serves_customers_but_not_the_panel(self):
+        """The Dynu root carries customer subdomains; the panel keeps its own domain."""
+        s = Settings(
+            secret_key="test",
+            base_domain="pietrocapriata.me",
+            dynu_domain="1cooldns.org",
+            panel_subdomain="pannello",
+        )
+        assert s.effective_domain == "1cooldns.org"
+        assert s.panel_domain == "pietrocapriata.me"
+        assert s.panel_url == "https://pannello.pietrocapriata.me"
+
+    def test_panel_url_falls_back_to_nip_io_without_a_base_domain(self, monkeypatch):
+        monkeypatch.setattr(config, "_cached_detect_ip", lambda _bucket: "203.0.113.42")
+        s = Settings(secret_key="test", base_domain="", dynu_domain="1cooldns.org")
+        assert s.panel_url == "https://panel.203-0-113-42.nip.io"
+
     def test_from_config_file(self):
         with tempfile.NamedTemporaryFile(suffix=".toml", mode="w", delete=False) as f:
             f.write('host = "0.0.0.0"\nport = 9999\nsecret_key = "fromfile"\n')

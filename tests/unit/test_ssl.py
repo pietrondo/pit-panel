@@ -271,6 +271,7 @@ async def test_ssl_generate_with_user(
     mock_get_admin.return_value = mock.MagicMock()
     mock_settings = mock.MagicMock()
     mock_settings.effective_domain = "example.com"
+    mock_settings.panel_domain = "example.com"
     mock_settings.panel_subdomain = "panel"
     mock_get_settings.return_value = mock_settings
 
@@ -620,6 +621,7 @@ async def test_ssl_generate_invalid_domain(
     mock_get_admin.return_value = mock.MagicMock()
     mock_settings = mock.MagicMock()
     mock_settings.effective_domain = "invalid domain"
+    mock_settings.panel_domain = "invalid domain"
     mock_settings.panel_subdomain = "panel"
     mock_get_settings.return_value = mock_settings
 
@@ -645,6 +647,7 @@ async def test_ssl_generate_invalid_panel_sub(
     mock_get_admin.return_value = mock.MagicMock()
     mock_settings = mock.MagicMock()
     mock_settings.effective_domain = "example.com"
+    mock_settings.panel_domain = "example.com"
     mock_settings.panel_subdomain = "invalid sub"
     mock_get_settings.return_value = mock_settings
 
@@ -670,6 +673,7 @@ async def test_ssl_generate_value_error(
     mock_get_admin.return_value = mock.MagicMock()
     mock_settings = mock.MagicMock()
     mock_settings.effective_domain = "example.com"
+    mock_settings.panel_domain = "example.com"
     mock_settings.panel_subdomain = "panel"
     mock_get_settings.return_value = mock_settings
 
