@@ -58,7 +58,10 @@
                 {% elif not settings.dynu_api_key %}
                 <p class="text-xs text-gray-500 mt-1">Save the API key and this field becomes a menu read from Dynu.</p>
                 {% else %}
-                <p class="text-xs text-gray-500 mt-1">The API key is saved; reload to retry the list.</p>
+                <p class="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                    The key works, but this Dynu account lists no domains. Register a hostname in Dynu
+                    (or check that the key has access to it), then reload this page.
+                </p>
                 {% endif %}
                 {% endif %}
             </div>
