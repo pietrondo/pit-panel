@@ -57,6 +57,9 @@ class Subdomain(Base):
     status: Mapped[str] = mapped_column(String(16), default="active")
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
     last_deployed: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    dynu_record_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    dynu_ipv4: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    host_port: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True, index=True)
 
     owner: Mapped["User"] = relationship(back_populates="subdomains")
     deployments: Mapped[list["AppDeployment"]] = relationship(
