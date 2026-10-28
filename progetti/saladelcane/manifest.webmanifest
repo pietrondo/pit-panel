@@ -1,0 +1,15 @@
+{
+  "name": "Sala del cane",
+  "short_name": "Sala del cane",
+  "description": "Negozio per animali e toelettatura dal 1979. Corso Roma 139, Gravellona Toce. Tel. 0323 846239.",
+  "lang": "it-IT",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#fef200",
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

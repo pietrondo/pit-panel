@@ -1,0 +1,294 @@
+================================================================================
+SALA DEL CANE — Gravellona Toce (VB)
+Riepilogo completo del lavoro svolto sul sito one-page
+Documento di handover / base per il preventivo
+Data: 28-10-2026 (ultimo aggiornamento) · Progetto: C:\Users\pietr\progetti\saladelcane
+================================================================================
+
+Domino di destinazione: www.saladelcane.com
+URL attualmente pubblicato: https://gregarious-souffle-81b8b5.netlify.app
+Stato: sito costruito, verificato e pubblicato in produzione
+
+
+--------------------------------------------------------------------------------
+1. BRIEF E VINCOLI
+--------------------------------------------------------------------------------
+- Cliente: Sala del cane di Fioravanti C. e Bonali L. s.n.c., Corso Roma 139,
+  28883 Gravellona Toce (VB) — negozio per animali domestici e toelettatura,
+  in attività dal 1979.
+- Richiesta: una sola pagina (one-page), semplice, con servizi, orari, galleria,
+  contatti e social.
+- Vincoli tecnici: nessun framework, nessuna dipendenza runtime, nessun build
+  step, hosting statico. Tutto deve stare in HTML + CSS + JS puro.
+- Vincolo estetico esplicito: il sito non deve "sembrare fatto con l'AI" —
+  niente estetica cream/terracotta, niente card con ombre morbide.
+- Layout e contenuti definiti in italiano, senza fumo generico.
+
+
+--------------------------------------------------------------------------------
+2. RACCOLTA DATI (RICERCA PRELIMINARE)
+--------------------------------------------------------------------------------
+Dati di attività raccolti e verificati il 26/10/2026 da: pagina Facebook,
+profilo Instagram, Google Business Profile (196 recensioni, 4,8/5), PagineGialle,
+PagineBianche.
+
+- Ragione sociale ....... Sala del cane di Fioravanti C. e Bonali L. s.n.c.
+- Indirizzo ............ Corso Roma 139, 28883 Gravellona Toce (VB)
+- Telefono ............. 0323 846239 (link tel: in formato internazionale)
+- Email ................ info@saladelcane.com
+- Facebook ............. facebook.com/saladecane
+- Instagram ............ instagram.com/sala_del_cane
+- Anno di apertura ..... 1979
+- Persone .............. Lorena e Claudio
+- Coordinate (JSON-LD) 45.9219, 8.4290
+- Orari ................ lun 15:00–19:30 · mar–sab 08:30–12:30 e 15:00–19:30
+                        · domenica chiuso (il lunedì solo pomeriggio)
+- Servizi offerti ...... toelettatura professionale per cani (bagno e tosatura)
+                        · vendita e assistenza acquari con pesci tropicali,
+                        piante e accessori · assistenza tecnica su acquari e
+                        attrezzature · ornitologia (uccelli, gabbie, alimenti,
+                        accessori) · alimenti per cani e gatti, anche dietetici ·
+                        articoli (gabbie, lettiere, guinzagli, collari, cappotti,
+                        felpe Liu-Jo) con i modelli più recenti
+- Metodi di pagamento .. contanti, carte di credito, carte di debito, NFC
+- Area servita ......... Gravellona Toce, Verbania, Verbano-Cusio-Ossola
+- Recensioni ........... 4,8/5 su 196 recensioni (una recensione citata nel sito)
+
+
+--------------------------------------------------------------------------------
+3. INVENTARIO DEI FILE (COSA ESISTE ORA)
+--------------------------------------------------------------------------------
+index.html ............ 302 righe  — la pagina unica, head SEO, markup, JSON-LD
+css/style.css ......... 817 righe  — tutto lo stile, design system, responsive
+js/site.js ............ 173 righe  — menu mobile, giorno corrente, masonry, lightbox
+js/photos.js ..........  31 righe  — elenco foto GENERATO (non editare a mano)
+fonts/ ................  4 file   — Paytone One e Hanken Grotesk in .woff2, serviti
+                                dal sito (latin + latin-ext, 94 KB)
+manifest.webmanifest ..  15 righe  — dati per installazione su home screen
+robots.txt .............   4 righe  — regole crawler + rimando alla sitemap
+sitemap.xml ...........  14 righe  — sitemap con lastmod e immagine
+package.json ...........  10 righe  — 2 script npm (galleria, dev server)
+README.md .............. 113 righe  — documentazione d'uso e manutenzione
+
+scripts/gallery.mjs ...  72 righe  — rigenera js/photos.js leggendo galleria/
+scripts/check.mjs .....  97 righe  — contrasto, overflow, menu, lightbox, tap target
+scripts/seo-check.mjs ..  90 righe  — audit meta tag, JSON-LD, sitemap, alt, link
+scripts/shot.mjs ......  63 righe  — screenshot di controllo desktop + mobile
+scripts/live-check.mjs .  44 righe  — verifica del sito già pubblicato
+scripts/deploy.mjs .... 124 righe  — deploy su Netlify via API REST
+scripts/build-dist.sh .  22 righe  — copia in _dist/ solo i file da pubblicare
+scripts/make-og.ps1 ...  24 righe  — rigenera l'immagine Open Graph (ImageMagick)
+
+Totale: ~1.902 righe di codice su 16 file + 156 righe di documentazione/config.
+Commit: 6 (5 del 26/10/2026 + 1 del 28/10/2026 con font locali e aggiornamento
+dei contenuti dal listino). Totale inserite ~2.438 righe, ~121 rimosse.
+
+Grafici e immagini (17 file, ~2,8 MB complessivi):
+- assets/logo.jpg + logo.webp — logo del negozio (1200x896), usato nell'hero
+- assets/mark.jpg + mark-512.png — marchio quadrato per le icone
+- assets/og.jpg + og.webp — immagine Open Graph 1200x630 generata da script
+- assets/icon-192.png, icon-512.png, apple-touch-icon.png — icone PWA
+- favicon.ico — icona multi-risoluzione da 16 a 256 px
+- galleria/*.jpg (4 originali 1720x2293) + galleria/opt/*.webp (4 ottimizzati)
+
+
+--------------------------------------------------------------------------------
+4. LAVORO SVOLTO — VOCI DI LAVORO
+--------------------------------------------------------------------------------
+V.01  Ricerca e raccolta dati dell'attività su web (Facebook, Instagram,
+      Google Business, PagineGialle, PagineBianche) e definizione dei contenuti.
+      — FATTO
+
+V.02  Definizione della direzione grafica a partire dal disegno del logo:
+      palette (china #1d1b1e, giallo #fef200, verde #1a8c40, rosso #e81f26,
+      blu #14689b, grigio #57524b, avorio #f6f4ee), tipografia display
+      (Paytone One) + testo (Hanken Grotesk), bordi china da 2 px, raggio 0,
+      ombre offset senza blur. Selezione fatta scartando 4 ipotesi di font
+      (Lilita One, Big Shoulders, Alfa Slab One, cluster cream/terracotta).
+      — FATTO
+
+V.03  Struttura dell'informativa: 8 sezioni (hero, cosa facciamo, orari,
+      galleria, chi siamo, contatti, piedone, barra telefono mobile) + skip link
+      + indice dei titoli (h1 unico, h2 per sezione).
+      — FATTO
+
+V.04  Layout e stile: CSS custom properties, griglia responsive, sezioni a
+      bordo pieno, listino a righe allineate, tabella orari che si adatta da
+      due a tre colonne, animazione d'ingresso rispettando
+      prefers-reduced-motion.
+      — FATTO
+
+V.05  Versione mobile: menu a tendina (apre/chiude, chiusura con Escape e con
+      clic fuori, aria-expanded aggiornato), barra telefono fissa in fondo
+      con safe-area-inset, padding del body per non coprire il contenuto,
+      lightbox a schermo intero su telefono.
+      — FATTO
+
+V.06  Orari dinamici: la riga del giorno corrente viene evidenziata in giallo
+      al caricamento (lunedì evidenziato come chiuso al mattino).
+      — FATTO
+
+V.07  Galleria: griglia masonry in JS puro con posizionamento assoluto,
+      2 colonne su telefono / 3 su tablet / 4 su desktop, ricalcolo con
+      debounce al resize, didascalie ricavate dal nome del file, lazy loading,
+      picture con versione webp.
+      — FATTO
+
+V.08  Lightbox: apertura con <dialog> modale, chiusura con pulsante, con
+      clic sul fondo e con Escape, didascalia e testo alternativo corretti.
+      — FATTO
+
+V.09  Script di gestione galleria (scripts/gallery.mjs): legge la cartella,
+      misura le dimensioni reali leggendo l'header dei file (PNG/JPEG),
+      genera js/photos.js e, se ImageMagick è installato, produce i .webp
+      ottimizzati (max 1400 px, qualità 80) con l'originale come riserva.
+      — FATTO
+
+V.10  SEO completo: title e meta description entro i limiti di Google,
+      canonical assoluto, Open Graph completo (10 proprietà), Twitter card,
+      preload dell'immagine principale, font serviti in locale (nessuna
+      richiesta a Google Fonts), JSON-LD schema.org
+      di tipo PetStore con orari (11 fasce), indirizzo, geo, telefono, prezzi
+      accettati, area servita, catalogo dei servizi, valutazione aggregata e
+      una recensione, sameAs social; sitemap.xml con lastmod e immagine;
+      robots.txt con rimando alla sitemap.
+      — FATTO
+
+V.11  PWA: manifest.webmanifest (nome, colore tema, icone 192/512) + icone
+      generate + apple-touch-icon, per l'installazione su home screen.
+      — FATTO
+
+V.12  Immagine Open Graph generata da script (scripts/make-og.ps1): logo su
+      fondo giallo, testo del negozio a destra, esportazione jpg + webp.
+      — FATTO
+
+V.13  Accessibilità: skip link al contenuto, aria-label e aria-expanded nei
+      controlli, focus visibile da 3 px, area di tap minima 44 px, contrasto
+      dei colori verificato sul CSS reale (AA), link esterni con rel=noopener,
+      <address> per l'indirizzo, un solo h1.
+      — FATTO
+
+V.14  Performance: webp per galleria e logo, dimensioni dichiarate su ogni
+      immagine (niente salti di layout), loading="lazy", decoding="async",
+      preload del logo, nessun framework e nessuna richiesta esterna: font
+      inclusi nel sito, immagini ottimizzate, zero dipendenze di terze parti.
+      — FATTO
+
+V.15  Strumenti di verifica automatici (Playwright + script Node, senza
+      framework): check.mjs (contrasto, overflow orizzontale a 360 px, apertura
+      del menu, lightbox, tap target, errori JS), seo-check.mjs (56 controlli
+      con uscita non-zero se qualcosa fallisce), shot.mjs (screenshot desktop
+      e mobile con scroll completo per far caricare le immagini lazy),
+      live-check.mjs (verifica del sito pubblicato: risposte 4xx/5xx, errori
+      console, overflow, immagini effettivamente caricate).
+      — FATTO
+
+V.16  Deploy: script di deploy su Netlify via API REST con digest SHA-256,
+      upload dei file richiesti, attesa del completamento e stampa degli URL;
+      script di preparazione _dist/ con copia selettiva; token Netlify tenuto
+      fuori dal git. Prima pubblicazione eseguita.
+      — FATTO
+
+V.17  Documentazione (README.md): struttura dei file, come aggiungere foto,
+      comandi di controllo, cosa è già fatto a livello SEO, dove intervenire
+      quando cambiano i dati del negozio, procedura di deploy.
+      — FATTO
+
+V.18  Rifiniture e correzioni dopo la prima pubblicazione: titolo su una
+      riga sola, "alimenti" al posto di "mangimi" nel testo, loghi social
+      vettoriali inline, indicazione "in negozio", barra telefono mobile,
+      gestione del safe area, icone e favicon aggiornati.
+      — FATTO
+
+V.19  Font ospitati in locale: Paytone One (titoli) e Hanken Grotesk (testo)
+      scaricati da Google Fonts in .woff2, sottoinsiemi latin e latin-ext,
+      4 file per 94 KB. Serviti dal sito con @font-face e preload dei due file
+      usati sopra la piega. Risultato: zero richieste verso fonts.googleapis.com
+      e fonts.gstatic.com, quindi nessun indirizzo IP del visitatore finisce
+      a Google e il sito regge anche se il CDN è bloccato; in più la pagina non
+      deve più caricare i font da due domini esterni.
+      Verificato in browser: 4 font caricati, 0 richieste esterne, pesi
+      400/600/700 applicati correttamente (font variabile, non bold simulato).
+      — FATTO (28/10/2026)
+
+V.20  Contenuti aggiornati con le note del cliente (28/10/2026): toelettatura
+      professionale per cani con bagno e tosatura (tolta la dicitura "altri
+      animali domestici"), vendita e assistenza acquari con pesci tropicali,
+      piante e accessori, assistenza tecnica, ornitologia, alimenti dietetici,
+      articoli con i modelli più recenti. Allineati meta description, sommario
+      dell'hero e catalogo dei servizi nel JSON-LD.
+      Corretti due difetti di layout: il nowrap del listino e la forma
+      decorativa dell'hero che producevano scroll orizzontale fra 736 e 900 px
+      (verificato con Playwright: 0 px di overflow a 360/600/736/768/800/900/
+      1024/1440 px).
+      — FATTO (28/10/2026)
+
+
+--------------------------------------------------------------------------------
+5. COME È STATO PRODOTTO (nota per il preventivo)
+--------------------------------------------------------------------------------
+- Sviluppo assistito da intelligenza artificiale (OpenCode, modelli
+  MiniMax-M3.1-Flash), con progettazione, scrittura e verifica automatizzata.
+- Verifica finale: controlli automatici (SEO, contrasto, accessibilità,
+  layout mobile) + screenshot desktop e mobile + verifica del sito online.
+- Nessuna dipendenza npm in runtime: il sito pubblicato non carica librerie.
+
+
+--------------------------------------------------------------------------------
+6. LAVORI APERTI / DA VALUTARE (base per il preventivo della parte residua)
+--------------------------------------------------------------------------------
+A.1  Collegamento del dominio www.saladelcane.com al sito Netlify (DNS +
+    SSL) e verifica del passaggio di proprietà: canonical, og:url e sitemap
+    puntano già al dominio definitivo, quindi il sito non cambia contenuto.
+    — DA FARE (piccolo)
+A.2  Verifica/aggiornamento della scheda Google Business Profile (orari,
+    categoria, foto, sito collegato) e richiesta/verifica del profilo.
+    — DA FARE (piccolo/medio, in carico al cliente)
+A.3  Inserimento di altre foto del negozio e di foto reali dei servizi
+    (al momento 4 immagini): basta copiarle in galleria/ e rilanciare
+    `npm run galleria`, poi il deploy.
+    — DA FARE (medio, cliente)
+A.4  Coerenza di copia: nel listino la voce è "Mangimi" mentre la descrizione
+    dice "Alimenti". Le note del cliente del 28/10 usano "Mangimi" per la voce
+    e "alimenti" per il contenuto: la scelta attuale è quella del cliente, ma
+    allineare i due termini resta una decisione aperta.
+    — DA CONFERMARE (piccolissimo)
+A.5  Verifica finale su Search Console dopo il passaggio di dominio
+    (invio sitemap, richiesta di indicizzazione).
+    — DA FARE (piccolo)
+A.6  eventuale scheda prezzi/listino dettagliato dei servizi (non presente
+    oggi: solo categorie), se il cliente lo richiede.
+    — OPZIONALE (medio)
+A.7  Verifica "cookie" e privacy: oggi la pagina dichiara "sito senza cookie
+    di profilazione" e non usa cookie di terze parti; da confermare con il
+    cliente e valutare eventuale cookie banner.
+    — DA CONFERMARE (piccolo)
+A.8  Manutenzione periodica: hosting statico senza costi ricorrenti, ma
+    restano l'aggiornamento dei dati del negozio (orari, prezzi, foto) e la
+    verifica che il sito resti online.
+    — RICORRENTE (da quantificare)
+
+Nota: nulla di quanto sopra blocca l'uso del sito già online.
+
+
+--------------------------------------------------------------------------------
+7. DATI TECNICI DI RIEPILOGO
+--------------------------------------------------------------------------------
+Stack .............. HTML5 + CSS3 + JavaScript ES5/ES6, nessun framework
+Build .............. nessuno (deploy = upload di file statici)
+Hosting ............ Netlify (piano gratuito, sito gregarious-souffle-81b8b5)
+Dominio ............ www.saladelcane.com (da collegare al sito)
+Dipendenze runtime . nessuna
+Dipendenze dev ..... playwright (solo per i controlli), serve (server locale),
+                     ImageMagick (ottimizzazione immagini), netlify-cli (opz.)
+Strumenti usati .... Node.js, Playwright, ImageMagick, PowerShell, curl/fetch
+Richieste esterne ... nessuna: font, immagini e script sono tutti serviti dal
+                     sito (i font ospitati in locale dal 28/10/2026)
+Compatibilità ...... Chrome, Edge, Firefox, Safari; iOS e Android
+Performance ........ sito statico senza framework: caricamento in pochi KB di
+                     HTML/CSS/JS + immagini ottimizzate
+Accessibilità ....... verificata con controlli automatici (contrasto AA,
+                     tap target 44 px, navigazione da tastiera, dialog modale)
+
+Fine del documento.
+================================================================================

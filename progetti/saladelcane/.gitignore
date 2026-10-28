@@ -1,0 +1,9 @@
+node_modules
+_dist
+.netlify
+.netlify-token
+.netlifyignore
+shot-*.png
+live-*.png
+*.log
+saladelcane-hosting.zip

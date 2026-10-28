@@ -1,0 +1,10 @@
+{
+  "name": "saladelcane",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sito one-page della Sala del cane, Gravellona Toce",
+  "scripts": {
+    "galleria": "node scripts/gallery.mjs",
+    "dev": "npx --yes serve . -l 4321"
+  }
+}
