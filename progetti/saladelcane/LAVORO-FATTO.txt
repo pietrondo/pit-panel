@@ -48,7 +48,7 @@ PagineBianche.
                         piante e accessori · assistenza tecnica su acquari e
                         attrezzature · ornitologia (uccelli, gabbie, alimenti,
                         accessori) · alimenti per cani e gatti, anche dietetici ·
-                        articoli (gabbie, lettiere, guinzagli, collari, cappotti,
+                        articoli (gabbie, lettiere, guinzagli, collari,
                         felpe Liu-Jo) con i modelli più recenti
 - Metodi di pagamento .. contanti, carte di credito, carte di debito, NFC
 - Area servita ......... Gravellona Toce, Verbania, Verbano-Cusio-Ossola
@@ -263,6 +263,13 @@ V.22  Modifiche di contenuto e di layout richieste dal cliente (29/10/2026):
         sola e nessuno scorrimento orizzontale.
       Nota: www.saladelcane.com è ancora ospitato su Aruba e mostra "Sito in
       costruzione": il dominio va spostato sul sito Netlify (vedi A.1).
+      — FATTO (29/10/2026)
+
+V.23  Tolta la menzione dei cappotti da passeggio (29/10/2026): non compare
+      più nel sommario dell'hero ("alimenti e articoli"), nella voce "Articoli"
+      del listino ("gabbie, lettiere, guinzagli, collari e felpe Liu-Jo") né
+      nel catalogo dei servizi nel JSON-LD. Nessuna modifica al layout: la
+      riga dell'hero resta su una riga sola e senza scorrimento orizzontale.
       — FATTO (29/10/2026)
 
 
