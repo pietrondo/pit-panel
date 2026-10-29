@@ -41,6 +41,10 @@ function size(file) {
   return { w: 1200, h: 900 };
 }
 
+const didascalie = {
+  acquari: 'Acquari del negozio'
+};
+
 const didascalia = (f) =>
   basename(f, extname(f)).replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim()
     .replace(/^\p{L}/u, (c) => c.toUpperCase());
@@ -50,7 +54,8 @@ const voci = readdirSync(dir)
   .sort((a, b) => statSync(join(dir, a)).mtimeMs - statSync(join(dir, b)).mtimeMs)
   .map((f) => {
     const s = size(join(dir, f));
-    const v = { src: `galleria/${f}`, w: s.w, h: s.h, alt: didascalia(f) };
+    const chiave = basename(f, extname(f)).toLowerCase();
+    const v = { src: `galleria/${f}`, w: s.w, h: s.h, alt: didascalie[chiave] || didascalia(f) };
 
     // versione leggera: webp a max 1400px (stesso rapporto dell'originale)
     if (haMagick) {

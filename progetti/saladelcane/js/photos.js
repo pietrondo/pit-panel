@@ -27,5 +27,12 @@ window.FOTO_GALLERIA = [
     "h": 2293,
     "alt": "Pesce giallo",
     "webp": "galleria/opt/pesce-giallo.webp"
+  },
+  {
+    "src": "galleria/acquari.jpg",
+    "w": 964,
+    "h": 347,
+    "alt": "Acquari del negozio",
+    "webp": "galleria/opt/acquari.webp"
   }
 ];

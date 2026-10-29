@@ -24,6 +24,8 @@ scripts/check.mjs   controlli contrasto, overflow, menu, lightbox
 1. Metti i file in `galleria/` (jpg, jpeg, png, webp, gif, avif).
 2. Dai un nome che descriva la foto: diventa la didascalia sotto l'immagine
    (`betta-rosso.jpg` → "Betta rosso"). Rinomina con trattini, non spazi.
+   Se il nome da solo non basta, metti la didascalia giusta nella mappa
+   `didascalie` di `scripts/gallery.mjs`.
 3. Lancia:
 
 ```
@@ -32,6 +34,8 @@ npm run galleria
 
 Il sito mostra le foto in griglia masonry, con il nome del file come didascalia.
 Le foto hanno proporzioni diverse: la masonry le dispone nelle colonne.
+Le panoramiche (rapporto almeno 1,5, tipo la foto dell'interno) prendono
+tutta la larghezza della griglia invece di stare in una colonna.
 
 Se hai ImageMagick installato, lo script genera anche una versione `.webp`
 leggera in `galleria/opt/`: il browser scarica quella, il jpg resta come
@@ -96,6 +100,12 @@ Open Graph e il JSON-LD puntano già lì. Se il dominio cambia, aggiornali.
 ## Deploy
 
 Il sito è statico: si pubblica su Netlify (o qualsiasi hosting statico).
+
+```
+node scripts/deploy.mjs                 # deploy diretto via API Netlify
+```
+
+oppure, con la CLI:
 
 ```
 bash scripts/build-dist.sh              # copia in _dist/ solo i file del sito

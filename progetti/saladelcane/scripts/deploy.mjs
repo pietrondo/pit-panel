@@ -1,4 +1,4 @@
-// Deploy su Netlify via API REST: digest + upload dei file richiesti.
+// Deploy su Netlify via API REST: digest sha1 + upload dei file richiesti.
 // Uso: node scripts/deploy.mjs
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, dirname, relative, extname } from 'node:path';
@@ -18,7 +18,7 @@ const TIPI = {
 };
 const ESCLUDI = new Set(['.git', 'node_modules', '.netlify-token', '.engram',
   'scripts', 'package.json', 'package-lock.json', '.gitignore', 'shot-*.png',
-  '.netlifyignore', 'LAVORO-FATTO.txt']);
+  'live-*.png', '_dist', 'README.md', '.netlifyignore', 'LAVORO-FATTO.txt']);
 
 async function api(method, path, body, headers = {}) {
   const res = await fetch(API + path, {
@@ -58,10 +58,9 @@ for (const p of await raccogli(root)) {
   const rel = relative(root, p).split('\\').join('/');
   const buf = await readFile(p);
   file.push({
-    nome: rel,
     path: rel,
     contentType: TIPI[extname(p).toLowerCase()] || 'application/octet-stream',
-    digest: createHash('sha256').update(buf).digest('hex'),
+    sha1: createHash('sha1').update(buf).digest('hex'),
     size: (await stat(p)).size,
     _buf: buf
   });
@@ -69,51 +68,43 @@ for (const p of await raccogli(root)) {
 console.log('file:', file.length);
 
 // 3. crea il deploy
-const deploy = await api('POST', `/sites/${mio.id}/deploys`, {
-  files: file.map(({ _buf, ...f }) => f),
-  async: true,
-  branch: mio.deploy_settings?.branch || 'main',
+// Netlify vuole i file come mappa "path -> sha1", non come elenco:
+// con un elenco la diff dei file fallisce e il deploy resta in 'preparing'.
+const corpo = {
+  files: Object.fromEntries(file.map((f) => [f.path, f.sha1])),
+  async: false,
   draft: false,
+  branch: 'main',
   title: 'Sala del cane'
-});
+};
+const deploy = await api('POST', `/sites/${mio.id}/deploys`, corpo);
 console.log('deploy:', deploy.id, deploy.state);
-console.log('da caricare:', (deploy.required || []).length);
 
-// 4. carica i file richiesti
-const richiesti = deploy.required || [];
-for (const req of richiesti) {
-  if (req.type && req.type !== 'file') continue;
-  const mioFile = file.find((f) => f.nome === req.path || f.path === req.path);
-  if (!mioFile) { console.log('  (nessun file per', req.path, ')'); continue; }
-  const url = `${API}/deploys/${deploy.id}/files/${encodeURI(req.path)}`;
-  const res = await fetch(url, {
+// 4. la lista dei file da caricare la dà il deploy aggiornato
+// (gli elementi di 'required' sono gli sha1 dei file, non i path)
+const aggiornato = (await api('PUT', `/sites/${mio.id}/deploys/${deploy.id}`, corpo)) || deploy;
+const daCaricare = new Set((aggiornato.required || [])
+  .map((r) => (typeof r === 'string' ? r : r.sha1 || r.digest)));
+console.log('da caricare:', daCaricare.size);
+
+// 5. carica i file richiesti
+for (const f of file) {
+  if (!daCaricare.has(f.sha1)) continue;
+  const res = await fetch(`${API}/deploys/${deploy.id}/files/${encodeURI(f.path)}`, {
     method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': req.contentType || mioFile.contentType
-    },
-    body: mioFile._buf
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': f.contentType },
+    body: f._buf
   });
-  const txt = await res.text();
-  if (!res.ok) {
-    console.log('  ERRORE', req.path, res.status, txt.slice(0, 200));
-    // la firma del file richiede il digest nell'header
-    const res2 = await fetch(url + '?d=' + encodeURI(req.digest || ''), {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': req.contentType || mioFile.contentType },
-      body: mioFile._buf
-    });
-    console.log('   retry ->', res2.status);
-  }
+  if (!res.ok) console.log('  ERRORE', f.path, res.status, (await res.text()).slice(0, 200));
 }
 console.log('file caricati');
 
-// 5. aspetta la fine
+// 6. aspetta la fine
 let stato = deploy;
 for (let i = 0; i < 90; i++) {
   await new Promise((r) => setTimeout(r, 2500));
   stato = await api('GET', `/deploys/${deploy.id}`);
-  if (!['enqueued', 'building', 'uploading', 'preparing'].includes(stato.state)) break;
+  if (!['enqueued', 'building', 'uploading', 'preparing', 'new'].includes(stato.state)) break;
 }
 console.log('stato:', stato.state);
 if (stato.state === 'error') {

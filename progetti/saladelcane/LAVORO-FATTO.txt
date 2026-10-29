@@ -2,7 +2,7 @@
 SALA DEL CANE — Gravellona Toce (VB)
 Riepilogo completo del lavoro svolto sul sito one-page
 Documento di handover / base per il preventivo
-Data: 28-10-2026 (ultimo aggiornamento) · Progetto: C:\Users\pietr\progetti\saladelcane
+Data: 29-10-2026 (ultimo aggiornamento) · Progetto: C:\Users\pietr\progetti\saladelcane
 ================================================================================
 
 Domino di destinazione: www.saladelcane.com
@@ -60,8 +60,8 @@ PagineBianche.
 --------------------------------------------------------------------------------
 index.html ............ 302 righe  — la pagina unica, head SEO, markup, JSON-LD
 css/style.css ......... 817 righe  — tutto lo stile, design system, responsive
-js/site.js ............ 173 righe  — menu mobile, giorno corrente, masonry, lightbox
-js/photos.js ..........  31 righe  — elenco foto GENERATO (non editare a mano)
+js/site.js ............ 184 righe  — menu mobile, giorno corrente, masonry, lightbox
+js/photos.js ..........  38 righe  — elenco foto GENERATO (non editare a mano)
 fonts/ ................  4 file   — Paytone One e Hanken Grotesk in .woff2, serviti
                                 dal sito (latin + latin-ext, 94 KB)
 manifest.webmanifest ..  15 righe  — dati per installazione su home screen
@@ -70,18 +70,20 @@ sitemap.xml ...........  14 righe  — sitemap con lastmod e immagine
 package.json ...........  10 righe  — 2 script npm (galleria, dev server)
 README.md .............. 113 righe  — documentazione d'uso e manutenzione
 
-scripts/gallery.mjs ...  72 righe  — rigenera js/photos.js leggendo galleria/
+scripts/gallery.mjs ...  77 righe  — rigenera js/photos.js leggendo galleria/
 scripts/check.mjs .....  97 righe  — contrasto, overflow, menu, lightbox, tap target
 scripts/seo-check.mjs ..  90 righe  — audit meta tag, JSON-LD, sitemap, alt, link
 scripts/shot.mjs ......  63 righe  — screenshot di controllo desktop + mobile
 scripts/live-check.mjs .  44 righe  — verifica del sito già pubblicato
-scripts/deploy.mjs .... 124 righe  — deploy su Netlify via API REST
+scripts/deploy.mjs .... 115 righe  — deploy su Netlify via API REST
 scripts/build-dist.sh .  22 righe  — copia in _dist/ solo i file da pubblicare
 scripts/make-og.ps1 ...  24 righe  — rigenera l'immagine Open Graph (ImageMagick)
 
-Totale: ~1.902 righe di codice su 16 file + 156 righe di documentazione/config.
-Commit: 6 (5 del 26/10/2026 + 1 del 28/10/2026 con font locali e aggiornamento
-dei contenuti dal listino). Totale inserite ~2.438 righe, ~121 rimosse.
+Totale: ~1.919 righe di codice su 16 file + 156 righe di documentazione/config.
+Commit: 8 (5 del 26/10/2026, 1 del 28/10/2026 con font locali e aggiornamento
+dei contenuti dal listino, 2 del 29/10/2026 con la foto panoramica
+dell'interno e la correzione dello script di deploy).
+Totale inserite ~2.460 righe, ~121 rimosse.
 
 Grafici e immagini (17 file, ~2,8 MB complessivi):
 - assets/logo.jpg + logo.webp — logo del negozio (1200x896), usato nell'hero
@@ -89,7 +91,8 @@ Grafici e immagini (17 file, ~2,8 MB complessivi):
 - assets/og.jpg + og.webp — immagine Open Graph 1200x630 generata da script
 - assets/icon-192.png, icon-512.png, apple-touch-icon.png — icone PWA
 - favicon.ico — icona multi-risoluzione da 16 a 256 px
-- galleria/*.jpg (4 originali 1720x2293) + galleria/opt/*.webp (4 ottimizzati)
+- galleria/*.jpg (5 originali: 4 verticali 1720x2293 + 1 panoramica 964x347
+  dell'interno) + galleria/opt/*.webp (5 ottimizzati)
 
 
 --------------------------------------------------------------------------------
@@ -183,7 +186,7 @@ V.15  Strumenti di verifica automatici (Playwright + script Node, senza
       console, overflow, immagini effettivamente caricate).
       — FATTO
 
-V.16  Deploy: script di deploy su Netlify via API REST con digest SHA-256,
+V.16  Deploy: script di deploy su Netlify via API REST con digest SHA-1,
       upload dei file richiesti, attesa del completamento e stampa degli URL;
       script di preparazione _dist/ con copia selettiva; token Netlify tenuto
       fuori dal git. Prima pubblicazione eseguita.
@@ -223,6 +226,24 @@ V.20  Contenuti aggiornati con le note del cliente (28/10/2026): toelettatura
       1024/1440 px).
       — FATTO (28/10/2026)
 
+V.21  Foto panoramica dell'interno (29/10/2026): aggiunta alla galleria, con
+      didascalia dedicata "Acquari del negozio" (mappa di didascalie in
+      scripts/gallery.mjs per i nomi che da soli non bastano).
+      La masonry mette le foto panoramiche (rapporto almeno 1,5) a tutta
+      larghezza invece che in una colonna: dentro una colonna la striscia
+      panoramica diventava troppo stretta e lasciava un buco vuoto accanto.
+      Anche il lightbox su telefono ora centra verticalmente immagine e
+      didascalia invece di accorciarle in alto.
+      Corretto anche lo script di deploy: Netlify vuole i file come mappa
+      "path -> digest SHA-1" e nell'elenco "required" restituisce gli hash,
+      non i nomi dei file. Con l'elenco sbagliato la differenza dei file
+      falliva ("Deploy failed during file diffing") e il deploy restava
+      appeso: due pubblicazioni del 28/10 erano andate perse e il sito
+      online era fermo al 26/10.
+      Verificato sul sito pubblicato: 5 foto in galleria, tutte caricate,
+      nessuna richiesta 4xx/5xx, nessun errore in console.
+      — FATTO (29/10/2026)
+
 
 --------------------------------------------------------------------------------
 5. COME È STATO PRODOTTO (nota per il preventivo)
@@ -245,7 +266,7 @@ A.2  Verifica/aggiornamento della scheda Google Business Profile (orari,
     categoria, foto, sito collegato) e richiesta/verifica del profilo.
     — DA FARE (piccolo/medio, in carico al cliente)
 A.3  Inserimento di altre foto del negozio e di foto reali dei servizi
-    (al momento 4 immagini): basta copiarle in galleria/ e rilanciare
+    (al momento 5 immagini): basta copiarle in galleria/ e rilanciare
     `npm run galleria`, poi il deploy.
     — DA FARE (medio, cliente)
 A.4  Coerenza di copia: nel listino la voce è "Mangimi" mentre la descrizione

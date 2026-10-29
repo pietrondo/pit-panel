@@ -80,20 +80,31 @@
         var fig = document.createElement('figure');
         fig.style.position = 'absolute';
         fig.style.margin = '0';
-        fig.style.width = colWidth + 'px';
 
-        var h = Math.round(colWidth * (f.h / f.w));
+        // panorama (foto dell'interno): occupa tutta la larghezza della griglia
+        var panoramica = f.w / f.h >= 1.5;
+        var w = panoramica ? larghezza : colWidth;
+        fig.style.width = w + 'px';
+
+        var h = Math.round(w * (f.h / f.w));
         var altezzaTotale = h + 34;
 
-        // colonna piu' bassa
-        var col = 0;
-        for (var c = 1; c < colonne; c++) {
-          if (altezze[c] < altezze[col]) col = c;
-        }
+        if (panoramica) {
+          var top = Math.max.apply(null, altezze);
+          fig.style.left = '0px';
+          fig.style.top = top + 'px';
+          for (var c = 0; c < colonne; c++) altezze[c] = top + altezzaTotale + GAP;
+        } else {
+          // colonna piu' bassa
+          var col = 0;
+          for (var c = 1; c < colonne; c++) {
+            if (altezze[c] < altezze[col]) col = c;
+          }
 
-        fig.style.left = col * (colWidth + GAP) + 'px';
-        fig.style.top = altezze[col] + 'px';
-        altezze[col] += altezzaTotale + GAP;
+          fig.style.left = col * (colWidth + GAP) + 'px';
+          fig.style.top = altezze[col] + 'px';
+          altezze[col] += altezzaTotale + GAP;
+        }
 
         var btn = document.createElement('button');
         btn.type = 'button';

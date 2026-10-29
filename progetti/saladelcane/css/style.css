@@ -573,6 +573,9 @@ h1, h2, h3 { line-height: 1.05; margin: 0; }
     width: 100vw;
     height: 100dvh;
     border: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
   .lightbox img {
     max-height: 78dvh;
