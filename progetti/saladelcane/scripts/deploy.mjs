@@ -74,7 +74,6 @@ const corpo = {
   files: Object.fromEntries(file.map((f) => [f.path, f.sha1])),
   async: false,
   draft: false,
-  branch: 'main',
   title: 'Sala del cane'
 };
 const deploy = await api('POST', `/sites/${mio.id}/deploys`, corpo);

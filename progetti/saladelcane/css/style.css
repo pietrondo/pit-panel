@@ -228,6 +228,10 @@ h1, h2, h3 { line-height: 1.05; margin: 0; }
   margin: 0 0 1.8rem;
 }
 
+.hero__indirizzo {
+  white-space: nowrap;
+}
+
 .hero__azioni {
   display: flex;
   flex-wrap: wrap;

@@ -239,9 +239,30 @@ V.21  Foto panoramica dell'interno (29/10/2026): aggiunta alla galleria, con
       non i nomi dei file. Con l'elenco sbagliato la differenza dei file
       falliva ("Deploy failed during file diffing") e il deploy restava
       appeso: due pubblicazioni del 28/10 erano andate perse e il sito
-      online era fermo al 26/10.
+      online era fermo al 26/10. Inoltre il deploy non deve mandare il
+      campo "branch": con quel campo diventa un deploy di ramo, resta su
+      "main--<sito>.netlify.app" e l'indirizzo principale continua a
+      servire la versione vecchia senza dirlo.
       Verificato sul sito pubblicato: 5 foto in galleria, tutte caricate,
       nessuna richiesta 4xx/5xx, nessun errore in console.
+      — FATTO (29/10/2026)
+
+V.22  Modifiche di contenuto e di layout richieste dal cliente (29/10/2026):
+      - tolta dal blocco Contatti la frase "Siamo sui social, scrivici per un
+        appuntamento o per una foto del tuo cane prima e dopo la toelettatura"
+        (restano i link a Facebook e Instagram);
+      - "Assistenza tecnica" non è più una voce a sé del listino: sta dentro
+        "Acquari" ("Vendita e assistenza: pesci tropicali, piante e accessori.
+        Anche assistenza tecnica su acquari e attrezzature."), con il JSON-LD
+        allineato (una sola offerta Acquari invece di due);
+      - la voce "Articoli" ora dice "articoli all'ultimo grido, con i modelli
+        più recenti", anche nel JSON-LD;
+      - l'indirizzo "In Corso Roma 139 dal 1979." sta su una riga sola
+        (span .hero__indirizzo con white-space: nowrap). Verificato a 360,
+        390, 480, 600, 736, 768, 800, 900, 1024, 1280 e 1440 px: una riga
+        sola e nessuno scorrimento orizzontale.
+      Nota: www.saladelcane.com è ancora ospitato su Aruba e mostra "Sito in
+      costruzione": il dominio va spostato sul sito Netlify (vedi A.1).
       — FATTO (29/10/2026)
 
 
