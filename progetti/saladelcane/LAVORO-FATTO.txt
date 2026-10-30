@@ -15,7 +15,7 @@ Stato: sito costruito, verificato e pubblicato in produzione
 --------------------------------------------------------------------------------
 - Cliente: Sala del cane di Fioravanti C. e Bonali L. s.n.c., Corso Roma 139,
   28883 Gravellona Toce (VB) — negozio per animali domestici e toelettatura,
-  in attività dal 1979.
+  in attività dal 1989.
 - Richiesta: una sola pagina (one-page), semplice, con servizi, orari, galleria,
   contatti e social.
 - Vincoli tecnici: nessun framework, nessuna dipendenza runtime, nessun build
@@ -38,7 +38,7 @@ PagineBianche.
 - Email ................ info@saladelcane.com
 - Facebook ............. facebook.com/saladecane
 - Instagram ............ instagram.com/sala_del_cane
-- Anno di apertura ..... 1979
+- Anno di apertura ..... 1989
 - Persone .............. Lorena e Claudio
 - Coordinate (JSON-LD) 45.9219, 8.4290
 - Orari ................ lun 15:00–19:30 · mar–sab 08:30–12:30 e 15:00–19:30
@@ -46,10 +46,11 @@ PagineBianche.
 - Servizi offerti ...... toelettatura professionale per cani (bagno e tosatura)
                         · vendita e assistenza acquari con pesci tropicali,
                         piante e accessori · assistenza tecnica su acquari e
-                        attrezzature · ornitologia (uccelli, gabbie, alimenti,
-                        accessori) · alimenti per cani e gatti, anche dietetici ·
-                        articoli (gabbie, lettiere, guinzagli, collari,
-                        felpe Liu-Jo) con i modelli più recenti
+                        attrezzature · ornitologia (uccelli, roditori, gabbie,
+                        alimenti, accessori) · alimenti per cani e gatti, anche
+                        dietetici · articoli (gabbie, lettiere, guinzagli,
+                        collari, felpe Liu-Jo) con i modelli più recenti
+- Copy di apertura ..... "A vostra disposizione da quasi 50 anni di esperienza"
 - Metodi di pagamento .. contanti, carte di credito, carte di debito, NFC
 - Area servita ......... Gravellona Toce, Verbania, Verbano-Cusio-Ossola
 - Recensioni ........... 4,8/5 su 196 recensioni (una recensione citata nel sito)
@@ -257,7 +258,7 @@ V.22  Modifiche di contenuto e di layout richieste dal cliente (29/10/2026):
         allineato (una sola offerta Acquari invece di due);
       - la voce "Articoli" ora dice "articoli all'ultimo grido, con i modelli
         più recenti", anche nel JSON-LD;
-      - l'indirizzo "In Corso Roma 139 dal 1979." sta su una riga sola
+      - l'indirizzo "In Corso Roma 139 dal 1989." sta su una riga sola
         (span .hero__indirizzo con white-space: nowrap). Verificato a 360,
         390, 480, 600, 736, 768, 800, 900, 1024, 1280 e 1440 px: una riga
         sola e nessuno scorrimento orizzontale.
@@ -271,6 +272,24 @@ V.23  Tolta la menzione dei cappotti da passeggio (29/10/2026): non compare
       nel catalogo dei servizi nel JSON-LD. Nessuna modifica al layout: la
       riga dell'hero resta su una riga sola e senza scorrimento orizzontale.
       — FATTO (29/10/2026)
+
+V.24  Correzioni di contenuto richieste dal cliente (30/10/2026):
+      - l'anno di attività è 1989, non 1979: corretti tutti i riferimenti
+        (meta description, Open Graph, Twitter, occhiello e indirizzo dell'hero,
+        paragrafo "Chi siamo", foundingDate nel JSON-LD, descrizione del
+        manifest, testo dell'immagine Open Graph rigenerata con
+        scripts/make-og.ps1);
+      - la voce "Ornitologia" ora elenca anche i roditori, nel listino e nel
+        catalogo dei servizi nel JSON-LD;
+      - la voce "Mangimi" diventa "Alimenti", con la descrizione allineata
+        ("Alimenti per cani e gatti, anche dietetici, crocchette di varie
+        marche"): risolve il punto A.4;
+      - aggiunta nel sommario dell'hero la frase del cliente "A vostra
+        disposizione da quasi 50 anni di esperienza".
+      Nota: 1989 e "quasi 50 anni" non tornano (dal 1989 a oggi sono 37 anni):
+      la frase si riferisce all'esperienza di chi gestisce il negozio. Da
+      confermare con il cliente (cambiare anno o cambiare la frase).
+      — FATTO (30/10/2026)
 
 
 --------------------------------------------------------------------------------
@@ -301,7 +320,8 @@ A.4  Coerenza di copia: nel listino la voce è "Mangimi" mentre la descrizione
     dice "Alimenti". Le note del cliente del 28/10 usano "Mangimi" per la voce
     e "alimenti" per il contenuto: la scelta attuale è quella del cliente, ma
     allineare i due termini resta una decisione aperta.
-    — DA CONFERMARE (piccolissimo)
+    — RISOLTO (30/10/2026): la voce ora è "Alimenti", allineata alla
+    descrizione "Alimenti per cani e gatti, anche dietetici"
 A.5  Verifica finale su Search Console dopo il passaggio di dominio
     (invio sitemap, richiesta di indicizzazione).
     — DA FARE (piccolo)

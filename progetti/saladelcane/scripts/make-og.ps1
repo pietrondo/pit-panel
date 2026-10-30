@@ -12,7 +12,7 @@ $font = "C:/Windows/Fonts/arialbd.ttf"
 magick assets\og-tmp.png `
   -font $font -pointsize 74 -fill "#1D1B1E" -annotate +625+150 "Sala del cane" `
   -pointsize 36 -fill "#1D1B1E" -annotate +627+220 "Toelettatura e acquari" `
-  -pointsize 27 -fill "#3a3630" -annotate +627+285 "Gravellona Toce, dal 1979" `
+  -pointsize 27 -fill "#3a3630" -annotate +627+285 "Gravellona Toce, dal 1989" `
   -pointsize 27 -fill "#3a3630" -annotate +627+330 "Corso Roma 139" `
   -pointsize 27 -fill "#3a3630" -annotate +627+375 "Tel. 0323 846239" `
   assets\og.jpg
