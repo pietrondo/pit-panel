@@ -2,7 +2,7 @@
 SALA DEL CANE — Gravellona Toce (VB)
 Riepilogo completo del lavoro svolto sul sito one-page
 Documento di handover / base per il preventivo
-Data: 29-10-2026 (ultimo aggiornamento) · Progetto: C:\Users\pietr\progetti\saladelcane
+Data: 04-11-2026 (ultimo aggiornamento) · Progetto: C:\Users\pietr\progetti\saladelcane
 ================================================================================
 
 Domino di destinazione: www.saladelcane.com
@@ -291,6 +291,22 @@ V.24  Correzioni di contenuto richieste dal cliente (30/10/2026):
       confermare con il cliente (cambiare anno o cambiare la frase).
       — FATTO (30/10/2026)
 
+V.25  Nuovo testo per la sezione "Chi siamo" (04/11/2026): il paragrafo è
+      sostituito con il testo del cliente, su due paragrafi: "Ci occupiamo dei
+      vostri piccoli amici da oltre 40 anni…" e "Mettiamo l'esperienza di una
+      vita a vostra disposizione." I nomi di Lorena e Claudio restano nel sito:
+      compaiono nella recensione Google subito sotto.
+      Verificato: SEO 56/56, nessuno scorrimento orizzontale a 360 px,
+      nessun errore in console, sezione resa a schermo su desktop e telefono.
+      Nota: il sito porta ora tre numeri diversi — "dal 1989" (meta, hero,
+      foundingDate), "quasi 50 anni di esperienza" (hero, frase del cliente) e
+      "oltre 40 anni" (Chi siamo). Dal 1989 a oggi sono 37 anni: i 40 anni non
+      tornano se si riferiscono all'attività del negozio. Stessa domanda già
+      aperta da V.24: da confermare con il cliente.
+      La pubblicazione non è avvenuta: il token in .netlify-token risponde 401
+      e il sito online serve ancora il testo del 30/10 (vedi A.9).
+      — FATTO (04/11/2026)
+
 
 --------------------------------------------------------------------------------
 5. COME È STATO PRODOTTO (nota per il preventivo)
@@ -336,6 +352,15 @@ A.8  Manutenzione periodica: hosting statico senza costi ricorrenti, ma
     restano l'aggiornamento dei dati del negozio (orari, prezzi, foto) e la
     verifica che il sito resti online.
     — RICORRENTE (da quantificare)
+
+A.9  Rigenerare il token Netlify: quello in .netlify-token risponde 401
+    "Access Denied" (token scadato o revocato) e la CLI netlify globale è
+    installata ma rotta (manca netlify-cli/bin/run.js). Senza questo le
+    modifiche restano solo in locale e il sito online continua a servire la
+    versione del 30/10. Due strade: token nuovo da netlify.com → User
+    settings → Applications dentro .netlify-token, oppure "netlify login" e
+    poi "netlify deploy --dir _dist --prod".
+    — DA FARE (piccolo, in carico al cliente)
 
 Nota: nulla di quanto sopra blocca l'uso del sito già online.
 
