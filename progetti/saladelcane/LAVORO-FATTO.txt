@@ -303,10 +303,12 @@ V.25  Nuovo testo per la sezione "Chi siamo" (04/11/2026): il paragrafo è
       "oltre 40 anni" (Chi siamo). Dal 1989 a oggi sono 37 anni: i 40 anni non
       tornano se si riferiscono all'attività del negozio. Stessa domanda già
       aperta da V.24: da confermare con il cliente.
-      La pubblicazione non è avvenuta: il token in .netlify-token risponde 401
-      e il sito online serve ancora il testo del 30/10 (vedi A.9).
+      Pubblicato lo stesso giorno: deploy Netlify 6aeb5b00a3541f94344d2e6a
+      (stato ready; la diff dei file ha caricato un solo file, index.html).
+      Verificato sul sito online: nuovo testo presente, 5 foto in galleria
+      tutte caricate, nessun errore in console, nessuno scorrimento
+      orizzontale, barra del telefono solo su schermi piccoli.
       — FATTO (04/11/2026)
-
 
 --------------------------------------------------------------------------------
 5. COME È STATO PRODOTTO (nota per il preventivo)
@@ -353,14 +355,16 @@ A.8  Manutenzione periodica: hosting statico senza costi ricorrenti, ma
     verifica che il sito resti online.
     — RICORRENTE (da quantificare)
 
-A.9  Rigenerare il token Netlify: quello in .netlify-token risponde 401
-    "Access Denied" (token scadato o revocato) e la CLI netlify globale è
-    installata ma rotta (manca netlify-cli/bin/run.js). Senza questo le
-    modifiche restano solo in locale e il sito online continua a servire la
-    versione del 30/10. Due strade: token nuovo da netlify.com → User
-    settings → Applications dentro .netlify-token, oppure "netlify login" e
-    poi "netlify deploy --dir _dist --prod".
-    — DA FARE (piccolo, in carico al cliente)
+A.9  Token Netlify: quello in .netlify-token era scadato (401 "Access
+    Denied") e la CLI netlify globale era installata a metà (nella cartella
+    del pacchetto c'era solo node_modules, mancava bin/run.js).
+    Risolto il 04/11/2026 con "npx netlify-cli login": il token della CLI
+    (salvato in %APPDATA%\netlify\Config\config.json) è stato copiato in
+    .netlify-token e il deploy è ripartito.
+    La CLI globale resta rotta: per sistemarla serve "npm install -g
+    netlify-cli" (il prefix C:\home\pietro\.npm-global è scrivibile, non
+    serve admin). Da rifare solo se il token scade ancora.
+    — RISOLTO (04/11/2026)
 
 Nota: nulla di quanto sopra blocca l'uso del sito già online.
 
