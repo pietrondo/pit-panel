@@ -423,6 +423,8 @@ async def app_proxy_service(
             "content-length",
             "keep-alive",
             "upgrade",
+            "cookie",
+            "authorization",
         }
     )
     for key, value in request.headers.items():
@@ -488,6 +490,9 @@ async def app_wp_proxy(request: Request, sd_id: int, path: str, db: AsyncSession
     if not sd:
         return Response("App not found", status_code=404)
     require_subdomain_access(user, sd)
+
+    if sd.app_type != "wordpress":
+        return Response("App is not WordPress", status_code=404)
 
     settings = get_settings()
     port = _get_wp_port(settings, sd.subdomain)

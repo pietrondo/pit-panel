@@ -7,6 +7,23 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
+_CMD_TIMEOUT = 60
+_SLOW_TIMEOUT = 300
+
+
+async def _communicate(
+    proc: asyncio.subprocess.Process, timeout: int, input_data: bytes | None = None
+) -> tuple[bytes, bytes]:
+    """Communicate with a deadline; a hung docker call must not hang the request."""
+    try:
+        return await asyncio.wait_for(proc.communicate(input=input_data), timeout=timeout)
+    except TimeoutError:
+        with contextlib.suppress(Exception):
+            proc.kill()
+        with contextlib.suppress(Exception):
+            await proc.wait()
+        return b"", f"command timed out after {timeout}s".encode()
+
 
 class DockerManager:
     def __init__(self, apps_dir: str = "/opt/pit-panel/apps"):
@@ -25,7 +42,7 @@ class DockerManager:
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(path),
             )
-            stdout, stderr = await proc.communicate()
+            stdout, stderr = await _communicate(proc, _SLOW_TIMEOUT)
             return {
                 "success": proc.returncode == 0,
                 "stdout": stdout.decode(),
@@ -45,12 +62,14 @@ class DockerManager:
         service: str,
         cmd: list[str],
         env: dict[str, str] | None = None,
+        input: str | None = None,
     ) -> dict[str, Any]:
         path = self.apps_dir / subdomain
         env_args = []
         if env:
             for k, v in env.items():
                 env_args.extend(["-e", f"{k}={v}"])
+        stdin_arg = {"stdin": asyncio.subprocess.PIPE} if input is not None else {}
         try:
             proc = await asyncio.create_subprocess_exec(
                 "docker",
@@ -62,11 +81,14 @@ class DockerManager:
                 *env_args,
                 service,
                 *cmd,
+                **stdin_arg,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(path),
             )
-            stdout, stderr = await proc.communicate()
+            stdout, stderr = await _communicate(
+                proc, _CMD_TIMEOUT, input.encode() if input is not None else None
+            )
             return {
                 "success": proc.returncode == 0,
                 "stdout": stdout.decode(),
@@ -90,7 +112,7 @@ class DockerManager:
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(path),
             )
-            stdout, _ = await proc.communicate()
+            stdout, _ = await _communicate(proc, _CMD_TIMEOUT)
             containers = []
             for line in stdout.decode().strip().split("\n"):
                 if line.strip():
@@ -118,7 +140,7 @@ class DockerManager:
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(path),
             )
-            stdout, _ = await proc.communicate()
+            stdout, _ = await _communicate(proc, _CMD_TIMEOUT)
             return stdout.decode()
         except OSError as e:
             return f"Failed to retrieve logs: {e}"
@@ -148,7 +170,7 @@ class DockerManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, _ = await proc.communicate()
+            stdout, _ = await _communicate(proc, _CMD_TIMEOUT)
             containers = []
             for line in stdout.decode().strip().split("\n"):
                 if line.strip():
@@ -170,7 +192,7 @@ class DockerManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, _ = await proc.communicate()
+            stdout, _ = await _communicate(proc, _CMD_TIMEOUT)
             result: dict[str, dict[str, Any]] = {}
             for line in stdout.decode().strip().split("\n"):
                 if line.strip():
@@ -192,7 +214,7 @@ class DockerManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await proc.communicate()
+            stdout, stderr = await _communicate(proc, _CMD_TIMEOUT)
             return {
                 "success": proc.returncode == 0,
                 "stdout": stdout.decode(),
@@ -215,7 +237,7 @@ class DockerManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await proc.communicate()
+            stdout, stderr = await _communicate(proc, _CMD_TIMEOUT)
             return {
                 "success": proc.returncode == 0,
                 "stdout": stdout.decode(),
@@ -241,7 +263,7 @@ class DockerManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, _ = await proc.communicate()
+            stdout, _ = await _communicate(proc, _CMD_TIMEOUT)
             try:
                 return cast(dict[str, Any], json.loads(stdout.decode().strip()))
             except json.JSONDecodeError:
@@ -261,7 +283,7 @@ class DockerManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await proc.communicate()
+            stdout, stderr = await _communicate(proc, _CMD_TIMEOUT)
             output = stdout.decode()
             if stderr:
                 output += "\n" + stderr.decode()

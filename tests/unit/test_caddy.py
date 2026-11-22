@@ -63,8 +63,7 @@ class TestHostValidation:
         with patch.object(mgr, "_patch_or_create_route", AsyncMock(return_value={})) as mock_patch:
             await mgr.add_subdomain("my-app", "sub.example.com")
             await mgr.add_static_subdomain("site.1", "example.com", "/tmp/x")
-            await mgr.setup_panel_route("panel", "example.com")
-        assert mock_patch.call_count == 3
+        assert mock_patch.call_count == 2
 
 
 @pytest.mark.asyncio

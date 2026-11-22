@@ -3,8 +3,10 @@
 import asyncio
 import contextlib
 import datetime
+import html
 import logging
 import os
+import re
 import shutil
 import tarfile
 from pathlib import Path
@@ -154,6 +156,33 @@ async def app_backup_run(request: Request, sd_id: int, db: AsyncSession = Depend
         return HTMLResponse(html_err)
 
 
+async def _restore_database(docker_mgr: DockerManager, subdomain: str, dump_path: Path) -> str:
+    """Load the database dump a backup carries, using the compose DB service."""
+    from pit_panel.core.backup import _get_db_service_info
+
+    app_dir = Path(docker_mgr.apps_dir) / subdomain
+    info = _get_db_service_info(app_dir / "docker-compose.yml", app_dir / ".env")
+    if not info:
+        return "database not restored: no db service found"
+    svc_name, db_type, db_user, db_pass, db_name = info
+    if db_type == "postgres":
+        cmd = ["psql", "-U", db_user or "postgres", "-d", db_name or "postgres"]
+        env = {"PGPASSWORD": db_pass} if db_pass else None
+    else:
+        cmd = ["mysql", "-u", db_user or "root", db_name or "mysql"]
+        env = {"MYSQL_PWD": db_pass} if db_pass else None
+    res = await docker_mgr.exec_command(
+        subdomain,
+        svc_name,
+        cmd,
+        env=env,
+        input=dump_path.read_text(encoding="utf-8", errors="replace"),
+    )
+    if not res.get("success"):
+        return f"database restore failed: {(res.get('stderr') or '')[:200]}"
+    return "database restored"
+
+
 @router.post("/apps/{sd_id}/backup/restore", response_class=HTMLResponse)
 async def app_backup_restore(
     request: Request, sd_id: int, name: str = Form(...), db: AsyncSession = Depends(get_db)
@@ -168,6 +197,9 @@ async def app_backup_restore(
         return HTMLResponse("<p class='text-red-500'>App not found</p>", status_code=404)
     require_subdomain_access(user, sd)
 
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
+        return HTMLResponse("<p class='text-red-500'>Invalid backup name</p>", status_code=400)
+
     settings = get_settings()
     backup_path = Path(settings.data_dir) / "backups" / sd.subdomain / f"{name}.tar.gz"
     if not backup_path.exists():
@@ -178,7 +210,17 @@ async def app_backup_restore(
     try:
         await docker_mgr.run_compose_command(sd.subdomain, ["down"])
         with tarfile.open(backup_path, "r:gz") as tar:
+            if any(m.name.split("/", 1)[0] != sd.subdomain for m in tar.getmembers()):
+                return HTMLResponse(
+                    "<p class='text-red-500'>Backup does not belong to this app</p>",
+                    status_code=400,
+                )
             _safe_extract_tar(tar, Path(settings.apps_dir))
+        db_note = ""
+        dump_path = Path(settings.apps_dir) / sd.subdomain / "database_dump.sql"
+        if dump_path.exists():
+            db_note = await _restore_database(docker_mgr, sd.subdomain, dump_path)
+            dump_path.unlink()
         await docker_mgr.run_compose_command(sd.subdomain, ["up", "-d"])
 
         db.add(
@@ -198,14 +240,14 @@ async def app_backup_restore(
             '<div class="px-6 py-3 bg-green-50 dark:bg-green-900/20'
             ' border-b border-green-200 dark:border-green-800">'
             f'<p class="text-sm text-green-700 dark:text-green-400">'
-            f"Restored: {name}</p></div>"
+            f"Restored: {name}" + (f" ({db_note})" if db_note else "") + "</p></div>"
         )
     except Exception as e:
         logger.error(f"Restore failed for {sd.subdomain}: {e}")
         return HTMLResponse(
             '<div class="px-6 py-3 bg-red-50 dark:bg-red-900/20'
             ' border-b border-red-200 dark:border-red-800">'
-            f'<p class="text-sm text-red-600">Restore failed: {e}</p></div>'
+            f'<p class="text-sm text-red-600">Restore failed: {html.escape(str(e))}</p></div>'
         )
 
 

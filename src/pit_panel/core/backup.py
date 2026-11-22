@@ -91,28 +91,24 @@ async def perform_app_backup(
         db_info = _get_db_service_info(compose_path, env_path)
         if db_info:
             svc_name, db_type, db_user, db_pass, db_name = db_info
-            dump_text = None
             if db_type == "postgres":
-                db_name_fmt = db_name or "postgres"
-                cmd = ["pg_dump", "-U", db_user or "postgres", db_name_fmt]
+                cmd = ["pg_dump", "-U", db_user or "postgres", db_name or "postgres"]
                 env = {"PGPASSWORD": db_pass} if db_pass else None
-                r = await docker_mgr.exec_command(sd.subdomain, svc_name, cmd, env=env)
-                dump_text = r.get("stdout") if r.get("success") else None
-            elif "mysql" in db_type:
-                pw_flag = f"-p{db_pass}" if db_pass else ""
-                cmd = [
-                    "mysqldump",
-                    "--hex-blob",
-                    "-u",
-                    db_user or "root",
-                    pw_flag,
-                    db_name or "mysql",
-                ]  # noqa: E501
-                r = await docker_mgr.exec_command(sd.subdomain, svc_name, cmd)
-                dump_text = r.get("stdout") if r.get("success") else None
-            if dump_text:
-                db_dump = backup_dir / f"{name}_db_dump.sql"
-                db_dump.write_text(dump_text)
+                dump = await docker_mgr.exec_command(sd.subdomain, svc_name, cmd, env=env)
+            else:
+                cmd = ["mysqldump", "--hex-blob", "-u", db_user or "root", db_name or "mysql"]
+                env = {"MYSQL_PWD": db_pass} if db_pass else None
+                dump = await docker_mgr.exec_command(
+                    sd.subdomain, svc_name, cmd, env=env
+                )
+            if not dump or not dump.get("success") or not dump.get("stdout"):
+                error = ((dump or {}).get("stderr") or "database dump failed")[:300]
+                logger.error(f"Backup aborted for {sd.subdomain}: {error}")
+                if path.exists():
+                    path.unlink()
+                return {"success": False, "error": f"Database dump failed: {error}"}
+            db_dump = backup_dir / f"{name}_db_dump.sql"
+            db_dump.write_text(dump["stdout"])
         with tarfile.open(path, "w:gz") as tar:
             tar.add(app_dir, arcname=sd.subdomain)
             if db_dump and db_dump.exists():

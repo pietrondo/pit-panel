@@ -575,22 +575,10 @@ async def debug_write_file(
     try:
         resolved.write_text(content, encoding="utf-8")
     except PermissionError as e:
-        from pit_panel.core.sudo_ops import run_sudo
-
-        sudo_pw = get_settings().sudo_password.strip()
-        if not sudo_pw:
-            raise HTTPException(
-                status_code=500,
-                detail="Permission denied and no sudo_password configured",
-            ) from e
-        import tempfile as _tf
-
-        with _tf.NamedTemporaryFile(mode="w", suffix=".tmp", delete=False) as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
-        await run_sudo(["/usr/bin/cp", tmp_path, str(resolved)], sudo_pw)
-        await run_sudo(["/usr/bin/chmod", "644", str(resolved)], sudo_pw)
-        os.unlink(tmp_path)
+        raise HTTPException(
+            status_code=403,
+            detail="File is owned by another user; edit it from the terminal",
+        ) from e
     _audit(request, request.url.path, 200)
     return JSONResponse({"status": "ok", "path": str(resolved), "bytes": len(content.encode())})
 

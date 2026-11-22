@@ -13,6 +13,15 @@ class DynuError(RuntimeError):
     """Raised when Dynu cannot complete a DNS operation."""
 
 
+def dynu_enabled(settings: Any) -> bool:
+    """True when both the API key and the owned root are configured."""
+    for key in ("dynu_api_key", "dynu_domain"):
+        value = getattr(settings, key, "")
+        if not isinstance(value, str) or not value.strip():
+            return False
+    return True
+
+
 def _envelope_items(payload: Any, key: str) -> list[dict[str, Any]]:
     """Records of a Dynu list response, with or without its envelope.
 

@@ -183,7 +183,10 @@ async def test_perform_app_backup_mysql(
     assert result["success"] is True
 
     mock_docker_instance.exec_command.assert_called_once_with(
-        "testapp", "db", ["mysqldump", "--hex-blob", "-u", "myuser", "-pmypass", "mydb"]
+        "testapp",
+        "db",
+        ["mysqldump", "--hex-blob", "-u", "myuser", "mydb"],
+        env={"MYSQL_PWD": "mypass"},
     )
 
 

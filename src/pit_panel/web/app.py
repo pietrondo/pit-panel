@@ -33,7 +33,6 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from pit_panel.core.backup import scheduled_backup_loop
     from pit_panel.core.blocklist import daily_blocklist_import
     from pit_panel.core.caddy import ssl_auto_renew_loop
-    from pit_panel.core.health import docker_health_monitor_loop
     from pit_panel.db.session import init_db
 
     await init_db(app.state.settings)
@@ -41,7 +40,6 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     tasks = [
         asyncio.create_task(daily_blocklist_import()),
         asyncio.create_task(ssl_auto_renew_loop()),
-        asyncio.create_task(docker_health_monitor_loop()),
         asyncio.create_task(scheduled_backup_loop()),
     ]
     yield

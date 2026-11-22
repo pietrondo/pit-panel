@@ -134,8 +134,9 @@ async def _site_pages(db: AsyncSession, site: Site) -> list[Page]:
 async def _resolve_page(db: AsyncSession, site: Site, slug: str | None) -> tuple[Page, list[Page]]:
     """Resolve one page by slug (defaulting to `home`) plus the full page list."""
     pages = await _site_pages(db, site)
-    wanted = slug if slug in {p.slug for p in pages} else HOME_SLUG
-    page = next(p for p in pages if p.slug == wanted)
+    page = next((p for p in pages if p.slug == slug), None)
+    if page is None:
+        page = next((p for p in pages if p.slug == HOME_SLUG), pages[0])
     return page, pages
 
 
@@ -624,7 +625,11 @@ async def site_builder_save_widgets(
         current.title = tree["title"].strip()[:200]
     if isinstance(tree.get("page_slug"), str):
         requested = tree["page_slug"].strip().lower()
-        if _SLUG_RE.fullmatch(requested) and requested != current.slug:
+        if (
+            _SLUG_RE.fullmatch(requested)
+            and requested != current.slug
+            and requested != HOME_SLUG
+        ):
             taken = {
                 s
                 for (s,) in (
@@ -723,6 +728,7 @@ async def site_builder_publish(
     pub_dir = _published_site_dir(site.subdomain)
     nav = [{"slug": p.slug, "title": p.title, "href": _published_filename(p.slug)} for p in pages]
     written: list[str] = []
+    index_path = pub_dir / "index.html"
     try:
         pub_dir.mkdir(parents=True, exist_ok=True)
         for p in pages:
@@ -732,6 +738,9 @@ async def site_builder_publish(
             filename = _published_filename(p.slug)
             (pub_dir / filename).write_text(html_out, encoding="utf-8")
             written.append(filename)
+        for stale in pub_dir.glob("*.html"):
+            if stale.name not in written:
+                stale.unlink()
     except OSError as e:
         logger.exception("Failed to write published HTML for %s", site.subdomain)
         return JSONResponse({"error": "write_failed", "detail": str(e)}, status_code=500)
@@ -749,10 +758,12 @@ async def site_builder_publish(
     else:
         caddy_note = "base_domain not configured; HTML written but not routed."
 
-    site.published_html_path = str(pub_dir / "index.html")
+    site.published_html_path = str(index_path) if index_path.exists() else None
     site.published_at = dt.datetime.now(dt.UTC)
     site.status = "published"
     await db.commit()
+    if not index_path.exists():
+        caddy_note = (caddy_note + " ").strip() + "No home page: the site root has no index.html."
     return JSONResponse(
         {
             "status": "published",
