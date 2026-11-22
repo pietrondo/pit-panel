@@ -183,7 +183,7 @@ async def proxy_request(
     headers = {}
     for key, value in request.headers.items():
         kl = key.lower()
-        if kl in _HOP_BY_HOP:
+        if kl in _HOP_BY_HOP or kl in ("cookie", "authorization"):
             continue
         if kl == "host":
             headers[key] = f"localhost:{port}"

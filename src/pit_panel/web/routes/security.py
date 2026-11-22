@@ -203,7 +203,10 @@ async def security_revoke_session(
         return RedirectResponse("/login", status_code=302)
 
     form = await request.form()
-    session_id = int(form.get("session_id", 0))
+    try:
+        session_id = int(form.get("session_id", 0))
+    except (TypeError, ValueError):
+        session_id = 0
     if session_id:
         await revoke_session(db, session_id)
 
@@ -223,7 +226,12 @@ async def security_ban_ip(
     form = await request.form()
     ip = str(form.get("ip", "")).strip()
     reason = str(form.get("reason", "manual")).strip() or "manual"
-    duration = int(form.get("duration", 60))
+    try:
+        duration = int(form.get("duration", 60))
+    except (TypeError, ValueError):
+        return HTMLResponse(
+            "<span class='text-red-500 text-xs'>Invalid duration</span>", status_code=400
+        )
 
     result = None
     if ip:

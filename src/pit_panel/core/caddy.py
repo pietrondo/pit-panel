@@ -90,23 +90,6 @@ class CaddyManager:
             resp.raise_for_status()
             return resp.json() if resp.text else {}
 
-    async def setup_panel_route(
-        self, panel_subdomain: str, base_domain: str, backend_port: int = 8080
-    ) -> dict[str, Any]:
-        _check_host(panel_subdomain, base_domain)
-        fqdn = f"{panel_subdomain}.{base_domain}"
-        route = {
-            "@id": f"panel-{fqdn}",
-            "match": [{"host": [fqdn]}],
-            "handle": [
-                {
-                    "handler": "reverse_proxy",
-                    "upstreams": [{"dial": f"127.0.0.1:{backend_port}"}],
-                }
-            ],
-        }
-        return await self._patch_or_create_route(route)
-
     async def add_main_domain(self, base_domain: str, port: int = 80) -> dict[str, Any]:
         _check_host(base_domain)
         route = {
@@ -154,7 +137,8 @@ class CaddyManager:
         domains = await self._get_managed_domains()
         if not domains:
             return []
-        return self._check_certs_via_openssl(domains)
+        # Opening a TLS socket blocks: keep it off the event loop.
+        return await asyncio.to_thread(self._check_certs_via_openssl, domains)
 
     async def _get_managed_domains(self) -> list[str]:
         try:

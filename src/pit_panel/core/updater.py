@@ -72,7 +72,6 @@ class Updater:
             steps = [
                 (["sudo", "-n", "git", "-C", "/opt/pit-panel", "reset", "--hard", target_sha], 30),
                 (["sudo", "-n", "uv", "--directory", "/opt/pit-panel", "sync", "--no-dev"], 120),
-                (["uv", "run", "--no-dev", "alembic", "upgrade", "head"], 60),
             ]
             for cmd, timeout in steps:
                 result = await _run_cmd(

@@ -136,3 +136,32 @@ async def test_dashboard_with_db_mock(async_client: AsyncClient, monkeypatch: An
     resp = await async_client.get("/")
     assert resp.status_code == 200
     assert "admin" in resp.text
+
+@pytest.mark.asyncio
+async def test_dashboard_hides_other_tenants_subdomains(
+    async_client: AsyncClient, monkeypatch: Any
+) -> None:
+    tenant = User(id=2, username="tenant", is_admin=False)
+
+    async def mock_get_user(request: Any, db: Any) -> User:
+        return tenant
+
+    monkeypatch.setattr("pit_panel.web.routes.dashboard.get_user", mock_get_user)
+
+    import pit_panel.db.session
+
+    sessionmaker = pit_panel.db.session._sessionmaker
+    assert sessionmaker is not None
+    async with sessionmaker() as db:
+        db.add_all(
+            [
+                Subdomain(subdomain="mine", base_domain="example.com", owner_user_id=2),
+                Subdomain(subdomain="other-tenant", base_domain="example.com", owner_user_id=3),
+            ]
+        )
+        await db.commit()
+
+    resp = await async_client.get("/")
+    assert resp.status_code == 200
+    assert "mine.example.com" in resp.text
+    assert "other-tenant" not in resp.text

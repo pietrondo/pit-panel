@@ -221,10 +221,27 @@ uv run --no-dev pit-panel-admin create-admin --username "$ADMIN_USER" --password
 echo "  Username: $ADMIN_USER"
 echo "  Password: $ADMIN_PASS"
 
-# Firewall — allow panel port if no domain (direct access)
+# Caddy - give the panel its own HTTPS vhost on first install, so the URL the
+# installer prints actually answers. The admin can replace it later from /ssl.
+if [ -n "${BASE_DOMAIN:-}" ] && ! grep -q "${PANEL_SUB}.${BASE_DOMAIN}" /etc/caddy/Caddyfile 2>/dev/null; then
+    cat >> /etc/caddy/Caddyfile <<EOF
+
+${PANEL_SUB}.${BASE_DOMAIN} {
+    reverse_proxy 127.0.0.1:8080
+}
+EOF
+    echo "Caddy: added ${PANEL_SUB}.${BASE_DOMAIN}"
+    systemctl reload caddy 2>/dev/null || systemctl restart caddy 2>/dev/null || true
+fi
+
+# Firewall - allow panel port if no domain (direct access), else HTTPS via Caddy
 if [ -z "${BASE_DOMAIN:-}" ] && command -v ufw &>/dev/null; then
     ufw allow 8080/tcp comment "pit-panel" 2>/dev/null || true
     echo "UFW: allowed port 8080"
+elif [ -n "${BASE_DOMAIN:-}" ] && command -v ufw &>/dev/null; then
+    ufw allow 80/tcp comment "caddy http" 2>/dev/null || true
+    ufw allow 443/tcp comment "caddy https" 2>/dev/null || true
+    echo "UFW: allowed ports 80 and 443"
 fi
 
 # Start services (will restart if already running from previous install)

@@ -182,7 +182,11 @@ async def get_file_content(path: str, request: Request, db: AsyncSession = Depen
         resolved_path = verify_safe_path(path)
         if not resolved_path.is_file():
             raise HTTPException(status_code=400, detail="Not a file")
-        content = resolved_path.read_text(encoding="utf-8", errors="replace")
+        if resolved_path.stat().st_size > 1_048_576:
+            raise HTTPException(status_code=413, detail="File too large (max 1MB)")
+        content = await asyncio.to_thread(
+            resolved_path.read_text, encoding="utf-8", errors="replace"
+        )
         return {"content": content, "path": str(resolved_path)}
     except PermissionError as e:
         raise HTTPException(status_code=403, detail="Permission denied") from e
@@ -203,20 +207,11 @@ async def save_file(req: SaveFileRequest, request: Request, db: AsyncSession = D
         resolved_path = verify_safe_path(req.path)
         try:
             resolved_path.write_text(req.content, encoding="utf-8")
-        except PermissionError:
-            from pit_panel.core.sudo_ops import run_sudo
-
-            sudo_pw = get_settings().sudo_password.strip()
-            if not sudo_pw:
-                raise
-            import tempfile as _tf
-
-            with _tf.NamedTemporaryFile(mode="w", suffix=".tmp", delete=False) as tmp:
-                tmp.write(req.content)
-                tmp_path = tmp.name
-            await run_sudo(["/usr/bin/cp", tmp_path, str(resolved_path)], sudo_pw)
-            await run_sudo(["/usr/bin/chmod", "644", str(resolved_path)], sudo_pw)
-            os.unlink(tmp_path)
+        except PermissionError as e:
+            raise HTTPException(
+                status_code=403,
+                detail="File is owned by another user; edit it from the terminal",
+            ) from e
         return {"status": "success", "message": "File saved successfully"}
     except PermissionError as e:
         raise HTTPException(status_code=403, detail="Permission denied") from e

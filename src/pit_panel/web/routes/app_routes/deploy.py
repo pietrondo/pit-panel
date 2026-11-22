@@ -21,6 +21,7 @@ from pit_panel.core.app_manager import AppManager
 from pit_panel.core.caddy import CaddyManager
 from pit_panel.core.docker_ops import DockerManager
 from pit_panel.core.dynu import DynuClient
+from pit_panel.core.dynu import dynu_enabled as _dynu_enabled
 from pit_panel.core.repo_validator import (
     isolated_git_env,
     redact_repository_url,
@@ -41,13 +42,6 @@ def _effective_domain(settings) -> str:
     if isinstance(effective, str) and effective:
         return effective
     return settings.base_domain
-
-
-def _dynu_enabled(settings) -> bool:
-    return all(
-        isinstance(getattr(settings, key, ""), str) and getattr(settings, key, "").strip()
-        for key in ("dynu_api_key", "dynu_domain")
-    )
 
 
 async def _provision_dynu(settings, name: str, domain: str) -> tuple[int, str] | None:

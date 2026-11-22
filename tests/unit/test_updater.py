@@ -97,10 +97,8 @@ async def test_apply_update_success(updater):
         # git rev-parse HEAD
         # git reset
         # uv sync
-        # alembic upgrade
         mock_run.side_effect = [
             MagicMock(stdout="old_sha\n"),
-            MagicMock(returncode=0),
             MagicMock(returncode=0),
             MagicMock(returncode=0),
         ]
@@ -115,15 +113,10 @@ async def test_apply_update_success(updater):
         assert added_entry.version_to == "new_sha"
         assert added_entry.status == "completed"
         assert mock_db.commit.call_count == 2
-        assert mock_run.call_count == 4
+        assert mock_run.call_count == 3
         mock_run.assert_any_call(
             ["sudo", "-n", "uv", "--directory", "/opt/pit-panel", "sync", "--no-dev"],
             timeout=120,
-            cwd="/opt/pit-panel",
-        )
-        mock_run.assert_any_call(
-            ["uv", "run", "--no-dev", "alembic", "upgrade", "head"],
-            timeout=60,
             cwd="/opt/pit-panel",
         )
 

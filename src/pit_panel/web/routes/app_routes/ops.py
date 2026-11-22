@@ -1,7 +1,6 @@
 """App actions: restart, update, delete, clone, stop, renew SSL."""
 
 import asyncio
-import contextlib
 import logging
 import shutil
 from pathlib import Path
@@ -25,26 +24,10 @@ from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
 from pit_panel.web.routes.app_routes.access import require_subdomain_access
 
+from .deploy import _stop_git_process
 from .router import router
 
 logger = logging.getLogger(__name__)
-
-
-async def _stop_git_process(proc) -> None:
-    if proc is None or proc.returncode is not None:
-        return
-    try:
-        proc.terminate()
-    except BaseException:
-        with contextlib.suppress(ProcessLookupError):
-            proc.kill()
-    try:
-        await asyncio.wait_for(proc.communicate(), timeout=5)
-    except BaseException:
-        with contextlib.suppress(ProcessLookupError):
-            proc.kill()
-        with contextlib.suppress(BaseException):
-            await asyncio.wait_for(proc.communicate(), timeout=5)
 
 
 @router.post("/apps/{sd_id}/restart", response_class=HTMLResponse)

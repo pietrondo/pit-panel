@@ -15,19 +15,13 @@ from pit_panel.config import get_settings
 from pit_panel.core.caddy import CaddyManager
 from pit_panel.core.dns_check import root_problem
 from pit_panel.core.dynu import DynuClient, available_roots
+from pit_panel.core.dynu import dynu_enabled as _dynu_enabled
 from pit_panel.db.models import AuditLog, Subdomain
 from pit_panel.db.session import get_db
 from pit_panel.web.deps import get_user
 from pit_panel.web.render import render
 
 router = APIRouter()
-
-
-def _dynu_enabled(settings: Any) -> bool:
-    return all(
-        isinstance(getattr(settings, key, ""), str) and getattr(settings, key).strip()
-        for key in ("dynu_api_key", "dynu_domain")
-    )
 
 
 async def _dns_add(

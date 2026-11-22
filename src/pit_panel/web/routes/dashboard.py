@@ -99,14 +99,12 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     docker_mgr = DockerManager(settings.apps_dir)
 
     async def _fetch_db_data():
-        now = time.monotonic()
-        if "dashboard_global" in _STATS_CACHE:
-            cached_at, value = _STATS_CACHE["dashboard_global"]
-            if now - cached_at < 5.0:
-                return value
-
-        _subdomains_result = await db.execute(select(Subdomain).limit(20))
-        _subdomains = _subdomains_result.scalars().all()
+        # No shared cache here: the subdomain list is per user, and a global
+        # cache would hand one tenant's rows to the next one.
+        query = select(Subdomain).limit(20)
+        if not bool(getattr(user, "is_admin", False)):
+            query = query.where(Subdomain.owner_user_id == user.id)
+        _subdomains = (await db.execute(query)).scalars().all()
 
         _row = (
             await db.execute(
@@ -119,12 +117,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
             )
         ).first()
 
-        if len(_STATS_CACHE) >= MAX_CACHE_SIZE:
-            _STATS_CACHE.clear()
-
-        res = (_subdomains, _row)
-        _STATS_CACHE["dashboard_global"] = (now, res)
-        return res
+        return _subdomains, _row
 
     docker_mgr = DockerManager(settings.apps_dir)
 

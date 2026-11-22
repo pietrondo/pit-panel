@@ -19,4 +19,5 @@ def get_totp_uri(secret: str, username: str, issuer: str = "pit-panel") -> str:
 
 def verify_totp(secret: str, code: str) -> bool:
     totp = pyotp.TOTP(secret)
-    return cast(bool, totp.verify(code))
+    # valid_window=1 accepts the previous and next 30s step for clock skew.
+    return cast(bool, totp.verify(code, valid_window=1))

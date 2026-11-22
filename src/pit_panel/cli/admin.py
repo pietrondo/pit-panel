@@ -61,6 +61,26 @@ async def reset_password(username: str, password: str) -> None:
         print(f"Password for '{username}' reset.")
 
 
+async def disable_2fa(username: str) -> None:
+    from sqlalchemy import select
+
+    from pit_panel.db.models import User
+
+    sessionmaker = get_sessionmaker()
+    async with sessionmaker() as db:
+        result = await db.execute(select(User).where(User.username == username))
+        user = result.scalar_one_or_none()
+        if not user:
+            print(f"User '{username}' not found.")
+            return
+
+        user.totp_enabled = False
+        user.totp_secret = None
+        await db.commit()
+        logger.info(f"2FA disabled for '{username}'.")
+        print(f"2FA disabled for '{username}'.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="pit-panel admin CLI")
     sub = parser.add_subparsers(dest="command")
@@ -74,6 +94,9 @@ def main() -> None:
     reset.add_argument("--username", required=True)
     reset.add_argument("--password", required=True)
 
+    twofa = sub.add_parser("disable-2fa", help="Turn off TOTP for a user")
+    twofa.add_argument("--username", required=True)
+
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -84,6 +107,8 @@ def main() -> None:
         asyncio.run(create_admin(args.username, args.password, args.email))
     elif args.command == "reset-password":
         asyncio.run(reset_password(args.username, args.password))
+    elif args.command == "disable-2fa":
+        asyncio.run(disable_2fa(args.username))
     else:
         parser.print_help()
         sys.exit(1)
